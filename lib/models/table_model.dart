@@ -4,11 +4,15 @@ class TableModel {
   final int? id;
   final String name;
   final TableStatus status;
+  final int? zoneId;
+  final String? zoneName; // convenience
 
   TableModel({
     this.id,
     required this.name,
     this.status = TableStatus.available,
+    this.zoneId,
+    this.zoneName,
   });
 
   factory TableModel.fromMap(Map<String, dynamic> map) {
@@ -19,6 +23,8 @@ class TableModel {
         (e) => e.toString().split('.').last == map['status'],
         orElse: () => TableStatus.available,
       ),
+      zoneId: map['zone_id'],
+      zoneName: map['zone_name'],
     );
   }
 
@@ -27,6 +33,7 @@ class TableModel {
       'id': id,
       'name': name,
       'status': status.toString().split('.').last,
+      'zone_id': zoneId,
     };
   }
 }
