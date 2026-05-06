@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'package:sqflite_common/sqlite_api.dart';
 import 'package:st_george_pos/core/database_helper.dart';
+import 'package:st_george_pos/models/app_user.dart';
 import 'package:st_george_pos/models/category.dart';
 import 'package:st_george_pos/models/product.dart';
 import 'package:st_george_pos/models/table_model.dart';
+import 'package:st_george_pos/models/table_zone.dart';
 import 'package:st_george_pos/models/waiter.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/models/order_item.dart';
@@ -12,8 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class PosRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper();
-  
-  // In-memory mock storage for Web fallback
+
   static Map<String, List<Map<String, dynamic>>> _webStorage = {
     'categories': [
       {'id': 1, 'name': 'Food'},
@@ -31,19 +32,36 @@ class PosRepository {
     'tables': List.generate(20, (i) => {
       'id': i + 1,
       'name': 'Table ${i + 1}',
-      'status': i % 5 == 0 ? 'occupied' : 'available'
+      'status': 'available',
+      'zone_id': null,
     }),
+    'table_zones': [],
     'orders': [],
     'order_items': [],
-    'waiters': [{'id': 1, 'name': 'Default Waiter', 'code': '0000'}],
+    'waiters': [
+      {'id': 1, 'name': 'Waiter 1', 'code': 'W1'},
+      {'id': 2, 'name': 'Waiter 2', 'code': 'W2'},
+      {'id': 3, 'name': 'Waiter 3', 'code': 'W3'},
+      {'id': 4, 'name': 'Waiter 4', 'code': 'W4'},
+      {'id': 5, 'name': 'Waiter 5', 'code': 'W5'},
+      {'id': 6, 'name': 'Waiter 6', 'code': 'W6'},
+      {'id': 7, 'name': 'Waiter 7', 'code': 'W7'},
+      {'id': 8, 'name': 'Waiter 8', 'code': 'W8'},
+    ],
+    'users': [
+      {'id': 1, 'username': 'Director', 'password_hash': DatabaseHelper.hashPassword('director123'), 'role': 'director', 'is_active': 1},
+      {'id': 2, 'username': 'Cashier 1', 'password_hash': DatabaseHelper.hashPassword('cashier123'), 'role': 'cashier', 'is_active': 1},
+    ],
+    'app_settings': [
+      {'key': 'service_charge_percent', 'value': '5.0', 'updated_by': null},
+      {'key': 'discount_enabled', 'value': 'true', 'updated_by': null},
+    ],
   };
 
   PosRepository();
 
   Future<void> init() async {
-    if (kIsWeb) {
-      await _loadWebData();
-    }
+    if (kIsWeb) await _loadWebData();
   }
 
   Future<void> _saveWebData() async {
@@ -59,32 +77,265 @@ class PosRepository {
       final data = prefs.getString('pos_web_storage');
       if (data != null) {
         final decoded = jsonDecode(data);
-        // Cast everything to correct types
         _webStorage = Map<String, List<Map<String, dynamic>>>.from(
           (decoded as Map).map((key, value) => MapEntry(
-            key as String, 
-            List<Map<String, dynamic>>.from((value as List).map((e) => Map<String, dynamic>.from(e)))
-          ))
+            key as String,
+            List<Map<String, dynamic>>.from(
+                (value as List).map((e) => Map<String, dynamic>.from(e))),
+          )),
         );
+        // Ensure new keys exist for older stored data
+        _webStorage.putIfAbsent('table_zones', () => []);
+        _webStorage.putIfAbsent('users', () => [
+          {'id': 1, 'username': 'Director', 'password_hash': DatabaseHelper.hashPassword('director123'), 'role': 'director', 'is_active': 1},
+          {'id': 2, 'username': 'Cashier 1', 'password_hash': DatabaseHelper.hashPassword('cashier123'), 'role': 'cashier', 'is_active': 1},
+        ]);
+        _webStorage.putIfAbsent('app_settings', () => [
+          {'key': 'service_charge_percent', 'value': '5.0', 'updated_by': null},
+          {'key': 'discount_enabled', 'value': 'true', 'updated_by': null},
+        ]);
       }
     } catch (e) {
-      print('Error loading web storage: $e');
+      // ignore load errors, use defaults
     }
   }
 
-  // Categories
-  Future<List<Category>> getCategories() async {
+  // ── Auth ──────────────────────────────────────────────────────────────────
+
+  Future<AppUser?> login(String username, String password) async {
+    final hash = DatabaseHelper.hashPassword(password);
     if (kIsWeb) {
-      return List.generate(_webStorage['categories']!.length, (i) => Category.fromMap(_webStorage['categories']![i]));
+      final map = _webStorage['users']!.firstWhere(
+        (u) => u['username'] == username && u['password_hash'] == hash && u['is_active'] == 1,
+        orElse: () => {},
+      );
+      if (map.isEmpty) return null;
+      return AppUser.fromMap(map);
     }
     final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query('categories');
-    return List.generate(maps.length, (i) => Category.fromMap(maps[i]));
+    final maps = await db.query('users',
+        where: 'username = ? AND password_hash = ? AND is_active = 1',
+        whereArgs: [username, hash]);
+    if (maps.isEmpty) return null;
+    return AppUser.fromMap(maps.first);
+  }
+
+  Future<List<AppUser>> getUsers() async {
+    if (kIsWeb) {
+      return _webStorage['users']!.map((u) => AppUser.fromMap(u)).toList();
+    }
+    final db = await _dbHelper.database;
+    final maps = await db.query('users', orderBy: 'username ASC');
+    return maps.map((m) => AppUser.fromMap(m)).toList();
+  }
+
+  Future<int> addUser(AppUser user) async {
+    if (kIsWeb) {
+      final id = (_webStorage['users']!.isEmpty ? 0 : _webStorage['users']!.map((u) => u['id'] as int).reduce((a, b) => a > b ? a : b)) + 1;
+      final map = user.toMap();
+      map['id'] = id;
+      _webStorage['users']!.add(map);
+      await _saveWebData();
+      return id;
+    }
+    final db = await _dbHelper.database;
+    return await db.insert('users', user.toMap());
+  }
+
+  Future<void> updateUser(AppUser user) async {
+    if (kIsWeb) {
+      final index = _webStorage['users']!.indexWhere((u) => u['id'] == user.id);
+      if (index != -1) _webStorage['users']![index] = user.toMap();
+      await _saveWebData();
+      return;
+    }
+    final db = await _dbHelper.database;
+    await db.update('users', user.toMap(), where: 'id = ?', whereArgs: [user.id]);
+  }
+
+  Future<void> deleteUser(int id) async {
+    if (kIsWeb) {
+      _webStorage['users']!.removeWhere((u) => u['id'] == id);
+      await _saveWebData();
+      return;
+    }
+    final db = await _dbHelper.database;
+    await db.delete('users', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ── Settings ──────────────────────────────────────────────────────────────
+
+  Future<Map<String, String>> getSettings() async {
+    if (kIsWeb) {
+      return {for (var s in _webStorage['app_settings']!) s['key'] as String: s['value'] as String};
+    }
+    final db = await _dbHelper.database;
+    final maps = await db.query('app_settings');
+    return {for (var m in maps) m['key'] as String: m['value'] as String};
+  }
+
+  Future<void> setSetting(String key, String value, int updatedBy) async {
+    if (kIsWeb) {
+      final index = _webStorage['app_settings']!.indexWhere((s) => s['key'] == key);
+      if (index != -1) {
+        _webStorage['app_settings']![index]['value'] = value;
+        _webStorage['app_settings']![index]['updated_by'] = updatedBy;
+      } else {
+        _webStorage['app_settings']!.add({'key': key, 'value': value, 'updated_by': updatedBy});
+      }
+      await _saveWebData();
+      return;
+    }
+    final db = await _dbHelper.database;
+    await db.insert('app_settings', {
+      'key': key,
+      'value': value,
+      'updated_by': updatedBy,
+      'updated_at': DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  // ── Table Zones ───────────────────────────────────────────────────────────
+
+  Future<List<TableZone>> getTableZones() async {
+    if (kIsWeb) {
+      return _webStorage['table_zones']!.map((z) => TableZone.fromMap(z)).toList();
+    }
+    final db = await _dbHelper.database;
+    final maps = await db.rawQuery('''
+      SELECT tz.*, w.name as waiter_name
+      FROM table_zones tz
+      LEFT JOIN waiters w ON tz.waiter_id = w.id
+      ORDER BY tz.name ASC
+    ''');
+    return maps.map((m) => TableZone.fromMap(m)).toList();
+  }
+
+  Future<int> addTableZone(String name, {int? waiterId}) async {
+    if (kIsWeb) {
+      final id = (_webStorage['table_zones']!.isEmpty ? 0 : _webStorage['table_zones']!.map((z) => z['id'] as int).reduce((a, b) => a > b ? a : b)) + 1;
+      _webStorage['table_zones']!.add({'id': id, 'name': name, 'waiter_id': waiterId});
+      await _saveWebData();
+      return id;
+    }
+    final db = await _dbHelper.database;
+    return await db.insert('table_zones', {'name': name, 'waiter_id': waiterId});
+  }
+
+  Future<void> updateTableZone(int id, String name, {int? waiterId}) async {
+    if (kIsWeb) {
+      final index = _webStorage['table_zones']!.indexWhere((z) => z['id'] == id);
+      if (index != -1) {
+        _webStorage['table_zones']![index]['name'] = name;
+        _webStorage['table_zones']![index]['waiter_id'] = waiterId;
+      }
+      await _saveWebData();
+      return;
+    }
+    final db = await _dbHelper.database;
+    await db.update('table_zones', {'name': name, 'waiter_id': waiterId},
+        where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> deleteTableZone(int id) async {
+    if (kIsWeb) {
+      _webStorage['table_zones']!.removeWhere((z) => z['id'] == id);
+      for (var t in _webStorage['tables']!) {
+        if (t['zone_id'] == id) t['zone_id'] = null;
+      }
+      await _saveWebData();
+      return;
+    }
+    final db = await _dbHelper.database;
+    await db.transaction((txn) async {
+      await txn.update('tables', {'zone_id': null}, where: 'zone_id = ?', whereArgs: [id]);
+      await txn.delete('table_zones', where: 'id = ?', whereArgs: [id]);
+    });
+  }
+
+  // ── Tables ────────────────────────────────────────────────────────────────
+
+  Future<List<TableModel>> getTables({int? zoneId}) async {
+    if (kIsWeb) {
+      var list = _webStorage['tables']!;
+      if (zoneId != null) list = list.where((t) => t['zone_id'] == zoneId).toList();
+      return list.map((t) => TableModel.fromMap(t)).toList();
+    }
+    final db = await _dbHelper.database;
+    final maps = await db.rawQuery('''
+      SELECT t.*, tz.name as zone_name
+      FROM tables t
+      LEFT JOIN table_zones tz ON t.zone_id = tz.id
+      ${zoneId != null ? 'WHERE t.zone_id = ?' : ''}
+      ORDER BY t.name ASC
+    ''', zoneId != null ? [zoneId] : []);
+    return maps.map((m) => TableModel.fromMap(m)).toList();
+  }
+
+  Future<int> addTable(String name, {int? zoneId}) async {
+    if (kIsWeb) {
+      final id = (_webStorage['tables']!.isEmpty ? 0 : _webStorage['tables']!.map((t) => t['id'] as int).reduce((a, b) => a > b ? a : b)) + 1;
+      _webStorage['tables']!.add({'id': id, 'name': name, 'status': 'available', 'zone_id': zoneId});
+      await _saveWebData();
+      return id;
+    }
+    final db = await _dbHelper.database;
+    return await db.insert('tables', {'name': name, 'zone_id': zoneId});
+  }
+
+  Future<void> updateTable(int id, String name, {int? zoneId}) async {
+    if (kIsWeb) {
+      final index = _webStorage['tables']!.indexWhere((t) => t['id'] == id);
+      if (index != -1) {
+        _webStorage['tables']![index]['name'] = name;
+        _webStorage['tables']![index]['zone_id'] = zoneId;
+      }
+      await _saveWebData();
+      return;
+    }
+    final db = await _dbHelper.database;
+    await db.update('tables', {'name': name, 'zone_id': zoneId},
+        where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> deleteTable(int id) async {
+    if (kIsWeb) {
+      _webStorage['tables']!.removeWhere((t) => t['id'] == id);
+      await _saveWebData();
+      return;
+    }
+    final db = await _dbHelper.database;
+    await db.delete('tables', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> updateTableStatus(int tableId, TableStatus status) async {
+    if (kIsWeb) {
+      final index = _webStorage['tables']!.indexWhere((e) => e['id'] == tableId);
+      if (index != -1) {
+        _webStorage['tables']![index]['status'] = status.toString().split('.').last;
+      }
+      await _saveWebData();
+      return;
+    }
+    final db = await _dbHelper.database;
+    await db.update('tables', {'status': status.toString().split('.').last},
+        where: 'id = ?', whereArgs: [tableId]);
+  }
+
+  // ── Categories ────────────────────────────────────────────────────────────
+
+  Future<List<Category>> getCategories() async {
+    if (kIsWeb) {
+      return _webStorage['categories']!.map((c) => Category.fromMap(c)).toList();
+    }
+    final db = await _dbHelper.database;
+    final maps = await db.query('categories');
+    return maps.map((m) => Category.fromMap(m)).toList();
   }
 
   Future<int> addCategory(String name) async {
     if (kIsWeb) {
-      final id = _webStorage['categories']!.length + 1;
+      final id = (_webStorage['categories']!.isEmpty ? 0 : _webStorage['categories']!.map((c) => c['id'] as int).reduce((a, b) => a > b ? a : b)) + 1;
       _webStorage['categories']!.add({'id': id, 'name': name});
       await _saveWebData();
       return id;
@@ -105,25 +356,26 @@ class PosRepository {
     await db.delete('products', where: 'category_id = ?', whereArgs: [id]);
   }
 
-  // Products
+  // ── Products ──────────────────────────────────────────────────────────────
+
   Future<List<Product>> getProducts({int? categoryId}) async {
     if (kIsWeb) {
       final list = _webStorage['products']!;
-      final filtered = categoryId != null ? list.where((e) => e['category_id'] == categoryId).toList() : list;
-      return List.generate(filtered.length, (i) => Product.fromMap(filtered[i]));
+      final filtered = categoryId != null
+          ? list.where((e) => e['category_id'] == categoryId).toList()
+          : list;
+      return filtered.map((p) => Product.fromMap(p)).toList();
     }
     final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'products',
-      where: categoryId != null ? 'category_id = ?' : null,
-      whereArgs: categoryId != null ? [categoryId] : null,
-    );
-    return List.generate(maps.length, (i) => Product.fromMap(maps[i]));
+    final maps = await db.query('products',
+        where: categoryId != null ? 'category_id = ?' : null,
+        whereArgs: categoryId != null ? [categoryId] : null);
+    return maps.map((m) => Product.fromMap(m)).toList();
   }
 
   Future<int> addProduct(Product product) async {
     if (kIsWeb) {
-      final id = _webStorage['products']!.length + 1;
+      final id = (_webStorage['products']!.isEmpty ? 0 : _webStorage['products']!.map((p) => p['id'] as int).reduce((a, b) => a > b ? a : b)) + 1;
       final map = product.toMap();
       map['id'] = id;
       _webStorage['products']!.add(map);
@@ -144,19 +396,20 @@ class PosRepository {
     await db.delete('products', where: 'id = ?', whereArgs: [id]);
   }
 
-  // Waiters
+  // ── Waiters ───────────────────────────────────────────────────────────────
+
   Future<List<Waiter>> getWaiters() async {
     if (kIsWeb) {
-      return List.generate(_webStorage['waiters']!.length, (i) => Waiter.fromMap(_webStorage['waiters']![i]));
+      return _webStorage['waiters']!.map((w) => Waiter.fromMap(w)).toList();
     }
     final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query('waiters');
-    return List.generate(maps.length, (i) => Waiter.fromMap(maps[i]));
+    final maps = await db.query('waiters');
+    return maps.map((m) => Waiter.fromMap(m)).toList();
   }
 
   Future<int> addWaiter(String name) async {
     if (kIsWeb) {
-      final id = _webStorage['waiters']!.length + 1;
+      final id = (_webStorage['waiters']!.isEmpty ? 0 : _webStorage['waiters']!.map((w) => w['id'] as int).reduce((a, b) => a > b ? a : b)) + 1;
       _webStorage['waiters']!.add({'id': id, 'name': name, 'code': 'W$id'});
       await _saveWebData();
       return id;
@@ -175,38 +428,11 @@ class PosRepository {
     await db.delete('waiters', where: 'id = ?', whereArgs: [id]);
   }
 
-  // Tables
-  Future<List<TableModel>> getTables() async {
-    if (kIsWeb) {
-      return List.generate(_webStorage['tables']!.length, (i) => TableModel.fromMap(_webStorage['tables']![i]));
-    }
-    final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query('tables');
-    return List.generate(maps.length, (i) => TableModel.fromMap(maps[i]));
-  }
+  // ── Orders ────────────────────────────────────────────────────────────────
 
-  Future<void> updateTableStatus(int tableId, TableStatus status) async {
-    if (kIsWeb) {
-      final index = _webStorage['tables']!.indexWhere((e) => e['id'] == tableId);
-      if (index != -1) {
-        _webStorage['tables']![index]['status'] = status.toString().split('.').last;
-      }
-      await _saveWebData();
-      return;
-    }
-    final db = await _dbHelper.database;
-    await db.update(
-      'tables',
-      {'status': status.toString().split('.').last},
-      where: 'id = ?',
-      whereArgs: [tableId],
-    );
-  }
-
-  // Orders
   Future<int> createOrder(OrderModel order) async {
     if (kIsWeb) {
-      final orderId = _webStorage['orders']!.length + 1;
+      final orderId = (_webStorage['orders']!.isEmpty ? 0 : _webStorage['orders']!.map((o) => o['id'] as int).reduce((a, b) => a > b ? a : b)) + 1;
       final newOrder = order.toMap();
       newOrder['id'] = orderId;
       _webStorage['orders']!.add(newOrder);
@@ -217,7 +443,8 @@ class PosRepository {
     final db = await _dbHelper.database;
     return await db.transaction((txn) async {
       final orderId = await txn.insert('orders', order.toMap());
-      await txn.update('tables', {'status': 'occupied'}, where: 'id = ?', whereArgs: [order.tableId]);
+      await txn.update('tables', {'status': 'occupied'},
+          where: 'id = ?', whereArgs: [order.tableId]);
       return orderId;
     });
   }
@@ -229,35 +456,32 @@ class PosRepository {
         orElse: () => {},
       );
       if (orderMap.isEmpty) return null;
-      
       final items = _webStorage['order_items']!
           .where((i) => i['order_id'] == orderMap['id'])
           .map((i) => OrderItem.fromMap(i))
           .toList();
-      
       return OrderModel.fromMap(orderMap, items: items);
     }
     final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.rawQuery('''
-      SELECT o.*, t.name as table_name, w.name as waiter_name 
+    final maps = await db.rawQuery('''
+      SELECT o.*, t.name as table_name, w.name as waiter_name,
+             u.username as cashier_name
       FROM orders o
       JOIN tables t ON o.table_id = t.id
       JOIN waiters w ON o.waiter_id = w.id
+      LEFT JOIN users u ON o.cashier_id = u.id
       WHERE o.table_id = ? AND o.status = 'pending'
       LIMIT 1
     ''', [tableId]);
-
     if (maps.isEmpty) return null;
-
     final orderId = maps.first['id'];
-    final List<Map<String, dynamic>> itemMaps = await db.rawQuery('''
+    final itemMaps = await db.rawQuery('''
       SELECT oi.*, p.name as product_name
       FROM order_items oi
       JOIN products p ON oi.product_id = p.id
       WHERE oi.order_id = ?
     ''', [orderId]);
-
-    final items = List.generate(itemMaps.length, (i) => OrderItem.fromMap(itemMaps[i]));
+    final items = itemMaps.map((i) => OrderItem.fromMap(i)).toList();
     return OrderModel.fromMap(maps.first, items: items);
   }
 
@@ -265,7 +489,7 @@ class PosRepository {
     if (kIsWeb) {
       for (var item in items) {
         final itemMap = item.copyWith(orderId: orderId).toMap();
-        itemMap['id'] = _webStorage['order_items']!.length + 1;
+        itemMap['id'] = (_webStorage['order_items']!.isEmpty ? 0 : _webStorage['order_items']!.map((i) => i['id'] as int).reduce((a, b) => a > b ? a : b)) + 1;
         _webStorage['order_items']!.add(itemMap);
       }
       await _saveWebData();
@@ -295,14 +519,45 @@ class PosRepository {
       return;
     }
     final db = await _dbHelper.database;
-    await db.update('order_items', {'is_printed_to_kitchen': 1}, where: 'id IN (${itemIds.join(',')})');
+    await db.update('order_items', {'is_printed_to_kitchen': 1},
+        where: 'id IN (${itemIds.join(',')})');
   }
 
-  Future<void> completeOrder(int orderId, int tableId) async {
+  Future<void> voidOrderItem(int itemId, int orderId) async {
+    if (kIsWeb) {
+      final item = _webStorage['order_items']!.firstWhere((i) => i['id'] == itemId, orElse: () => {});
+      if (item.isEmpty) return;
+      final subtotal = (item['subtotal'] as num).toDouble();
+      _webStorage['order_items']!.removeWhere((i) => i['id'] == itemId);
+      final oIndex = _webStorage['orders']!.indexWhere((o) => o['id'] == orderId);
+      if (oIndex != -1) {
+        _webStorage['orders']![oIndex]['total_amount'] =
+            ((_webStorage['orders']![oIndex]['total_amount'] as num).toDouble() - subtotal).clamp(0, double.infinity);
+      }
+      await _saveWebData();
+      return;
+    }
+    final db = await _dbHelper.database;
+    await db.transaction((txn) async {
+      final rows = await txn.query('order_items', where: 'id = ?', whereArgs: [itemId]);
+      if (rows.isEmpty) return;
+      final subtotal = (rows.first['subtotal'] as num).toDouble();
+      await txn.delete('order_items', where: 'id = ?', whereArgs: [itemId]);
+      await txn.execute(
+        'UPDATE orders SET total_amount = MAX(0, total_amount - ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [subtotal, orderId],
+      );
+    });
+  }
+
+  Future<void> completeOrder(int orderId, int tableId,
+      {double serviceCharge = 0, double discountAmount = 0}) async {
     if (kIsWeb) {
       final oIndex = _webStorage['orders']!.indexWhere((o) => o['id'] == orderId);
       if (oIndex != -1) {
         _webStorage['orders']![oIndex]['status'] = 'completed';
+        _webStorage['orders']![oIndex]['service_charge'] = serviceCharge;
+        _webStorage['orders']![oIndex]['discount_amount'] = discountAmount;
       }
       await updateTableStatus(tableId, TableStatus.available);
       await _saveWebData();
@@ -310,14 +565,39 @@ class PosRepository {
     }
     final db = await _dbHelper.database;
     await db.transaction((txn) async {
-      await txn.update('orders', {'status': 'completed', 'updated_at': DateTime.now().toIso8601String()}, where: 'id = ?', whereArgs: [orderId]);
-      await txn.update('tables', {'status': 'available'}, where: 'id = ?', whereArgs: [tableId]);
+      await txn.update(
+        'orders',
+        {
+          'status': 'completed',
+          'service_charge': serviceCharge,
+          'discount_amount': discountAmount,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [orderId],
+      );
+      await txn.update('tables', {'status': 'available'},
+          where: 'id = ?', whereArgs: [tableId]);
     });
   }
 
-  Future<List<OrderModel>> getAllOrders() async {
+  Future<void> updateProduct(Product product) async {
     if (kIsWeb) {
-      return _webStorage['orders']!.map((o) {
+      final index = _webStorage['products']!.indexWhere((p) => p['id'] == product.id);
+      if (index != -1) _webStorage['products']![index] = product.toMap();
+      await _saveWebData();
+      return;
+    }
+    final db = await _dbHelper.database;
+    await db.update('products', product.toMap(), where: 'id = ?', whereArgs: [product.id]);
+  }
+
+  Future<List<OrderModel>> getAllOrders({DateTime? from, DateTime? to}) async {
+    if (kIsWeb) {
+      var list = _webStorage['orders']!;
+      if (from != null) list = list.where((o) => DateTime.parse(o['created_at']).isAfter(from)).toList();
+      if (to != null) list = list.where((o) => DateTime.parse(o['created_at']).isBefore(to)).toList();
+      return list.map((o) {
         final items = _webStorage['order_items']!
             .where((i) => i['order_id'] == o['id'])
             .map((i) => OrderItem.fromMap(i))
@@ -326,10 +606,36 @@ class PosRepository {
       }).toList();
     }
     final db = await _dbHelper.database;
-    final maps = await db.query('orders', orderBy: 'created_at DESC');
+    String whereClause = '';
+    List<dynamic> args = [];
+    if (from != null && to != null) {
+      whereClause = 'WHERE o.created_at BETWEEN ? AND ?';
+      args = [from.toIso8601String(), to.toIso8601String()];
+    } else if (from != null) {
+      whereClause = 'WHERE o.created_at >= ?';
+      args = [from.toIso8601String()];
+    } else if (to != null) {
+      whereClause = 'WHERE o.created_at <= ?';
+      args = [to.toIso8601String()];
+    }
+    final maps = await db.rawQuery('''
+      SELECT o.*, t.name as table_name, w.name as waiter_name,
+             u.username as cashier_name
+      FROM orders o
+      JOIN tables t ON o.table_id = t.id
+      JOIN waiters w ON o.waiter_id = w.id
+      LEFT JOIN users u ON o.cashier_id = u.id
+      $whereClause
+      ORDER BY o.created_at DESC
+    ''', args);
     List<OrderModel> orders = [];
     for (var map in maps) {
-      final itemMaps = await db.query('order_items', where: 'order_id = ?', whereArgs: [map['id']]);
+      final itemMaps = await db.rawQuery('''
+        SELECT oi.*, p.name as product_name
+        FROM order_items oi
+        JOIN products p ON oi.product_id = p.id
+        WHERE oi.order_id = ?
+      ''', [map['id']]);
       final items = itemMaps.map((i) => OrderItem.fromMap(i)).toList();
       orders.add(OrderModel.fromMap(map, items: items));
     }

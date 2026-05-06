@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:st_george_pos/models/table_model.dart';
 import 'package:st_george_pos/models/product.dart';
 import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/providers/pos_providers.dart';
-import 'package:intl/intl.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/models/waiter.dart';
 import 'package:st_george_pos/services/bill_service.dart';
@@ -21,27 +21,32 @@ class OrderScreen extends ConsumerStatefulWidget {
 class _OrderScreenState extends ConsumerState<OrderScreen> {
   int? selectedCategoryId;
   List<OrderItem> localItems = [];
-  String searchQuery = "";
+  String searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   Waiter? selectedWaiter;
+  double _discountAmount = 0;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
-      ref.read(activeOrderServiceProvider).loadOrderForTable(widget.table.id!);
-    });
+    Future.microtask(() =>
+        ref.read(activeOrderServiceProvider).loadOrderForTable(widget.table.id!));
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _addItem(Product product) {
     setState(() {
-      final index = localItems.indexWhere((item) => item.productId == product.id && !item.isPrintedToKitchen);
+      final index = localItems.indexWhere(
+          (item) => item.productId == product.id && !item.isPrintedToKitchen);
       if (index != -1) {
-        final existing = localItems[index];
-        localItems[index] = existing.copyWith(
-          quantity: existing.quantity + 1,
-          subtotal: (existing.quantity + 1) * existing.unitPrice,
-        );
+        final e = localItems[index];
+        localItems[index] = e.copyWith(
+            quantity: e.quantity + 1, subtotal: (e.quantity + 1) * e.unitPrice);
       } else {
         localItems.add(OrderItem(
           productId: product.id!,
@@ -59,23 +64,167 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
       final item = localItems[index];
       final newQty = item.quantity + delta;
       if (newQty > 0) {
-        localItems[index] = item.copyWith(
-          quantity: newQty,
-          subtotal: newQty * item.unitPrice,
-        );
+        localItems[index] =
+            item.copyWith(quantity: newQty, subtotal: newQty * item.unitPrice);
       } else {
         localItems.removeAt(index);
       }
     });
   }
 
-  void _removeItem(int index) {
-    setState(() {
-      localItems.removeAt(index);
-    });
+  void _removeItem(int index) => setState(() => localItems.removeAt(index));
+
+  void _addNoteToItem(int index) async {
+    final controller =
+        TextEditingController(text: localItems[index].notes ?? '');
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: Text('Note for ${localItems[index].productName}'),
+        content: TextField(
+          controller: controller,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'e.g. no onions, extra sauce...',
+            hintStyle: TextStyle(color: Colors.white38),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD4AF37),
+                foregroundColor: Colors.black),
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (result != null) {
+      setState(() {
+        localItems[index] = localItems[index].copyWith(notes: result);
+      });
+    }
   }
 
-  double get _localTotal => localItems.fold(0, (sum, item) => sum + item.subtotal);
+  double get _localTotal =>
+      localItems.fold(0, (sum, item) => sum + item.subtotal);
+
+  Future<void> _sendToKitchen(OrderModel? existingOrder,
+      Map<String, String> settings) async {
+    if (localItems.isEmpty) return;
+    OrderModel? order = existingOrder;
+    if (order == null) {
+      if (selectedWaiter == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a waiter first')));
+        return;
+      }
+      final currentUser = ref.read(authProvider)!;
+      await ref.read(activeOrderServiceProvider).createNewOrder(OrderModel(
+        tableId: widget.table.id!,
+        waiterId: selectedWaiter!.id!,
+        cashierId: currentUser.id,
+        tableName: widget.table.name,
+        waiterName: selectedWaiter!.name,
+        cashierName: currentUser.username,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ));
+      order = ref.read(activeOrderProvider(widget.table.id!)).value;
+    }
+    if (order != null) {
+      final itemsToPrint =
+          localItems.map((e) => e.copyWith(isPrintedToKitchen: true)).toList();
+      await ref
+          .read(activeOrderServiceProvider)
+          .addItems(order.id!, itemsToPrint, widget.table.id!);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Order sent to kitchen')));
+      }
+    }
+    setState(() => localItems = []);
+  }
+
+  Future<void> _printBill(
+      OrderModel order, Map<String, String> settings) async {
+    final serviceChargePercent =
+        double.tryParse(settings['service_charge_percent'] ?? '5') ?? 5;
+    final discountEnabled = (settings['discount_enabled'] ?? 'true') == 'true';
+
+    // If there are unsent local items, warn
+    if (localItems.isNotEmpty) {
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text('Unsent Items'),
+          content: const Text(
+              'You have new items not sent to kitchen. Send them first or discard?'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Go Back')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Discard & Bill'),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true) return;
+      setState(() => localItems = []);
+    }
+
+    if (order.items.isEmpty) return;
+
+    final subtotal = order.totalAmount;
+    final serviceCharge = subtotal * (serviceChargePercent / 100);
+    double discount = _discountAmount;
+
+    // Show bill confirmation dialog with discount input
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _BillConfirmDialog(
+        order: order,
+        subtotal: subtotal,
+        serviceCharge: serviceCharge,
+        serviceChargePercent: serviceChargePercent,
+        discountEnabled: discountEnabled,
+        initialDiscount: discount,
+        onDiscountChanged: (v) => discount = v,
+      ),
+    );
+
+    if (confirmed == true) {
+      await BillService.generateAndDownloadBill(
+        order: order,
+        items: order.items,
+        tableName: widget.table.name,
+        waiterName: order.waiterName,
+        cashierName: order.cashierName,
+        serviceCharge: serviceCharge,
+        serviceChargePercent: serviceChargePercent,
+        discountAmount: discount,
+      );
+      await ref.read(posRepositoryProvider).completeOrder(
+            order.id!,
+            order.tableId,
+            serviceCharge: serviceCharge,
+            discountAmount: discount,
+          );
+      ref.refresh(tablesProvider);
+      if (mounted) Navigator.pop(context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,16 +232,15 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     final categoriesAsync = ref.watch(categoriesProvider);
     final productsAsync = ref.watch(productsProvider(selectedCategoryId));
     final waitersAsync = ref.watch(waitersProvider);
+    final settingsAsync = ref.watch(settingsProvider);
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('${widget.table.name} - ORDER', style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)),
+        title: Text('${widget.table.name} — ORDER',
+            style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)),
         backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
-        actions: [
-          IconButton(icon: const Icon(Icons.print), onPressed: () {}),
-        ],
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -105,109 +253,127 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         ),
         child: Row(
           children: [
-            // Menu Section
+            // ── Menu panel ──────────────────────────────────────────────
             Expanded(
               flex: 3,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 100, 16, 16),
                 child: Column(
                   children: [
-                    // Search Bar
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16.0),
-                      child: GlassContainer(
-                        opacity: 0.05,
-                        borderRadius: 30,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: const InputDecoration(
-                            hintText: 'Search products...',
-                            border: InputBorder.none,
-                            icon: Icon(Icons.search, color: Colors.white54),
-                          ),
-                          onChanged: (val) => setState(() => searchQuery = val),
+                    GlassContainer(
+                      opacity: 0.05,
+                      borderRadius: 30,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: const InputDecoration(
+                          hintText: 'Search products...',
+                          border: InputBorder.none,
+                          icon: Icon(Icons.search, color: Colors.white54),
                         ),
+                        onChanged: (v) => setState(() => searchQuery = v),
                       ),
                     ),
-                    // Categories
+                    const SizedBox(height: 12),
                     SizedBox(
-                      height: 50,
+                      height: 44,
                       child: categoriesAsync.when(
-                        data: (categories) => ListView.builder(
+                        data: (cats) => ListView.builder(
                           scrollDirection: Axis.horizontal,
-                          itemCount: categories.length + 1,
-                          itemBuilder: (context, index) {
-                            if (index == 0) {
+                          itemCount: cats.length + 1,
+                          itemBuilder: (_, i) {
+                            if (i == 0) {
                               return Padding(
-                                padding: const EdgeInsets.only(right: 8.0),
+                                padding: const EdgeInsets.only(right: 8),
                                 child: ChoiceChip(
                                   label: const Text('All'),
                                   selected: selectedCategoryId == null,
-                                  onSelected: (s) => setState(() => selectedCategoryId = null),
                                   selectedColor: const Color(0xFFD4AF37),
+                                  onSelected: (_) =>
+                                      setState(() => selectedCategoryId = null),
                                 ),
                               );
                             }
-                            final cat = categories[index - 1];
+                            final cat = cats[i - 1];
                             return Padding(
-                              padding: const EdgeInsets.only(right: 8.0),
+                              padding: const EdgeInsets.only(right: 8),
                               child: ChoiceChip(
                                 label: Text(cat.name),
                                 selected: selectedCategoryId == cat.id,
-                                onSelected: (s) => setState(() => selectedCategoryId = s ? cat.id : null),
                                 selectedColor: const Color(0xFFD4AF37),
+                                onSelected: (s) => setState(() =>
+                                    selectedCategoryId = s ? cat.id : null),
                               ),
                             );
                           },
                         ),
                         loading: () => const SizedBox(),
-                        error: (e, _) => Text('Error: $e'),
+                        error: (e, _) => Text('$e'),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    // Products Grid
+                    const SizedBox(height: 12),
                     Expanded(
                       child: productsAsync.when(
                         data: (products) {
-                          final filteredProducts = products.where((p) => 
-                            p.name.toLowerCase().contains(searchQuery.toLowerCase())).toList();
-                          
+                          final filtered = products
+                              .where((p) => p.name
+                                  .toLowerCase()
+                                  .contains(searchQuery.toLowerCase()))
+                              .toList();
                           return GridView.builder(
                             padding: EdgeInsets.zero,
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 3,
                               childAspectRatio: 0.9,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
                             ),
-                            itemCount: filteredProducts.length,
-                            itemBuilder: (context, index) {
-                              final product = filteredProducts[index];
+                            itemCount: filtered.length,
+                            itemBuilder: (_, i) {
+                              final p = filtered[i];
                               return GlassContainer(
                                 opacity: 0.1,
                                 child: InkWell(
-                                  onTap: () => _addItem(product),
+                                  onTap: () => _addItem(p),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: [
                                       Expanded(
                                         child: Container(
                                           decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(0.05),
-                                            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                                            color: Colors.white
+                                                .withOpacity(0.05),
+                                            borderRadius:
+                                                const BorderRadius.vertical(
+                                                    top: Radius.circular(16)),
                                           ),
-                                          child: const Icon(Icons.fastfood, size: 48, color: Color(0xFFD4AF37)),
+                                          child: const Icon(Icons.fastfood,
+                                              size: 44,
+                                              color: Color(0xFFD4AF37)),
                                         ),
                                       ),
                                       Padding(
-                                        padding: const EdgeInsets.all(12.0),
+                                        padding: const EdgeInsets.all(10),
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
-                                            Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                            Text('${product.price.toStringAsFixed(2)} ETB', 
-                                              style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.w600)),
+                                            Text(p.name,
+                                                style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 14),
+                                                maxLines: 1,
+                                                overflow:
+                                                    TextOverflow.ellipsis),
+                                            Text(
+                                                '${p.price.toStringAsFixed(2)} ETB',
+                                                style: const TextStyle(
+                                                    color: Color(0xFFD4AF37),
+                                                    fontWeight:
+                                                        FontWeight.w600,
+                                                    fontSize: 12)),
                                           ],
                                         ),
                                       ),
@@ -218,99 +384,133 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                             },
                           );
                         },
-                        loading: () => const Center(child: CircularProgressIndicator()),
-                        error: (e, _) => Text('Error: $e'),
+                        loading: () =>
+                            const Center(child: CircularProgressIndicator()),
+                        error: (e, _) => Text('$e'),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            // Cart Section
+            // ── Cart panel ──────────────────────────────────────────────
             Container(
-              width: 450,
+              width: 460,
               margin: const EdgeInsets.fromLTRB(0, 100, 16, 16),
               child: GlassContainer(
                 opacity: 0.15,
                 borderRadius: 24,
                 child: Column(
                   children: [
+                    // Header
                     Padding(
-                      padding: const EdgeInsets.all(24.0),
+                      padding: const EdgeInsets.all(20),
                       child: Row(
                         children: [
-                          const Icon(Icons.shopping_cart, color: Color(0xFFD4AF37)),
-                          const SizedBox(width: 12),
-                          const Text('CURRENT ORDER', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                          const Icon(Icons.shopping_cart,
+                              color: Color(0xFFD4AF37)),
+                          const SizedBox(width: 10),
+                          const Text('CURRENT ORDER',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1)),
                           const Spacer(),
-                          Text('${widget.table.name}', style: const TextStyle(color: Colors.white54)),
+                          Text(widget.table.name,
+                              style: const TextStyle(color: Colors.white54)),
                         ],
                       ),
                     ),
+                    // Waiter selector
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 4),
                       child: waitersAsync.when(
-                        data: (waiters) => Row(
-                          children: [
-                            const Icon(Icons.person, color: Colors.white54, size: 20),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<Waiter>(
-                                  hint: const Text('Select Waiter', style: TextStyle(color: Colors.white54)),
-                                  value: selectedWaiter,
-                                  dropdownColor: const Color(0xFF121212),
-                                  style: const TextStyle(color: Colors.white),
-                                  isExpanded: true,
-                                  items: (waiters).map<DropdownMenuItem<Waiter>>((w) => DropdownMenuItem<Waiter>(
-                                    value: w,
-                                    child: Text(w.name),
-                                  )).toList(),
-                                  onChanged: (w) => setState(() => selectedWaiter = w),
-                                ),
-                              ),
-                            ),
-                          ],
+                        data: (waiters) => DropdownButtonHideUnderline(
+                          child: DropdownButton<Waiter>(
+                            hint: const Text('Select Waiter',
+                                style: TextStyle(color: Colors.white54)),
+                            value: selectedWaiter,
+                            dropdownColor: const Color(0xFF121212),
+                            style: const TextStyle(color: Colors.white),
+                            isExpanded: true,
+                            icon: const Icon(Icons.person,
+                                color: Colors.white38, size: 20),
+                            items: waiters
+                                .map((w) => DropdownMenuItem(
+                                    value: w, child: Text(w.name)))
+                                .toList(),
+                            onChanged: (w) =>
+                                setState(() => selectedWaiter = w),
+                          ),
                         ),
                         loading: () => const LinearProgressIndicator(),
-                        error: (_, __) => const Text('Error loading waiters'),
+                        error: (_, __) =>
+                            const Text('Error loading waiters'),
                       ),
                     ),
                     const Divider(color: Colors.white10, height: 1),
+                    // Items list
                     Expanded(
                       child: activeOrderAsync.when(
                         data: (order) {
                           final savedItems = order?.items ?? [];
                           return ListView(
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(14),
                             children: [
                               if (savedItems.isNotEmpty) ...[
-                                const Text('PRINTED ITEMS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white38)),
-                                const SizedBox(height: 8),
-                                ...savedItems.map((item) => _CartItemTile(item: item, isSaved: true)),
-                                const SizedBox(height: 24),
+                                const Text('SENT TO KITCHEN',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white38)),
+                                const SizedBox(height: 6),
+                                ...savedItems.map((item) => _CartItemTile(
+                                      item: item,
+                                      isSaved: true,
+                                      onVoid: () async {
+                                        await ref
+                                            .read(posRepositoryProvider)
+                                            .voidOrderItem(
+                                                item.id!, order!.id!);
+                                        ref.invalidate(activeOrderProvider(
+                                            widget.table.id!));
+                                      },
+                                    )),
+                                const SizedBox(height: 16),
                               ],
                               if (localItems.isNotEmpty) ...[
-                                const Text('NEW ITEMS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFD4AF37))),
-                                const SizedBox(height: 8),
-                                ...localItems.asMap().entries.map((entry) => _CartItemTile(
-                                  item: entry.value, 
-                                  isSaved: false,
-                                  onAdd: () => _updateQuantity(entry.key, 1),
-                                  onRemove: () => _updateQuantity(entry.key, -1),
-                                  onDelete: () => _removeItem(entry.key),
-                                )),
+                                const Text('NEW ITEMS',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFD4AF37))),
+                                const SizedBox(height: 6),
+                                ...localItems.asMap().entries.map((e) =>
+                                    _CartItemTile(
+                                      item: e.value,
+                                      isSaved: false,
+                                      onAdd: () =>
+                                          _updateQuantity(e.key, 1),
+                                      onRemove: () =>
+                                          _updateQuantity(e.key, -1),
+                                      onDelete: () => _removeItem(e.key),
+                                      onNote: () => _addNoteToItem(e.key),
+                                    )),
                               ],
                               if (savedItems.isEmpty && localItems.isEmpty)
-                                const Center(
-                                  child: Padding(
-                                    padding: EdgeInsets.only(top: 100),
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 80),
+                                  child: Center(
                                     child: Opacity(
                                       opacity: 0.3,
                                       child: Column(
                                         children: [
-                                          Icon(Icons.shopping_basket_outlined, size: 64),
-                                          SizedBox(height: 16),
+                                          Icon(
+                                              Icons
+                                                  .shopping_basket_outlined,
+                                              size: 56),
+                                          SizedBox(height: 12),
                                           Text('Cart is empty'),
                                         ],
                                       ),
@@ -320,158 +520,120 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                             ],
                           );
                         },
-                        loading: () => const Center(child: CircularProgressIndicator()),
-                        error: (e, _) => Text('Error: $e'),
+                        loading: () =>
+                            const Center(child: CircularProgressIndicator()),
+                        error: (e, _) => Text('$e'),
                       ),
                     ),
-                    // Summary & Actions
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.3),
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    // Summary & actions
+                    settingsAsync.when(
+                      data: (settings) {
+                        final scPercent = double.tryParse(
+                                settings['service_charge_percent'] ?? '5') ??
+                            5;
+                        return Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.3),
+                            borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(24)),
+                          ),
+                          child: Column(
                             children: [
-                              const Text('Total Amount', style: TextStyle(fontSize: 18, color: Colors.white70)),
                               activeOrderAsync.maybeWhen(
                                 data: (order) {
-                                  final subtotal = (order?.totalAmount ?? 0) + _localTotal;
-                                  final vat = subtotal * 0.05;
-                                  final total = subtotal + vat;
+                                  final subtotal =
+                                      (order?.totalAmount ?? 0) + _localTotal;
+                                  final sc = subtotal * (scPercent / 100);
+                                  final total =
+                                      subtotal + sc - _discountAmount;
                                   return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
-                                      Text(
-                                        'Subtotal: ${subtotal.toStringAsFixed(2)} ETB',
-                                        style: const TextStyle(fontSize: 14, color: Colors.white54),
-                                      ),
-                                      Text(
-                                        'VAT (5%): ${vat.toStringAsFixed(2)} ETB',
-                                        style: const TextStyle(fontSize: 14, color: Colors.white54),
-                                      ),
-                                      Text(
-                                        '${total.toStringAsFixed(2)} ETB',
-                                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Color(0xFFD4AF37)),
+                                      _SummaryRow('Subtotal',
+                                          '${subtotal.toStringAsFixed(2)} ETB'),
+                                      _SummaryRow(
+                                          'Service (${scPercent.toStringAsFixed(0)}%)',
+                                          '${sc.toStringAsFixed(2)} ETB'),
+                                      if (_discountAmount > 0)
+                                        _SummaryRow('Discount',
+                                            '- ${_discountAmount.toStringAsFixed(2)} ETB',
+                                            color: Colors.greenAccent),
+                                      const Divider(
+                                          color: Colors.white10, height: 16),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          const Text('TOTAL',
+                                              style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight:
+                                                      FontWeight.w900)),
+                                          Text(
+                                              '${total.toStringAsFixed(2)} ETB',
+                                              style: const TextStyle(
+                                                  fontSize: 24,
+                                                  fontWeight: FontWeight.w900,
+                                                  color: Color(0xFFD4AF37))),
+                                        ],
                                       ),
                                     ],
                                   );
                                 },
-                                orElse: () => const Text('0.00 ETB'),
+                                orElse: () => const SizedBox(),
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.orange.withOpacity(0.8),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 20),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                  ),
-                                  onPressed: () async {
-                                    if (localItems.isEmpty) return;
-                                    
-                                    OrderModel? order = activeOrderAsync.value;
-                                    if (order == null) {
-                                      if (selectedWaiter == null) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Please select a waiter first')),
-                                        );
-                                        return;
-                                      }
-                                      // Create new order
-                                      await ref.read(activeOrderServiceProvider).createNewOrder(OrderModel(
-                                        tableId: widget.table.id!,
-                                        waiterId: selectedWaiter!.id!, 
-                                        tableName: widget.table.name,
-                                        waiterName: selectedWaiter!.name,
-                                        createdAt: DateTime.now(),
-                                        updatedAt: DateTime.now(),
-                                      ));
-                                      order = ref.read(activeOrderProvider(widget.table.id!)).value;
-                                    }
-
-                                    if (order != null) {
-                                      final itemsToPrint = localItems.map((e) => e.copyWith(isPrintedToKitchen: true)).toList();
-                                      await ref.read(activeOrderServiceProvider).addItems(order.id!, itemsToPrint, widget.table.id!);
-                                      
-                                      // Kitchen Printing logic
-                                      final printer = ref.read(printServiceProvider);
-                                      await printer.generateKitchenReceipt(order, localItems);
-                                      
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Order sent to Kitchen')),
-                                      );
-                                    }
-                                    
-                                    setState(() => localItems = []);
-                                  },
-                                  child: const Text('HOLD / KITCHEN', style: TextStyle(fontWeight: FontWeight.bold)),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF006B3C),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 20),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                  ),
-                                  onPressed: () async {
-                                    final order = activeOrderAsync.value;
-                                    if (order == null || order.items.isEmpty) return;
-
-                                    final confirm = await showDialog<bool>(
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        title: const Text('Print Bill & Finalize?'),
-                                        content: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text('Items: ${order.items.length}'),
-                                            Text('Total (incl. 5% VAT): ${(order.totalAmount * 1.05).toStringAsFixed(2)} ETB'),
-                                          ],
-                                        ),
-                                        actions: [
-                                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                                          ElevatedButton(
-                                            onPressed: () => Navigator.pop(context, true), 
-                                            child: const Text('Print PDF & Complete'),
-                                          ),
-                                        ],
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            Colors.orange.withOpacity(0.85),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 18),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14)),
                                       ),
-                                    );
-
-                                    if (confirm == true) {
-                                      // PDF Generation
-                                      await BillService.generateAndDownloadBill(
-                                        order: order,
-                                        items: order.items,
-                                        tableName: widget.table.name,
-                                        waiterName: order.waiterName ?? 'N/A',
-                                      );
-
-                                      await ref.read(posRepositoryProvider).completeOrder(order.id!, order.tableId);
-                                      ref.refresh(tablesProvider);
-                                      Navigator.pop(context);
-                                    }
-                                  },
-                                  child: const Text('PRINT BILL', style: TextStyle(fontWeight: FontWeight.bold)),
-                                ),
+                                      onPressed: () => _sendToKitchen(
+                                          activeOrderAsync.value, settings),
+                                      child: const Text('SEND TO KITCHEN',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            const Color(0xFF006B3C),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 18),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14)),
+                                      ),
+                                      onPressed: activeOrderAsync.value == null
+                                          ? null
+                                          : () => _printBill(
+                                              activeOrderAsync.value!, settings),
+                                      child: const Text('PRINT BILL',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
-                      ),
+                        );
+                      },
+                      loading: () => const SizedBox(height: 80),
+                      error: (_, __) => const SizedBox(),
                     ),
                   ],
                 ),
@@ -484,12 +646,167 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   }
 }
 
+// ── Summary row helper ────────────────────────────────────────────────────
+
+class _SummaryRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color? color;
+  const _SummaryRow(this.label, this.value, {this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: color ?? Colors.white54, fontSize: 13)),
+          Text(value, style: TextStyle(color: color ?? Colors.white70, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Bill confirm dialog ───────────────────────────────────────────────────
+
+class _BillConfirmDialog extends StatefulWidget {
+  final OrderModel order;
+  final double subtotal;
+  final double serviceCharge;
+  final double serviceChargePercent;
+  final bool discountEnabled;
+  final double initialDiscount;
+  final ValueChanged<double> onDiscountChanged;
+
+  const _BillConfirmDialog({
+    required this.order,
+    required this.subtotal,
+    required this.serviceCharge,
+    required this.serviceChargePercent,
+    required this.discountEnabled,
+    required this.initialDiscount,
+    required this.onDiscountChanged,
+  });
+
+  @override
+  State<_BillConfirmDialog> createState() => _BillConfirmDialogState();
+}
+
+class _BillConfirmDialogState extends State<_BillConfirmDialog> {
+  late TextEditingController _discountCtrl;
+  double _discount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _discount = widget.initialDiscount;
+    _discountCtrl =
+        TextEditingController(text: _discount > 0 ? _discount.toString() : '');
+  }
+
+  @override
+  void dispose() {
+    _discountCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = widget.subtotal + widget.serviceCharge - _discount;
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1A1A1A),
+      title: const Text('Confirm Bill'),
+      content: SizedBox(
+        width: 340,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _Row('Items', '${widget.order.items.length}'),
+            _Row('Subtotal', '${widget.subtotal.toStringAsFixed(2)} ETB'),
+            _Row(
+                'Service (${widget.serviceChargePercent.toStringAsFixed(0)}%)',
+                '${widget.serviceCharge.toStringAsFixed(2)} ETB'),
+            if (widget.discountEnabled) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _discountCtrl,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))
+                ],
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Discount (ETB)',
+                  labelStyle: TextStyle(color: Colors.white54),
+                  prefixIcon:
+                      Icon(Icons.discount_outlined, color: Colors.white38),
+                ),
+                onChanged: (v) {
+                  setState(() {
+                    _discount = double.tryParse(v) ?? 0;
+                    widget.onDiscountChanged(_discount);
+                  });
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+            const Divider(color: Colors.white10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('TOTAL',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16)),
+                Text('${total.toStringAsFixed(2)} ETB',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        color: Color(0xFFD4AF37))),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel')),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF006B3C),
+              foregroundColor: Colors.white),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Print & Close Table'),
+        ),
+      ],
+    );
+  }
+
+  Widget _Row(String label, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(color: Colors.white54)),
+            Text(value, style: const TextStyle(color: Colors.white70)),
+          ],
+        ),
+      );
+}
+
+// ── Cart item tile ────────────────────────────────────────────────────────
+
 class _CartItemTile extends StatelessWidget {
   final OrderItem item;
   final bool isSaved;
   final VoidCallback? onAdd;
   final VoidCallback? onRemove;
   final VoidCallback? onDelete;
+  final VoidCallback? onNote;
+  final VoidCallback? onVoid;
 
   const _CartItemTile({
     required this.item,
@@ -497,64 +814,91 @@ class _CartItemTile extends StatelessWidget {
     this.onAdd,
     this.onRemove,
     this.onDelete,
+    this.onNote,
+    this.onVoid,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: isSaved ? Colors.white.withOpacity(0.05) : const Color(0xFFD4AF37).withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
+        color: isSaved
+            ? Colors.white.withOpacity(0.05)
+            : const Color(0xFFD4AF37).withOpacity(0.05),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isSaved ? Colors.white10 : const Color(0xFFD4AF37).withOpacity(0.2),
+          color: isSaved
+              ? Colors.white10
+              : const Color(0xFFD4AF37).withOpacity(0.2),
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.productName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text('${item.unitPrice.toStringAsFixed(2)} x ${item.quantity}', 
-                  style: const TextStyle(fontSize: 12, color: Colors.white54)),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item.productName,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
+                    Text(
+                        '${item.unitPrice.toStringAsFixed(2)} × ${item.quantity}',
+                        style: const TextStyle(
+                            fontSize: 11, color: Colors.white54)),
+                    if (item.notes != null && item.notes!.isNotEmpty)
+                      Text('📝 ${item.notes}',
+                          style: const TextStyle(
+                              fontSize: 11, color: Colors.white38)),
+                  ],
+                ),
+              ),
+              Text(item.subtotal.toStringAsFixed(2),
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isSaved
+                          ? Colors.white70
+                          : const Color(0xFFD4AF37))),
+              const SizedBox(width: 8),
+              if (!isSaved) ...[
+                _IconBtn(Icons.note_alt_outlined, onNote, Colors.white38),
+                _IconBtn(Icons.remove_circle_outline, onRemove, Colors.white54),
+                _IconBtn(Icons.add_circle_outline, onAdd, Colors.white54),
+                _IconBtn(Icons.delete_outline, onDelete, Colors.redAccent),
+              ] else ...[
+                _IconBtn(Icons.remove_circle_outline, onVoid, Colors.redAccent,
+                    tooltip: 'Void item'),
+                const Icon(Icons.check_circle,
+                    color: Color(0xFF006B3C), size: 18),
               ],
-            ),
+            ],
           ),
-          Text(
-            '${item.subtotal.toStringAsFixed(2)}', 
-            style: TextStyle(
-              fontWeight: FontWeight.bold, 
-              color: isSaved ? Colors.white70 : const Color(0xFFD4AF37)
-            )
-          ),
-          const SizedBox(width: 12),
-          if (!isSaved) ...[
-            IconButton(
-              icon: const Icon(Icons.remove_circle_outline, size: 20),
-              onPressed: onRemove,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline, size: 20),
-              onPressed: onAdd,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, size: 20, color: Colors.redAccent),
-              onPressed: onDelete,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-          ] else
-            const Icon(Icons.check_circle, color: Color(0xFF006B3C), size: 20),
         ],
+      ),
+    );
+  }
+}
+
+class _IconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final Color color;
+  final String? tooltip;
+  const _IconBtn(this.icon, this.onPressed, this.color, {this.tooltip});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip ?? '',
+      child: IconButton(
+        icon: Icon(icon, size: 18, color: color),
+        onPressed: onPressed,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
       ),
     );
   }

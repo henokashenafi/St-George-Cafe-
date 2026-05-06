@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
@@ -18,6 +20,11 @@ class DatabaseHelper {
     return _database!;
   }
 
+  static String hashPassword(String password) {
+    final bytes = utf8.encode(password);
+    return sha256.convert(bytes).toString();
+  }
+
   Future<Database> _initDatabase() async {
     DatabaseFactory databaseFactory;
     String dbPath;
@@ -35,8 +42,9 @@ class DatabaseHelper {
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 1,
+        version: 3,
         onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
       ),
     );
@@ -46,8 +54,45 @@ class DatabaseHelper {
     await db.execute('PRAGMA foreign_keys = ON');
   }
 
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT NOT NULL UNIQUE,
+          password_hash TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'cashier',
+          is_active INTEGER DEFAULT 1
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_by INTEGER,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS table_zones (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE,
+          waiter_id INTEGER,
+          FOREIGN KEY (waiter_id) REFERENCES waiters (id)
+        )
+      ''');
+      await db.execute('ALTER TABLE tables ADD COLUMN zone_id INTEGER REFERENCES table_zones(id)');
+      await _seedUsers(db);
+      await _seedSettings(db);
+    }
+    if (oldVersion < 3) {
+      await db.execute('ALTER TABLE orders ADD COLUMN cashier_id INTEGER REFERENCES users(id)');
+      await db.execute('ALTER TABLE orders ADD COLUMN service_charge REAL DEFAULT 0.0');
+      await db.execute('ALTER TABLE orders ADD COLUMN discount_amount REAL DEFAULT 0.0');
+    }
+  }
+
   Future _onCreate(Database db, int version) async {
-    // Categories
     await db.execute('''
       CREATE TABLE categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,7 +101,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // Products
     await db.execute('''
       CREATE TABLE products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,7 +112,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // Waiters
     await db.execute('''
       CREATE TABLE waiters (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,31 +120,43 @@ class DatabaseHelper {
       )
     ''');
 
-    // Tables
+    await db.execute('''
+      CREATE TABLE table_zones (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        waiter_id INTEGER,
+        FOREIGN KEY (waiter_id) REFERENCES waiters (id)
+      )
+    ''');
+
     await db.execute('''
       CREATE TABLE tables (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
-        status TEXT DEFAULT 'available' -- available, occupied, reserved
+        status TEXT DEFAULT 'available',
+        zone_id INTEGER,
+        FOREIGN KEY (zone_id) REFERENCES table_zones (id)
       )
     ''');
 
-    // Orders
     await db.execute('''
       CREATE TABLE orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         table_id INTEGER,
         waiter_id INTEGER,
-        status TEXT DEFAULT 'pending', -- pending, completed, cancelled
+        cashier_id INTEGER,
+        status TEXT DEFAULT 'pending',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         total_amount REAL DEFAULT 0.0,
+        service_charge REAL DEFAULT 0.0,
+        discount_amount REAL DEFAULT 0.0,
         FOREIGN KEY (table_id) REFERENCES tables (id),
-        FOREIGN KEY (waiter_id) REFERENCES waiters (id)
+        FOREIGN KEY (waiter_id) REFERENCES waiters (id),
+        FOREIGN KEY (cashier_id) REFERENCES users (id)
       )
     ''');
 
-    // Order Items
     await db.execute('''
       CREATE TABLE order_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -110,7 +165,7 @@ class DatabaseHelper {
         quantity INTEGER NOT NULL,
         unit_price REAL NOT NULL,
         subtotal REAL NOT NULL,
-        is_printed_to_kitchen INTEGER DEFAULT 0, -- 0 for false, 1 for true
+        is_printed_to_kitchen INTEGER DEFAULT 0,
         notes TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (order_id) REFERENCES orders (id),
@@ -118,28 +173,74 @@ class DatabaseHelper {
       )
     ''');
 
-    // Seed initial data
+    await db.execute('''
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'cashier',
+        is_active INTEGER DEFAULT 1
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_by INTEGER,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+
     await _seedData(db);
   }
 
+  Future _seedUsers(Database db) async {
+    final directorHash = hashPassword('director123');
+    final cashierHash = hashPassword('cashier123');
+    await db.insert('users', {
+      'username': 'Director',
+      'password_hash': directorHash,
+      'role': 'director',
+      'is_active': 1,
+    });
+    await db.insert('users', {
+      'username': 'Cashier 1',
+      'password_hash': cashierHash,
+      'role': 'cashier',
+      'is_active': 1,
+    });
+  }
+
+  Future _seedSettings(Database db) async {
+    await db.insert('app_settings', {'key': 'service_charge_percent', 'value': '5.0'});
+    await db.insert('app_settings', {'key': 'discount_enabled', 'value': 'true'});
+  }
+
   Future _seedData(Database db) async {
-    // Seed Tables
     for (var i = 1; i <= 20; i++) {
       await db.insert('tables', {'name': 'Table $i'});
     }
 
-    // Seed Categories
     await db.insert('categories', {'name': 'Food'});
     await db.insert('categories', {'name': 'Drinks'});
     await db.insert('categories', {'name': 'Desserts'});
 
-    // Seed some products
     await db.insert('products', {'category_id': 1, 'name': 'Burger', 'price': 250.0});
     await db.insert('products', {'category_id': 1, 'name': 'Pizza', 'price': 450.0});
     await db.insert('products', {'category_id': 2, 'name': 'Coffee', 'price': 50.0});
     await db.insert('products', {'category_id': 2, 'name': 'Juice', 'price': 120.0});
-    
-    // Seed a waiter
-    await db.insert('waiters', {'name': 'Default Waiter', 'code': '0000'});
+
+    await db.insert('waiters', {'name': 'Waiter 1', 'code': 'W1'});
+    await db.insert('waiters', {'name': 'Waiter 2', 'code': 'W2'});
+    await db.insert('waiters', {'name': 'Waiter 3', 'code': 'W3'});
+    await db.insert('waiters', {'name': 'Waiter 4', 'code': 'W4'});
+    await db.insert('waiters', {'name': 'Waiter 5', 'code': 'W5'});
+    await db.insert('waiters', {'name': 'Waiter 6', 'code': 'W6'});
+    await db.insert('waiters', {'name': 'Waiter 7', 'code': 'W7'});
+    await db.insert('waiters', {'name': 'Waiter 8', 'code': 'W8'});
+
+    await _seedUsers(db);
+    await _seedSettings(db);
   }
 }

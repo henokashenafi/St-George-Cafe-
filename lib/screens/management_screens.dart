@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:st_george_pos/models/category.dart';
 import 'package:st_george_pos/models/product.dart';
@@ -6,13 +7,16 @@ import 'package:st_george_pos/models/waiter.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/providers/pos_providers.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
+import 'package:st_george_pos/services/bill_service.dart';
 import 'package:intl/intl.dart';
 
-// --- Menu Management Screen ---
+// ── Menu Management ───────────────────────────────────────────────────────
+
 class MenuManagementScreen extends ConsumerStatefulWidget {
   const MenuManagementScreen({super.key});
   @override
-  ConsumerState<MenuManagementScreen> createState() => _MenuManagementScreenState();
+  ConsumerState<MenuManagementScreen> createState() =>
+      _MenuManagementScreenState();
 }
 
 class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
@@ -25,39 +29,43 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
 
     return Row(
       children: [
-        // Categories Column
         Expanded(
           flex: 1,
           child: GlassContainer(
             opacity: 0.05,
             child: Column(
               children: [
-                _Header(
-                  title: 'Categories', 
-                  onAdd: () => _showAddCategoryDialog(context),
-                ),
+                _Header(title: 'Categories', onAdd: () => _showCategoryDialog(context, null)),
                 Expanded(
                   child: categoriesAsync.when(
-                    data: (categories) => ListView.builder(
-                      itemCount: categories.length,
-                      itemBuilder: (context, index) {
-                        final cat = categories[index];
+                    data: (cats) => ListView.builder(
+                      itemCount: cats.length,
+                      itemBuilder: (_, i) {
+                        final cat = cats[i];
                         return ListTile(
-                          title: Text(cat.name, style: TextStyle(
-                            color: selectedCategoryId == cat.id ? const Color(0xFFD4AF37) : Colors.white,
-                            fontWeight: selectedCategoryId == cat.id ? FontWeight.bold : FontWeight.normal,
-                          )),
+                          title: Text(cat.name,
+                              style: TextStyle(
+                                color: selectedCategoryId == cat.id
+                                    ? const Color(0xFFD4AF37)
+                                    : Colors.white,
+                                fontWeight: selectedCategoryId == cat.id
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              )),
                           selected: selectedCategoryId == cat.id,
-                          onTap: () => setState(() => selectedCategoryId = cat.id),
+                          onTap: () =>
+                              setState(() => selectedCategoryId = cat.id),
                           trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                            icon: const Icon(Icons.delete_outline,
+                                color: Colors.redAccent, size: 20),
                             onPressed: () => _deleteCategory(cat.id!),
                           ),
                         );
                       },
                     ),
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => Text('Error: $e'),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => Text('$e'),
                   ),
                 ),
               ],
@@ -65,7 +73,6 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
           ),
         ),
         const SizedBox(width: 24),
-        // Products Column
         Expanded(
           flex: 2,
           child: GlassContainer(
@@ -73,28 +80,47 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             child: Column(
               children: [
                 _Header(
-                  title: 'Products', 
-                  onAdd: selectedCategoryId == null ? null : () => _showAddProductDialog(context),
+                  title: 'Products',
+                  onAdd: selectedCategoryId == null
+                      ? null
+                      : () => _showProductDialog(context, null),
                 ),
                 Expanded(
                   child: productsAsync.when(
                     data: (products) => ListView.builder(
                       itemCount: products.length,
-                      itemBuilder: (context, index) {
-                        final p = products[index];
+                      itemBuilder: (_, i) {
+                        final p = products[i];
                         return ListTile(
-                          leading: const CircleAvatar(backgroundColor: Colors.white10, child: Icon(Icons.fastfood, color: Color(0xFFD4AF37))),
+                          leading: const CircleAvatar(
+                              backgroundColor: Colors.white10,
+                              child: Icon(Icons.fastfood,
+                                  color: Color(0xFFD4AF37))),
                           title: Text(p.name),
-                          subtitle: Text('${p.price.toStringAsFixed(2)} ETB'),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                            onPressed: () => _deleteProduct(p.id!),
+                          subtitle:
+                              Text('${p.price.toStringAsFixed(2)} ETB'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined,
+                                    color: Colors.white54, size: 20),
+                                onPressed: () =>
+                                    _showProductDialog(context, p),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline,
+                                    color: Colors.redAccent, size: 20),
+                                onPressed: () => _deleteProduct(p.id!),
+                              ),
+                            ],
                           ),
                         );
                       },
                     ),
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => Text('Error: $e'),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => Text('$e'),
                   ),
                 ),
               ],
@@ -105,56 +131,108 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
     );
   }
 
-  void _showAddCategoryDialog(BuildContext context) {
-    final controller = TextEditingController();
+  void _showCategoryDialog(BuildContext context, Category? existing) {
+    final ctrl = TextEditingController(text: existing?.name ?? '');
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Category'),
-        content: TextField(controller: controller, decoration: const InputDecoration(hintText: 'Category Name')),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: Text(existing == null ? 'Add Category' : 'Edit Category'),
+        content: TextField(
+            controller: ctrl,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+                labelText: 'Name',
+                labelStyle: TextStyle(color: Colors.white54))),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () async {
-            if (controller.text.isNotEmpty) {
-              await ref.read(posRepositoryProvider).addCategory(controller.text);
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD4AF37),
+                foregroundColor: Colors.black),
+            onPressed: () async {
+              if (ctrl.text.trim().isEmpty) return;
+              await ref
+                  .read(posRepositoryProvider)
+                  .addCategory(ctrl.text.trim());
               ref.invalidate(categoriesProvider);
-              Navigator.pop(context);
-            }
-          }, child: const Text('Add')),
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
         ],
       ),
     );
   }
 
-  void _showAddProductDialog(BuildContext context) {
-    final nameController = TextEditingController();
-    final priceController = TextEditingController();
+  void _showProductDialog(BuildContext context, Product? existing) {
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final priceCtrl = TextEditingController(
+        text: existing != null ? existing.price.toString() : '');
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Product'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nameController, decoration: const InputDecoration(hintText: 'Product Name')),
-            TextField(controller: priceController, decoration: const InputDecoration(hintText: 'Price'), keyboardType: TextInputType.number),
-          ],
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: Text(existing == null ? 'Add Product' : 'Edit Product'),
+        content: SizedBox(
+          width: 300,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                  controller: nameCtrl,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                      labelText: 'Name',
+                      labelStyle: TextStyle(color: Colors.white54))),
+              const SizedBox(height: 12),
+              TextField(
+                controller: priceCtrl,
+                style: const TextStyle(color: Colors.white),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))
+                ],
+                decoration: const InputDecoration(
+                    labelText: 'Price (ETB)',
+                    labelStyle: TextStyle(color: Colors.white54)),
+              ),
+            ],
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () async {
-            final price = double.tryParse(priceController.text);
-            if (nameController.text.isNotEmpty && price != null) {
-              await ref.read(posRepositoryProvider).addProduct(Product(
-                categoryId: selectedCategoryId!,
-                name: nameController.text,
-                price: price,
-              ));
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD4AF37),
+                foregroundColor: Colors.black),
+            onPressed: () async {
+              final price = double.tryParse(priceCtrl.text);
+              if (nameCtrl.text.trim().isEmpty || price == null) return;
+              final repo = ref.read(posRepositoryProvider);
+              if (existing == null) {
+                await repo.addProduct(Product(
+                    categoryId: selectedCategoryId!,
+                    name: nameCtrl.text.trim(),
+                    price: price));
+              } else {
+                await repo.updateProduct(Product(
+                    id: existing.id,
+                    categoryId: existing.categoryId,
+                    name: nameCtrl.text.trim(),
+                    price: price));
+              }
               ref.invalidate(productsProvider(selectedCategoryId));
               ref.invalidate(productsProvider(null));
-              Navigator.pop(context);
-            }
-          }, child: const Text('Add')),
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
         ],
       ),
     );
@@ -174,41 +252,49 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
   }
 }
 
-// --- Waiter Management Screen ---
+// ── Waiter Management ─────────────────────────────────────────────────────
+
 class WaiterManagementScreen extends ConsumerWidget {
   const WaiterManagementScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final waitersAsync = ref.watch(waitersProvider);
-
     return GlassContainer(
       opacity: 0.05,
       child: Column(
         children: [
-          _Header(title: 'Waiters', onAdd: () => _showAddWaiterDialog(context, ref)),
+          _Header(
+              title: 'Waiters',
+              onAdd: () => _showAddWaiterDialog(context, ref)),
           Expanded(
             child: waitersAsync.when(
               data: (waiters) => ListView.builder(
                 itemCount: waiters.length,
-                itemBuilder: (context, index) {
-                  final w = waiters[index];
+                itemBuilder: (_, i) {
+                  final w = waiters[i];
                   return ListTile(
-                    leading: const CircleAvatar(backgroundColor: Color(0xFFD4AF37), child: Icon(Icons.person, color: Colors.black)),
+                    leading: const CircleAvatar(
+                        backgroundColor: Color(0xFFD4AF37),
+                        child: Icon(Icons.person, color: Colors.black)),
                     title: Text(w.name),
                     subtitle: Text('Code: ${w.code}'),
                     trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                      icon: const Icon(Icons.delete_outline,
+                          color: Colors.redAccent),
                       onPressed: () async {
-                        await ref.read(posRepositoryProvider).deleteWaiter(w.id!);
+                        await ref
+                            .read(posRepositoryProvider)
+                            .deleteWaiter(w.id!);
                         ref.refresh(waitersProvider);
                       },
                     ),
                   );
                 },
               ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Text('Error: $e'),
+              loading: () =>
+                  const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Text('$e'),
             ),
           ),
         ],
@@ -217,61 +303,141 @@ class WaiterManagementScreen extends ConsumerWidget {
   }
 
   void _showAddWaiterDialog(BuildContext context, WidgetRef ref) {
-    final controller = TextEditingController();
+    final ctrl = TextEditingController();
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
         title: const Text('Add Waiter'),
-        content: TextField(controller: controller, decoration: const InputDecoration(hintText: 'Waiter Name')),
+        content: TextField(
+            controller: ctrl,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+                labelText: 'Waiter Name',
+                labelStyle: TextStyle(color: Colors.white54))),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () async {
-            if (controller.text.isNotEmpty) {
-              await ref.read(posRepositoryProvider).addWaiter(controller.text);
-              ref.refresh(waitersProvider);
-              Navigator.pop(context);
-            }
-          }, child: const Text('Add')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD4AF37),
+                foregroundColor: Colors.black),
+            onPressed: () async {
+              if (ctrl.text.trim().isNotEmpty) {
+                await ref
+                    .read(posRepositoryProvider)
+                    .addWaiter(ctrl.text.trim());
+                ref.refresh(waitersProvider);
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Add'),
+          ),
         ],
       ),
     );
   }
 }
 
-// --- Order History Screen ---
+// ── Order History ─────────────────────────────────────────────────────────
+
 class OrderHistoryScreen extends ConsumerWidget {
   const OrderHistoryScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final orders = ref.watch(ordersProvider);
+    final filter = ref.watch(reportDateFilterProvider);
 
     return GlassContainer(
       opacity: 0.05,
       child: Column(
         children: [
-          const _Header(title: 'Order History'),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                const Text('Order History',
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5)),
+                const Spacer(),
+                _DateFilterChips(filter: filter, onChanged: (f) {
+                  ref.read(reportDateFilterProvider.notifier).set(f);
+                }),
+              ],
+            ),
+          ),
           Expanded(
             child: orders.when(
-              data: (orderList) => ListView.builder(
-                itemCount: orderList.length,
-                itemBuilder: (context, index) {
-                  final o = orderList[index];
-                  return ExpansionTile(
-                    title: Text('Order #${o.id} - ${o.tableName}'),
-                    subtitle: Text('Waiter: ${o.waiterName} | Total: ${o.totalAmount.toStringAsFixed(2)} ETB'),
-                    children: [
-                      ...o.items.map((item) => ListTile(
-                        dense: true,
-                        title: Text(item.productName),
-                        trailing: Text('${item.quantity} x ${item.unitPrice}'),
-                      )),
-                    ],
-                  );
-                },
-              ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Text('Error: $e'),
+              data: (list) => list.isEmpty
+                  ? const Center(
+                      child: Opacity(
+                          opacity: 0.4, child: Text('No orders in range')))
+                  : ListView.builder(
+                      itemCount: list.length,
+                      itemBuilder: (_, i) {
+                        final o = list[i];
+                        final settings =
+                            ref.watch(settingsProvider).value ?? {};
+                        final scPercent = double.tryParse(
+                                settings['service_charge_percent'] ?? '5') ??
+                            5;
+                        return ExpansionTile(
+                          title: Text('Order #${o.id} — ${o.tableName}'),
+                          subtitle: Text(
+                              'Waiter: ${o.waiterName}  |  Cashier: ${o.cashierName}  |  ${DateFormat('dd/MM HH:mm').format(o.createdAt)}'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                  '${o.grandTotal.toStringAsFixed(2)} ETB',
+                                  style: const TextStyle(
+                                      color: Color(0xFFD4AF37),
+                                      fontWeight: FontWeight.bold)),
+                              const SizedBox(width: 8),
+                              if (o.status == OrderStatus.completed)
+                                IconButton(
+                                  icon: const Icon(Icons.print_outlined,
+                                      size: 20, color: Colors.white54),
+                                  tooltip: 'Reprint bill',
+                                  onPressed: () =>
+                                      BillService.generateAndDownloadBill(
+                                    order: o,
+                                    items: o.items,
+                                    tableName: o.tableName,
+                                    waiterName: o.waiterName,
+                                    cashierName: o.cashierName,
+                                    serviceCharge: o.serviceCharge,
+                                    serviceChargePercent: scPercent,
+                                    discountAmount: o.discountAmount,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          children: o.items
+                              .map((item) => ListTile(
+                                    dense: true,
+                                    title: Text(item.productName),
+                                    subtitle: item.notes != null &&
+                                            item.notes!.isNotEmpty
+                                        ? Text(item.notes!,
+                                            style: const TextStyle(
+                                                color: Colors.white38,
+                                                fontSize: 11))
+                                        : null,
+                                    trailing: Text(
+                                        '${item.quantity} × ${item.unitPrice.toStringAsFixed(2)}'),
+                                  ))
+                              .toList(),
+                        );
+                      },
+                    ),
+              loading: () =>
+                  const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Text('$e'),
             ),
           ),
         ],
@@ -280,41 +446,227 @@ class OrderHistoryScreen extends ConsumerWidget {
   }
 }
 
-// --- Reports Screen ---
+// ── Reports ───────────────────────────────────────────────────────────────
+
 class ReportsScreen extends ConsumerWidget {
   const ReportsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final orders = ref.watch(ordersProvider);
+    final filter = ref.watch(reportDateFilterProvider);
 
-    return orders.when(
-      data: (orderList) {
-        final totalRevenue = orderList.fold(0.0, (sum, o) => sum + o.totalAmount);
-        final totalVat = totalRevenue * 0.05;
-        final totalWithVat = totalRevenue + totalVat;
-        final totalItems = orderList.fold(0, (sum, o) => sum + o.items.fold(0, (s, i) => s + i.quantity));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Date filter bar
+        Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Row(
+            children: [
+              const Text('Reports',
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5)),
+              const Spacer(),
+              _DateFilterChips(
+                  filter: filter,
+                  onChanged: (f) =>
+                      ref.read(reportDateFilterProvider.notifier).set(f)),
+            ],
+          ),
+        ),
+        Expanded(
+          child: orders.when(
+            data: (orderList) {
+              final completed =
+                  orderList.where((o) => o.status == OrderStatus.completed).toList();
+              final subtotalSum =
+                  completed.fold(0.0, (s, o) => s + o.totalAmount);
+              final serviceSum =
+                  completed.fold(0.0, (s, o) => s + o.serviceCharge);
+              final discountSum =
+                  completed.fold(0.0, (s, o) => s + o.discountAmount);
+              final grandSum =
+                  completed.fold(0.0, (s, o) => s + o.grandTotal);
+              final itemsSum = completed.fold(
+                  0,
+                  (s, o) =>
+                      s + o.items.fold(0, (ss, i) => ss + i.quantity));
 
-        return GridView.count(
-          crossAxisCount: 3,
-          crossAxisSpacing: 24,
-          mainAxisSpacing: 24,
-          children: [
-            _ReportCard(title: 'Total Sales', value: '${totalRevenue.toStringAsFixed(2)} ETB', icon: Icons.attach_money),
-            _ReportCard(title: 'VAT Collected (5%)', value: '${totalVat.toStringAsFixed(2)} ETB', icon: Icons.account_balance_wallet),
-            _ReportCard(title: 'Total Revenue', value: '${totalWithVat.toStringAsFixed(2)} ETB', icon: Icons.trending_up, color: const Color(0xFFD4AF37)),
-            _ReportCard(title: 'Orders Processed', value: '${orderList.length}', icon: Icons.shopping_bag),
-            _ReportCard(title: 'Items Sold', value: '$totalItems', icon: Icons.fastfood),
-          ],
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Text('Error: $e'),
+              // Per-waiter
+              final waiterMap = <String, double>{};
+              for (final o in completed) {
+                waiterMap[o.waiterName] =
+                    (waiterMap[o.waiterName] ?? 0) + o.grandTotal;
+              }
+
+              // Per-cashier
+              final cashierMap = <String, double>{};
+              for (final o in completed) {
+                final name =
+                    o.cashierName.isNotEmpty ? o.cashierName : 'Unknown';
+                cashierMap[name] =
+                    (cashierMap[name] ?? 0) + o.grandTotal;
+              }
+
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Summary cards
+                    GridView.count(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 20,
+                      mainAxisSpacing: 20,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      childAspectRatio: 2.2,
+                      children: [
+                        _ReportCard(
+                            title: 'Subtotal',
+                            value: '${subtotalSum.toStringAsFixed(2)} ETB',
+                            icon: Icons.receipt_outlined),
+                        _ReportCard(
+                            title: 'Service Charge',
+                            value: '${serviceSum.toStringAsFixed(2)} ETB',
+                            icon: Icons.room_service_outlined),
+                        _ReportCard(
+                            title: 'Discounts Given',
+                            value: '${discountSum.toStringAsFixed(2)} ETB',
+                            icon: Icons.discount_outlined),
+                        _ReportCard(
+                            title: 'Grand Total',
+                            value: '${grandSum.toStringAsFixed(2)} ETB',
+                            icon: Icons.trending_up,
+                            color: const Color(0xFFD4AF37)),
+                        _ReportCard(
+                            title: 'Orders',
+                            value: '${completed.length}',
+                            icon: Icons.shopping_bag_outlined),
+                        _ReportCard(
+                            title: 'Items Sold',
+                            value: '$itemsSum',
+                            icon: Icons.fastfood_outlined),
+                      ],
+                    ),
+                    const SizedBox(height: 28),
+                    // Per-waiter
+                    if (waiterMap.isNotEmpty) ...[
+                      const Text('By Waiter',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+                      GlassContainer(
+                        opacity: 0.05,
+                        child: Column(
+                          children: waiterMap.entries
+                              .map((e) => ListTile(
+                                    leading: const CircleAvatar(
+                                        backgroundColor: Color(0xFF006B3C),
+                                        child: Icon(Icons.person,
+                                            color: Colors.white, size: 18)),
+                                    title: Text(e.key),
+                                    trailing: Text(
+                                        '${e.value.toStringAsFixed(2)} ETB',
+                                        style: const TextStyle(
+                                            color: Color(0xFFD4AF37),
+                                            fontWeight: FontWeight.bold)),
+                                  ))
+                              .toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                    // Per-cashier
+                    if (cashierMap.isNotEmpty) ...[
+                      const Text('By Cashier',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+                      GlassContainer(
+                        opacity: 0.05,
+                        child: Column(
+                          children: cashierMap.entries
+                              .map((e) => ListTile(
+                                    leading: const CircleAvatar(
+                                        backgroundColor: Color(0xFFD4AF37),
+                                        child: Icon(Icons.point_of_sale,
+                                            color: Colors.black, size: 18)),
+                                    title: Text(e.key),
+                                    trailing: Text(
+                                        '${e.value.toStringAsFixed(2)} ETB',
+                                        style: const TextStyle(
+                                            color: Color(0xFFD4AF37),
+                                            fontWeight: FontWeight.bold)),
+                                  ))
+                              .toList(),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+            loading: () =>
+                const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Text('$e'),
+          ),
+        ),
+      ],
     );
   }
 }
 
-// --- Common Components ---
+// ── Date filter chips ─────────────────────────────────────────────────────
+
+class _DateFilterChips extends StatelessWidget {
+  final DateFilter filter;
+  final ValueChanged<DateFilter> onChanged;
+  const _DateFilterChips({required this.filter, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final todayEnd = todayStart.add(const Duration(days: 1));
+    final weekStart = todayStart.subtract(Duration(days: now.weekday - 1));
+    final monthStart = DateTime(now.year, now.month, 1);
+
+    bool isToday = filter.from == todayStart && filter.to == todayEnd;
+    bool isWeek = filter.from == weekStart && filter.to == todayEnd;
+    bool isMonth = filter.from == monthStart && filter.to == todayEnd;
+    bool isAll = filter.from == null && filter.to == null;
+
+    return Row(
+      children: [
+        _chip('Today', isToday,
+            () => onChanged(DateFilter(from: todayStart, to: todayEnd))),
+        const SizedBox(width: 8),
+        _chip('This Week', isWeek,
+            () => onChanged(DateFilter(from: weekStart, to: todayEnd))),
+        const SizedBox(width: 8),
+        _chip('This Month', isMonth,
+            () => onChanged(DateFilter(from: monthStart, to: todayEnd))),
+        const SizedBox(width: 8),
+        _chip('All Time', isAll,
+            () => onChanged(const DateFilter())),
+      ],
+    );
+  }
+
+  Widget _chip(String label, bool selected, VoidCallback onTap) =>
+      ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        selectedColor: const Color(0xFFD4AF37),
+        onSelected: (_) => onTap(),
+      );
+}
+
+// ── Common components ─────────────────────────────────────────────────────
+
 class _Header extends StatelessWidget {
   final String title;
   final VoidCallback? onAdd;
@@ -323,17 +675,23 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+          Text(title,
+              style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5)),
           if (onAdd != null)
             ElevatedButton.icon(
               icon: const Icon(Icons.add),
               label: const Text('Add New'),
               onPressed: onAdd,
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD4AF37),
+                  foregroundColor: Colors.black),
             ),
         ],
       ),
@@ -346,22 +704,40 @@ class _ReportCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color? color;
-  const _ReportCard({required this.title, required this.value, required this.icon, this.color});
+  const _ReportCard(
+      {required this.title,
+      required this.value,
+      required this.icon,
+      this.color});
 
   @override
   Widget build(BuildContext context) {
     return GlassContainer(
       opacity: 0.1,
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        padding: const EdgeInsets.all(16),
+        child: Row(
           children: [
-            Icon(icon, size: 48, color: color ?? Colors.white54),
-            const SizedBox(height: 16),
-            Text(title, style: const TextStyle(color: Colors.white70, fontSize: 16)),
-            const SizedBox(height: 8),
-            Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: color ?? Colors.white)),
+            Icon(icon, size: 36, color: color ?? Colors.white38),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          color: Colors.white54, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Text(value,
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: color ?? Colors.white),
+                      overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
           ],
         ),
       ),
