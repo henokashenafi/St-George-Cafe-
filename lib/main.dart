@@ -13,12 +13,15 @@ import 'package:st_george_pos/screens/settings_screen.dart';
 import 'package:st_george_pos/screens/table_management_screen.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/services/pos_repository.dart';
+import 'package:st_george_pos/locales/app_localizations.dart';
+import 'package:st_george_pos/widgets/language_switcher.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   if (!kIsWeb) {
-    final isDesktop = defaultTargetPlatform == TargetPlatform.windows ||
+    final isDesktop =
+        defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.linux ||
         defaultTargetPlatform == TargetPlatform.macOS;
     if (isDesktop) {
@@ -30,10 +33,16 @@ void main() async {
   final repo = PosRepository();
   await repo.init();
 
-  runApp(ProviderScope(
-    overrides: [posRepositoryProvider.overrideWithValue(repo)],
-    child: const MyApp(),
-  ));
+  // Initialize saved language and load it
+  final savedLang = await AppLocalizations.getSavedLanguage();
+  await AppLocalizations.load(savedLang);
+
+  runApp(
+    ProviderScope(
+      overrides: [posRepositoryProvider.overrideWithValue(repo)],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -58,7 +67,9 @@ class MyApp extends StatelessWidget {
         cardTheme: CardThemeData(
           color: const Color(0xFF1E1E1E),
           elevation: 4,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
       ),
       home: const _AuthGate(),
@@ -85,15 +96,20 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(languageProvider);
     final user = ref.watch(authProvider)!;
     final isDirector = user.role == UserRole.director;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text(
-          'ST GEORGE CAFE',
-          style: TextStyle(letterSpacing: 4, fontWeight: FontWeight.w900, color: Color(0xFFD4AF37)),
+        title: Text(
+          ref.t('app.title'),
+          style: const TextStyle(
+            letterSpacing: 4,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFFD4AF37),
+          ),
         ),
         centerTitle: true,
         backgroundColor: Colors.black.withOpacity(0.3),
@@ -105,6 +121,8 @@ class DashboardScreen extends ConsumerWidget {
           ),
         ),
         actions: [
+          // Language switcher
+          const LanguageSwitcher(),
           // Logged-in user chip
           Container(
             margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
@@ -117,18 +135,24 @@ class DashboardScreen extends ConsumerWidget {
             child: Row(
               children: [
                 Icon(
-                  isDirector ? Icons.admin_panel_settings_outlined : Icons.point_of_sale,
+                  isDirector
+                      ? Icons.admin_panel_settings_outlined
+                      : Icons.point_of_sale,
                   size: 16,
                   color: isDirector ? const Color(0xFFD4AF37) : Colors.white54,
                 ),
                 const SizedBox(width: 6),
-                Text(user.username, style: const TextStyle(fontSize: 13, color: Colors.white70)),
+                Text(
+                  user.username,
+                  style: const TextStyle(fontSize: 13, color: Colors.white70),
+                ),
               ],
             ),
           ),
           if (!isDirector)
             IconButton(
               icon: const Icon(Icons.refresh),
+              tooltip: ref.t('common.refresh'),
               onPressed: () => ref.refresh(tablesProvider),
             ),
           const SizedBox(width: 8),
@@ -158,61 +182,93 @@ class DashboardScreen extends ConsumerWidget {
                   const SizedBox(height: 80),
                   if (!isDirector) ...[
                     _SidebarItem(
-                      icon: Icons.table_restaurant,
-                      label: 'Tables',
-                      isActive: ref.watch(dashboardViewProvider) == DashboardView.tables,
-                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.tables,
+                      icon: Icons.point_of_sale,
+                      label: ref.t('navigation.posMenu'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.tables,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.tables,
                     ),
                     _SidebarItem(
                       icon: Icons.history,
-                      label: 'Orders',
-                      isActive: ref.watch(dashboardViewProvider) == DashboardView.orders,
-                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.orders,
+                      label: ref.t('navigation.orders'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.orders,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.orders,
                     ),
                     _SidebarItem(
                       icon: Icons.restaurant_menu,
-                      label: 'Menu',
-                      isActive: ref.watch(dashboardViewProvider) == DashboardView.menu,
-                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.menu,
+                      label: ref.t('navigation.menu'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.menu,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.menu,
                     ),
                     _SidebarItem(
                       icon: Icons.people,
-                      label: 'Waiters',
-                      isActive: ref.watch(dashboardViewProvider) == DashboardView.waiters,
-                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.waiters,
+                      label: ref.t('navigation.waiters'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.waiters,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.waiters,
                     ),
                     _SidebarItem(
                       icon: Icons.table_chart_outlined,
-                      label: 'Manage',
-                      isActive: ref.watch(dashboardViewProvider) == DashboardView.settings,
-                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.settings,
+                      label: ref.t('navigation.manage'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.settings,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.settings,
                     ),
                   ],
                   _SidebarItem(
                     icon: Icons.bar_chart,
-                    label: 'Reports',
-                    isActive: ref.watch(dashboardViewProvider) == DashboardView.reports,
-                    onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.reports,
+                    label: ref.t('navigation.reports'),
+                    isActive:
+                        ref.watch(dashboardViewProvider) ==
+                        DashboardView.reports,
+                    onTap: () =>
+                        ref.read(dashboardViewProvider.notifier).state =
+                            DashboardView.reports,
                   ),
                   // Director-only: settings & users
                   if (isDirector) ...[
                     _SidebarItem(
                       icon: Icons.manage_accounts_outlined,
-                      label: 'Users',
-                      isActive: ref.watch(dashboardViewProvider) == DashboardView.users,
-                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.users,
+                      label: ref.t('navigation.users'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.users,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.users,
                     ),
                     _SidebarItem(
                       icon: Icons.tune,
-                      label: 'Settings',
-                      isActive: ref.watch(dashboardViewProvider) == DashboardView.settings,
-                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.settings,
+                      label: ref.t('navigation.settings'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.settings,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.settings,
                     ),
                   ],
                   const Spacer(),
                   _SidebarItem(
                     icon: Icons.logout,
-                    label: 'Logout',
+                    label: ref.t('navigation.logout'),
                     onTap: () => ref.read(authProvider.notifier).logout(),
                   ),
                 ],
@@ -237,7 +293,8 @@ class DashboardScreen extends ConsumerWidget {
                         default:
                           // Default director view is reports
                           WidgetsBinding.instance.addPostFrameCallback((_) {
-                            ref.read(dashboardViewProvider.notifier).state = DashboardView.reports;
+                            ref.read(dashboardViewProvider.notifier).state =
+                                DashboardView.reports;
                           });
                           return const ReportsScreen();
                       }
@@ -245,7 +302,7 @@ class DashboardScreen extends ConsumerWidget {
                     // Cashier views
                     switch (view) {
                       case DashboardView.tables:
-                        return const _TableGridWithZoneFilter();
+                        return const OrderHistoryScreen(); // Temporary fallback
                       case DashboardView.orders:
                         return const OrderHistoryScreen();
                       case DashboardView.menu:
@@ -257,7 +314,7 @@ class DashboardScreen extends ConsumerWidget {
                       case DashboardView.reports:
                         return const ReportsScreen();
                       default:
-                        return const _TableGridWithZoneFilter();
+                        return const OrderHistoryScreen();
                     }
                   },
                 ),
@@ -277,6 +334,7 @@ class _TableGridWithZoneFilter extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(languageProvider);
     final zonesAsync = ref.watch(tableZonesProvider);
     final selectedZone = ref.watch(selectedZoneFilterProvider);
     final tablesAsync = ref.watch(tablesProvider);
@@ -295,10 +353,10 @@ class _TableGridWithZoneFilter extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: TextField(
                   controller: searchController,
-                  decoration: const InputDecoration(
-                    hintText: 'Search table by name...',
+                  decoration: InputDecoration(
+                    hintText: ref.t('tables.searchTable'),
                     border: InputBorder.none,
-                    icon: Icon(Icons.search, color: Colors.white54),
+                    icon: const Icon(Icons.search, color: Colors.white54),
                   ),
                   onChanged: (_) => (context as Element).markNeedsBuild(),
                 ),
@@ -318,22 +376,27 @@ class _TableGridWithZoneFilter extends ConsumerWidget {
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: ChoiceChip(
-                              label: const Text('All Zones'),
+                              label: Text(ref.t('common.all')),
                               selected: selectedZone == null,
                               selectedColor: const Color(0xFFD4AF37),
-                              onSelected: (_) => ref.read(selectedZoneFilterProvider.notifier).set(null),
+                              onSelected: (_) => ref
+                                  .read(selectedZoneFilterProvider.notifier)
+                                  .set(null),
                             ),
                           ),
-                          ...zones.map((z) => Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: ChoiceChip(
-                                  label: Text(z.name),
-                                  selected: selectedZone == z.id,
-                                  selectedColor: const Color(0xFFD4AF37),
-                                  onSelected: (_) => ref.read(selectedZoneFilterProvider.notifier).set(
-                                      selectedZone == z.id ? null : z.id),
-                                ),
-                              )),
+                          ...zones.map(
+                            (z) => Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(z.name),
+                                selected: selectedZone == z.id,
+                                selectedColor: const Color(0xFFD4AF37),
+                                onSelected: (_) => ref
+                                    .read(selectedZoneFilterProvider.notifier)
+                                    .set(selectedZone == z.id ? null : z.id),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -350,18 +413,20 @@ class _TableGridWithZoneFilter extends ConsumerWidget {
               final query = searchController.text.toLowerCase();
               final filtered = query.isEmpty
                   ? tables
-                  : tables.where((t) => t.name.toLowerCase().contains(query)).toList();
+                  : tables
+                        .where((t) => t.name.toLowerCase().contains(query))
+                        .toList();
 
               if (filtered.isEmpty) {
-                return const Center(
+                return Center(
                   child: Opacity(
                     opacity: 0.4,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.table_bar, size: 56),
-                        SizedBox(height: 12),
-                        Text('No tables found'),
+                        const Icon(Icons.table_bar, size: 56),
+                        const SizedBox(height: 12),
+                        Text(ref.t('tables.noTablesFound')),
                       ],
                     ),
                   ),
@@ -390,7 +455,9 @@ class _TableGridWithZoneFilter extends ConsumerWidget {
                     ),
                     child: InkWell(
                       onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => OrderScreen(table: table)),
+                        MaterialPageRoute(
+                          builder: (_) => OrderScreen(table: table),
+                        ),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -398,11 +465,13 @@ class _TableGridWithZoneFilter extends ConsumerWidget {
                           Stack(
                             alignment: Alignment.center,
                             children: [
-                              Icon(Icons.table_bar,
-                                  size: 40,
-                                  color: isOccupied
-                                      ? const Color(0xFFD4AF37)
-                                      : Colors.white24),
+                              Icon(
+                                Icons.table_bar,
+                                size: 40,
+                                color: isOccupied
+                                    ? const Color(0xFFD4AF37)
+                                    : Colors.white24,
+                              ),
                               if (isOccupied)
                                 Positioned(
                                   top: 0,
@@ -425,7 +494,9 @@ class _TableGridWithZoneFilter extends ConsumerWidget {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: isOccupied ? Colors.white : Colors.white70,
+                                color: isOccupied
+                                    ? Colors.white
+                                    : Colors.white70,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -433,12 +504,18 @@ class _TableGridWithZoneFilter extends ConsumerWidget {
                           if (table.zoneName != null)
                             Text(
                               table.zoneName!,
-                              style: const TextStyle(fontSize: 10, color: Colors.white38),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.white38,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           const SizedBox(height: 2),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: isOccupied
                                   ? const Color(0xFF006B3C).withOpacity(0.2)
@@ -446,7 +523,11 @@ class _TableGridWithZoneFilter extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              table.status.toString().split('.').last.toUpperCase(),
+                              table.status == TableStatus.available
+                                  ? ref.t('tables.statusAvailable')
+                                  : table.status == TableStatus.occupied
+                                  ? ref.t('tables.statusOccupied')
+                                  : ref.t('tables.statusReserved'),
                               style: TextStyle(
                                 fontSize: 8,
                                 fontWeight: FontWeight.bold,
@@ -465,7 +546,8 @@ class _TableGridWithZoneFilter extends ConsumerWidget {
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (e, _) =>
+                Center(child: Text('${ref.t('common.error')}: $e')),
           ),
         ),
       ],
@@ -500,9 +582,11 @@ class _SidebarItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 16.0),
           child: Column(
             children: [
-              Icon(icon,
-                  color: isActive ? const Color(0xFFD4AF37) : Colors.white54,
-                  size: 32),
+              Icon(
+                icon,
+                color: isActive ? const Color(0xFFD4AF37) : Colors.white54,
+                size: 32,
+              ),
               const SizedBox(height: 4),
               Text(
                 label,

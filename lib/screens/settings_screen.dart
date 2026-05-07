@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:st_george_pos/core/database_helper.dart';
 import 'package:st_george_pos/models/app_user.dart';
 import 'package:st_george_pos/providers/pos_providers.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
+import 'package:st_george_pos/locales/app_localizations.dart';
+import 'package:st_george_pos/core/database_helper.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -26,7 +27,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _loadSettings(Map<String, String> settings) {
     if (_serviceChargeController.text.isEmpty) {
-      _serviceChargeController.text = settings['service_charge_percent'] ?? '5.0';
+      _serviceChargeController.text =
+          settings['service_charge_percent'] ?? '5.0';
     }
     _discountEnabled = (settings['discount_enabled'] ?? 'true') == 'true';
   }
@@ -37,25 +39,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final charge = double.tryParse(_serviceChargeController.text);
     if (charge == null || charge < 0 || charge > 100) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Service charge must be between 0 and 100')),
+        SnackBar(content: Text(ref.t('settings.serviceChargeError'))),
       );
       return;
     }
     setState(() => _saving = true);
     final repo = ref.read(posRepositoryProvider);
-    await repo.setSetting('service_charge_percent', charge.toString(), currentUser.id!);
-    await repo.setSetting('discount_enabled', _discountEnabled.toString(), currentUser.id!);
+    await repo.setSetting(
+      'service_charge_percent',
+      charge.toString(),
+      currentUser.id!,
+    );
+    await repo.setSetting(
+      'discount_enabled',
+      _discountEnabled.toString(),
+      currentUser.id!,
+    );
     ref.invalidate(settingsProvider);
     setState(() => _saving = false);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Settings saved')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(ref.t('settings.saved'))));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(languageProvider);
     final settingsAsync = ref.watch(settingsProvider);
 
     return settingsAsync.when(
@@ -65,7 +76,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _SectionHeader(title: 'Billing'),
+              _SectionHeader(title: ref.t('settings.billing')),
               GlassContainer(
                 opacity: 0.05,
                 child: Padding(
@@ -73,16 +84,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Service Charge (%)', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                      Text(
+                        ref.t('settings.serviceChargeLabel'),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       SizedBox(
                         width: 200,
                         child: TextFormField(
                           controller: _serviceChargeController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d*'),
+                            ),
+                          ],
                           style: const TextStyle(color: Colors.white),
-                          decoration: _inputDec('e.g. 5.0'),
+                          decoration: _inputDec(
+                            ref.t('settings.serviceChargeHint'),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -91,10 +116,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           Switch(
                             value: _discountEnabled,
                             activeColor: const Color(0xFFD4AF37),
-                            onChanged: (v) => setState(() => _discountEnabled = v),
+                            onChanged: (v) =>
+                                setState(() => _discountEnabled = v),
                           ),
                           const SizedBox(width: 12),
-                          const Text('Enable discount on orders', style: TextStyle(color: Colors.white70)),
+                          Text(
+                            ref.t('settings.enableDiscount'),
+                            style: const TextStyle(color: Colors.white70),
+                          ),
                         ],
                       ),
                     ],
@@ -106,32 +135,56 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFD4AF37),
                   foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 onPressed: _saving ? null : _saveSettings,
                 child: _saving
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                    : const Text('Save Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.black,
+                        ),
+                      )
+                    : Text(
+                        ref.t('settings.save'),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
               ),
             ],
           ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Text('Error: $e'),
+      error: (e, _) => Text('${ref.t('common.error')}: $e'),
     );
   }
 
   InputDecoration _inputDec(String hint) => InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white38),
-        filled: true,
-        fillColor: Colors.white.withOpacity(0.06),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.white.withOpacity(0.1))),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.white.withOpacity(0.1))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFD4AF37))),
-      );
+    hintText: hint,
+    hintStyle: const TextStyle(color: Colors.white38),
+    filled: true,
+    fillColor: Colors.white.withOpacity(0.06),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: Color(0xFFD4AF37)),
+    ),
+  );
 }
 
 // ── User Management ───────────────────────────────────────────────────────
@@ -141,6 +194,7 @@ class UserManagementScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(languageProvider);
     final usersAsync = ref.watch(usersProvider);
 
     return Column(
@@ -149,14 +203,16 @@ class UserManagementScreen extends ConsumerWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const _SectionHeader(title: 'Users'),
+            _SectionHeader(title: ref.t('settings.users')),
             ElevatedButton.icon(
               icon: const Icon(Icons.person_add_outlined),
-              label: const Text('Add User'),
+              label: Text(ref.t('settings.addUser')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD4AF37),
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               onPressed: () => _showUserDialog(context, ref, null),
             ),
@@ -169,7 +225,8 @@ class UserManagementScreen extends ConsumerWidget {
               opacity: 0.05,
               child: ListView.separated(
                 itemCount: users.length,
-                separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 1),
+                separatorBuilder: (_, __) =>
+                    const Divider(color: Colors.white10, height: 1),
                 itemBuilder: (context, index) {
                   final u = users[index];
                   final isDirector = u.role == UserRole.director;
@@ -179,16 +236,27 @@ class UserManagementScreen extends ConsumerWidget {
                           ? const Color(0xFFD4AF37).withOpacity(0.2)
                           : Colors.white10,
                       child: Icon(
-                        isDirector ? Icons.admin_panel_settings_outlined : Icons.point_of_sale,
-                        color: isDirector ? const Color(0xFFD4AF37) : Colors.white54,
+                        isDirector
+                            ? Icons.admin_panel_settings_outlined
+                            : Icons.point_of_sale,
+                        color: isDirector
+                            ? const Color(0xFFD4AF37)
+                            : Colors.white54,
                         size: 20,
                       ),
                     ),
-                    title: Text(u.username, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    title: Text(
+                      u.username,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     subtitle: Text(
-                      isDirector ? 'Director' : 'Cashier',
+                      isDirector
+                          ? ref.t('settings.director')
+                          : ref.t('settings.cashier'),
                       style: TextStyle(
-                        color: isDirector ? const Color(0xFFD4AF37) : Colors.white38,
+                        color: isDirector
+                            ? const Color(0xFFD4AF37)
+                            : Colors.white38,
                         fontSize: 12,
                       ),
                     ),
@@ -196,28 +264,45 @@ class UserManagementScreen extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
-                            color: u.isActive ? const Color(0xFF006B3C).withOpacity(0.2) : Colors.white10,
+                            color: u.isActive
+                                ? const Color(0xFF006B3C).withOpacity(0.2)
+                                : Colors.white10,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            u.isActive ? 'ACTIVE' : 'INACTIVE',
+                            u.isActive
+                                ? ref.t('settings.active')
+                                : ref.t('settings.inactive'),
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
-                              color: u.isActive ? const Color(0xFF006B3C) : Colors.white38,
+                              color: u.isActive
+                                  ? const Color(0xFF006B3C)
+                                  : Colors.white38,
                               letterSpacing: 1,
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         IconButton(
-                          icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white54),
+                          icon: const Icon(
+                            Icons.edit_outlined,
+                            size: 18,
+                            color: Colors.white54,
+                          ),
                           onPressed: () => _showUserDialog(context, ref, u),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: Colors.redAccent,
+                          ),
                           onPressed: () => _confirmDelete(context, ref, u),
                         ),
                       ],
@@ -227,7 +312,7 @@ class UserManagementScreen extends ConsumerWidget {
               ),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text('Error: $e'),
+            error: (e, _) => Text('${ref.t('common.error')}: $e'),
           ),
         ),
       ],
@@ -235,7 +320,9 @@ class UserManagementScreen extends ConsumerWidget {
   }
 
   void _showUserDialog(BuildContext context, WidgetRef ref, AppUser? existing) {
-    final nameController = TextEditingController(text: existing?.username ?? '');
+    final nameController = TextEditingController(
+      text: existing?.username ?? '',
+    );
     final passController = TextEditingController();
     UserRole selectedRole = existing?.role ?? UserRole.cashier;
     bool isActive = existing?.isActive ?? true;
@@ -245,7 +332,11 @@ class UserManagementScreen extends ConsumerWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
-          title: Text(existing == null ? 'Add User' : 'Edit User'),
+          title: Text(
+            existing == null
+                ? ref.t('settings.addUser')
+                : ref.t('settings.editUser'),
+          ),
           content: SizedBox(
             width: 360,
             child: Column(
@@ -254,7 +345,10 @@ class UserManagementScreen extends ConsumerWidget {
                 TextField(
                   controller: nameController,
                   style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(labelText: 'Username', labelStyle: TextStyle(color: Colors.white54)),
+                  decoration: InputDecoration(
+                    labelText: ref.t('auth.username'),
+                    labelStyle: const TextStyle(color: Colors.white54),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -262,7 +356,9 @@ class UserManagementScreen extends ConsumerWidget {
                   obscureText: true,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
-                    labelText: existing == null ? 'Password' : 'New Password (leave blank to keep)',
+                    labelText: existing == null
+                        ? ref.t('auth.password')
+                        : ref.t('settings.newPasswordHint'),
                     labelStyle: const TextStyle(color: Colors.white54),
                   ),
                 ),
@@ -271,10 +367,19 @@ class UserManagementScreen extends ConsumerWidget {
                   value: selectedRole,
                   dropdownColor: const Color(0xFF1A1A1A),
                   style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(labelText: 'Role', labelStyle: TextStyle(color: Colors.white54)),
-                  items: const [
-                    DropdownMenuItem(value: UserRole.cashier, child: Text('Cashier')),
-                    DropdownMenuItem(value: UserRole.director, child: Text('Director')),
+                  decoration: InputDecoration(
+                    labelText: ref.t('settings.role'),
+                    labelStyle: const TextStyle(color: Colors.white54),
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                      value: UserRole.cashier,
+                      child: Text(ref.t('roles.cashier')),
+                    ),
+                    DropdownMenuItem(
+                      value: UserRole.director,
+                      child: Text(ref.t('roles.director')),
+                    ),
                   ],
                   onChanged: (v) => setDialogState(() => selectedRole = v!),
                 ),
@@ -287,16 +392,25 @@ class UserManagementScreen extends ConsumerWidget {
                       onChanged: (v) => setDialogState(() => isActive = v),
                     ),
                     const SizedBox(width: 8),
-                    const Text('Active', style: TextStyle(color: Colors.white70)),
+                    Text(
+                      ref.t('settings.active'),
+                      style: const TextStyle(color: Colors.white70),
+                    ),
                   ],
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(ref.t('common.cancel')),
+            ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD4AF37),
+                foregroundColor: Colors.black,
+              ),
               onPressed: () async {
                 if (nameController.text.isEmpty) return;
                 if (existing == null && passController.text.isEmpty) return;
@@ -319,7 +433,9 @@ class UserManagementScreen extends ConsumerWidget {
                 ref.invalidate(usersProvider);
                 Navigator.pop(ctx);
               },
-              child: Text(existing == null ? 'Add' : 'Save'),
+              child: Text(
+                existing == null ? ref.t('common.add') : ref.t('common.save'),
+              ),
             ),
           ],
         ),
@@ -332,18 +448,29 @@ class UserManagementScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('Delete User'),
-        content: Text('Remove "${user.username}"? This cannot be undone.'),
+        title: Text(ref.t('settings.deleteUser')),
+        content: Text(
+          ref.t(
+            'settings.deleteUserConfirm',
+            replacements: {'username': user.username},
+          ),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ref.t('common.cancel')),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
               await ref.read(posRepositoryProvider).deleteUser(user.id!);
               ref.invalidate(usersProvider);
               Navigator.pop(ctx);
             },
-            child: const Text('Delete'),
+            child: Text(ref.t('common.delete')),
           ),
         ],
       ),
@@ -361,7 +488,11 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 16),
       child: Text(
         title,
-        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.5,
+        ),
       ),
     );
   }

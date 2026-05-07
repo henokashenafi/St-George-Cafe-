@@ -15,6 +15,7 @@ class BillService {
     required double serviceCharge,
     required double serviceChargePercent,
     required double discountAmount,
+    required String Function(String key, {Map<String, String>? replacements}) t,
   }) async {
     final pdf = pw.Document();
     final dateStr = DateFormat('dd/MM/yyyy HH:mm').format(order.createdAt);
@@ -30,14 +31,22 @@ class BillService {
             pw.Center(
               child: pw.Column(
                 children: [
-                  pw.Text('ST GEORGE CAFE',
-                      style: pw.TextStyle(
-                          fontSize: 18, fontWeight: pw.FontWeight.bold)),
-                  pw.Text('Addis Ababa, Ethiopia'),
+                  pw.Text(
+                    t('bill.stGeorgeCafe'),
+                    style: pw.TextStyle(
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Text(t('bill.address')),
                   pw.SizedBox(height: 8),
-                  pw.Text('CUSTOMER BILL',
-                      style: pw.TextStyle(
-                          fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                  pw.Text(
+                    t('bill.title'),
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -46,92 +55,130 @@ class BillService {
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text('Date: $dateStr'),
-                pw.Text('Table: $tableName'),
+                pw.Text('${t('bill.date')}: $dateStr'),
+                pw.Text('${t('bill.table')}: $tableName'),
               ],
             ),
-            pw.Text('Waiter: $waiterName'),
-            pw.Text('Cashier: $cashierName'),
-            pw.Text('Order #${order.id}'),
+            pw.Text('${t('bill.waiter')}: $waiterName'),
+            pw.Text('${t('bill.cashier')}: $cashierName'),
+            pw.Text(t('bill.orderNumber', replacements: {'id': '${order.id}'})),
             pw.Divider(),
             pw.SizedBox(height: 4),
-            pw.Row(children: [
-              pw.Expanded(
+            pw.Row(
+              children: [
+                pw.Expanded(
                   flex: 3,
-                  child: pw.Text('Item',
-                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-              pw.Expanded(
-                  flex: 1,
-                  child: pw.Text('Qty',
-                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                      textAlign: pw.TextAlign.center)),
-              pw.Expanded(
-                  flex: 2,
-                  child: pw.Text('Price',
-                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                      textAlign: pw.TextAlign.right)),
-              pw.Expanded(
-                  flex: 2,
-                  child: pw.Text('Total',
-                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                      textAlign: pw.TextAlign.right)),
-            ]),
-            pw.SizedBox(height: 4),
-            ...items.map((item) => pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(vertical: 2),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Row(children: [
-                        pw.Expanded(
-                            flex: 3, child: pw.Text(item.productName)),
-                        pw.Expanded(
-                            flex: 1,
-                            child: pw.Text('${item.quantity}',
-                                textAlign: pw.TextAlign.center)),
-                        pw.Expanded(
-                            flex: 2,
-                            child: pw.Text(
-                                item.unitPrice.toStringAsFixed(2),
-                                textAlign: pw.TextAlign.right)),
-                        pw.Expanded(
-                            flex: 2,
-                            child: pw.Text(
-                                item.subtotal.toStringAsFixed(2),
-                                textAlign: pw.TextAlign.right)),
-                      ]),
-                      if (item.notes != null && item.notes!.isNotEmpty)
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.only(left: 8),
-                          child: pw.Text('* ${item.notes}',
-                              style: const pw.TextStyle(fontSize: 9)),
-                        ),
-                    ],
+                  child: pw.Text(
+                    t('bill.item'),
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                   ),
-                )),
+                ),
+                pw.Expanded(
+                  flex: 1,
+                  child: pw.Text(
+                    t('bill.qty'),
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                ),
+                pw.Expanded(
+                  flex: 2,
+                  child: pw.Text(
+                    t('bill.price'),
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                    textAlign: pw.TextAlign.right,
+                  ),
+                ),
+                pw.Expanded(
+                  flex: 2,
+                  child: pw.Text(
+                    t('bill.total'),
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                    textAlign: pw.TextAlign.right,
+                  ),
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 4),
+            ...items.map(
+              (item) => pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Row(
+                      children: [
+                        pw.Expanded(flex: 3, child: pw.Text(item.productName)),
+                        pw.Expanded(
+                          flex: 1,
+                          child: pw.Text(
+                            '${item.quantity}',
+                            textAlign: pw.TextAlign.center,
+                          ),
+                        ),
+                        pw.Expanded(
+                          flex: 2,
+                          child: pw.Text(
+                            item.unitPrice.toStringAsFixed(2),
+                            textAlign: pw.TextAlign.right,
+                          ),
+                        ),
+                        pw.Expanded(
+                          flex: 2,
+                          child: pw.Text(
+                            item.subtotal.toStringAsFixed(2),
+                            textAlign: pw.TextAlign.right,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (item.notes != null && item.notes!.isNotEmpty)
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.only(left: 8),
+                        child: pw.Text(
+                          '* ${item.notes}',
+                          style: const pw.TextStyle(fontSize: 9),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
             pw.Divider(),
             pw.SizedBox(height: 4),
-            _billRow('Subtotal:', subtotal.toStringAsFixed(2)),
+            _billRow('${t('bill.subtotal')}:', subtotal.toStringAsFixed(2)),
             _billRow(
-                'Service Charge (${serviceChargePercent.toStringAsFixed(0)}%):',
-                serviceCharge.toStringAsFixed(2)),
+              '${t('bill.serviceCharge', replacements: {'percent': serviceChargePercent.toStringAsFixed(0)})}:',
+              serviceCharge.toStringAsFixed(2),
+            ),
             if (discountAmount > 0)
-              _billRow('Discount:', '- ${discountAmount.toStringAsFixed(2)}'),
+              _billRow(
+                '${t('bill.discount')}:',
+                '- ${discountAmount.toStringAsFixed(2)}',
+              ),
             pw.SizedBox(height: 4),
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text('TOTAL:',
-                    style: pw.TextStyle(
-                        fontSize: 14, fontWeight: pw.FontWeight.bold)),
-                pw.Text(grandTotal.toStringAsFixed(2),
-                    style: pw.TextStyle(
-                        fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                pw.Text(
+                  '${t('bill.grandTotal')}:',
+                  style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.Text(
+                  grandTotal.toStringAsFixed(2),
+                  style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             pw.SizedBox(height: 20),
-            pw.Center(child: pw.Text('Thank you for visiting!')),
-            pw.Center(child: pw.Text('Please come again.')),
+            pw.Center(child: pw.Text(t('bill.thankYou'))),
+            pw.Center(child: pw.Text(t('bill.comeAgain'))),
           ],
         ),
       ),
@@ -144,7 +191,7 @@ class BillService {
   }
 
   static pw.Widget _billRow(String label, String value) => pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [pw.Text(label), pw.Text(value)],
-      );
+    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+    children: [pw.Text(label), pw.Text(value)],
+  );
 }

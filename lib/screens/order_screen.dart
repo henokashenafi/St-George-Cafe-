@@ -9,6 +9,7 @@ import 'package:st_george_pos/providers/pos_providers.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/models/waiter.dart';
 import 'package:st_george_pos/services/bill_service.dart';
+import 'package:st_george_pos/locales/app_localizations.dart';
 
 class OrderScreen extends ConsumerStatefulWidget {
   final TableModel table;
@@ -29,8 +30,11 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() =>
-        ref.read(activeOrderServiceProvider).loadOrderForTable(widget.table.id!));
+    Future.microtask(
+      () => ref
+          .read(activeOrderServiceProvider)
+          .loadOrderForTable(widget.table.id!),
+    );
   }
 
   @override
@@ -42,19 +46,24 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   void _addItem(Product product) {
     setState(() {
       final index = localItems.indexWhere(
-          (item) => item.productId == product.id && !item.isPrintedToKitchen);
+        (item) => item.productId == product.id && !item.isPrintedToKitchen,
+      );
       if (index != -1) {
         final e = localItems[index];
         localItems[index] = e.copyWith(
-            quantity: e.quantity + 1, subtotal: (e.quantity + 1) * e.unitPrice);
+          quantity: e.quantity + 1,
+          subtotal: (e.quantity + 1) * e.unitPrice,
+        );
       } else {
-        localItems.add(OrderItem(
-          productId: product.id!,
-          productName: product.name,
-          quantity: 1,
-          unitPrice: product.price,
-          subtotal: product.price,
-        ));
+        localItems.add(
+          OrderItem(
+            productId: product.id!,
+            productName: product.name,
+            quantity: 1,
+            unitPrice: product.price,
+            subtotal: product.price,
+          ),
+        );
       }
     });
   }
@@ -64,8 +73,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
       final item = localItems[index];
       final newQty = item.quantity + delta;
       if (newQty > 0) {
-        localItems[index] =
-            item.copyWith(quantity: newQty, subtotal: newQty * item.unitPrice);
+        localItems[index] = item.copyWith(
+          quantity: newQty,
+          subtotal: newQty * item.unitPrice,
+        );
       } else {
         localItems.removeAt(index);
       }
@@ -75,31 +86,40 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   void _removeItem(int index) => setState(() => localItems.removeAt(index));
 
   void _addNoteToItem(int index) async {
-    final controller =
-        TextEditingController(text: localItems[index].notes ?? '');
+    final controller = TextEditingController(
+      text: localItems[index].notes ?? '',
+    );
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: Text('Note for ${localItems[index].productName}'),
+        title: Text(
+          ref.t(
+            'order.noteFor',
+            replacements: {'product': localItems[index].productName},
+          ),
+        ),
         content: TextField(
           controller: controller,
           style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'e.g. no onions, extra sauce...',
-            hintStyle: TextStyle(color: Colors.white38),
+          decoration: InputDecoration(
+            hintText: ref.t('order.noteHint'),
+            hintStyle: const TextStyle(color: Colors.white38),
           ),
           autofocus: true,
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ref.t('common.cancel')),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD4AF37),
-                foregroundColor: Colors.black),
+              backgroundColor: const Color(0xFFD4AF37),
+              foregroundColor: Colors.black,
+            ),
             onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('Save'),
+            child: Text(ref.t('common.save')),
           ),
         ],
       ),
@@ -114,45 +134,56 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   double get _localTotal =>
       localItems.fold(0, (sum, item) => sum + item.subtotal);
 
-  Future<void> _sendToKitchen(OrderModel? existingOrder,
-      Map<String, String> settings) async {
+  Future<void> _sendToKitchen(
+    OrderModel? existingOrder,
+    Map<String, String> settings,
+  ) async {
     if (localItems.isEmpty) return;
     OrderModel? order = existingOrder;
     if (order == null) {
       if (selectedWaiter == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please select a waiter first')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(ref.t('order.selectWaiter'))));
         return;
       }
       final currentUser = ref.read(authProvider)!;
-      await ref.read(activeOrderServiceProvider).createNewOrder(OrderModel(
-        tableId: widget.table.id!,
-        waiterId: selectedWaiter!.id!,
-        cashierId: currentUser.id,
-        tableName: widget.table.name,
-        waiterName: selectedWaiter!.name,
-        cashierName: currentUser.username,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ));
+      await ref
+          .read(activeOrderServiceProvider)
+          .createNewOrder(
+            OrderModel(
+              tableId: widget.table.id!,
+              waiterId: selectedWaiter!.id!,
+              cashierId: currentUser.id,
+              tableName: widget.table.name,
+              waiterName: selectedWaiter!.name,
+              cashierName: currentUser.username,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ),
+          );
       order = ref.read(activeOrderProvider(widget.table.id!)).value;
     }
     if (order != null) {
-      final itemsToPrint =
-          localItems.map((e) => e.copyWith(isPrintedToKitchen: true)).toList();
+      final itemsToPrint = localItems
+          .map((e) => e.copyWith(isPrintedToKitchen: true))
+          .toList();
       await ref
           .read(activeOrderServiceProvider)
           .addItems(order.id!, itemsToPrint, widget.table.id!);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Order sent to kitchen')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(ref.t('order.sentToKitchen'))));
       }
     }
     setState(() => localItems = []);
   }
 
   Future<void> _printBill(
-      OrderModel order, Map<String, String> settings) async {
+    OrderModel order,
+    Map<String, String> settings,
+  ) async {
     final serviceChargePercent =
         double.tryParse(settings['service_charge_percent'] ?? '5') ?? 5;
     final discountEnabled = (settings['discount_enabled'] ?? 'true') == 'true';
@@ -163,19 +194,20 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
-          title: const Text('Unsent Items'),
-          content: const Text(
-              'You have new items not sent to kitchen. Send them first or discard?'),
+          title: Text(ref.t('order.unsentItems')),
+          content: Text(ref.t('order.unsentItemsMessage')),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Go Back')),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(ref.t('order.goBack')),
+            ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  foregroundColor: Colors.white),
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+              ),
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Discard & Bill'),
+              child: Text(ref.t('order.discardAndBill')),
             ),
           ],
         ),
@@ -214,8 +246,11 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         serviceCharge: serviceCharge,
         serviceChargePercent: serviceChargePercent,
         discountAmount: discount,
+        t: ref.t,
       );
-      await ref.read(posRepositoryProvider).completeOrder(
+      await ref
+          .read(posRepositoryProvider)
+          .completeOrder(
             order.id!,
             order.tableId,
             serviceCharge: serviceCharge,
@@ -228,6 +263,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(languageProvider);
     final activeOrderAsync = ref.watch(activeOrderProvider(widget.table.id!));
     final categoriesAsync = ref.watch(categoriesProvider);
     final productsAsync = ref.watch(productsProvider(selectedCategoryId));
@@ -237,8 +273,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('${widget.table.name} — ORDER',
-            style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)),
+        title: Text(
+          ref.t('order.title', replacements: {'table': widget.table.name}),
+          style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),
+        ),
         backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
       ),
@@ -266,10 +304,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: TextField(
                         controller: _searchController,
-                        decoration: const InputDecoration(
-                          hintText: 'Search products...',
+                        decoration: InputDecoration(
+                          hintText: ref.t('common.search'),
                           border: InputBorder.none,
-                          icon: Icon(Icons.search, color: Colors.white54),
+                          icon: const Icon(Icons.search, color: Colors.white54),
                         ),
                         onChanged: (v) => setState(() => searchQuery = v),
                       ),
@@ -286,7 +324,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                               return Padding(
                                 padding: const EdgeInsets.only(right: 8),
                                 child: ChoiceChip(
-                                  label: const Text('All'),
+                                  label: Text(ref.t('common.all')),
                                   selected: selectedCategoryId == null,
                                   selectedColor: const Color(0xFFD4AF37),
                                   onSelected: (_) =>
@@ -301,8 +339,9 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                 label: Text(cat.name),
                                 selected: selectedCategoryId == cat.id,
                                 selectedColor: const Color(0xFFD4AF37),
-                                onSelected: (s) => setState(() =>
-                                    selectedCategoryId = s ? cat.id : null),
+                                onSelected: (s) => setState(
+                                  () => selectedCategoryId = s ? cat.id : null,
+                                ),
                               ),
                             );
                           },
@@ -316,19 +355,21 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                       child: productsAsync.when(
                         data: (products) {
                           final filtered = products
-                              .where((p) => p.name
-                                  .toLowerCase()
-                                  .contains(searchQuery.toLowerCase()))
+                              .where(
+                                (p) => p.name.toLowerCase().contains(
+                                  searchQuery.toLowerCase(),
+                                ),
+                              )
                               .toList();
                           return GridView.builder(
                             padding: EdgeInsets.zero,
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              childAspectRatio: 0.9,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                            ),
+                                  crossAxisCount: 3,
+                                  childAspectRatio: 0.9,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                ),
                             itemCount: filtered.length,
                             itemBuilder: (_, i) {
                               final p = filtered[i];
@@ -343,15 +384,19 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                       Expanded(
                                         child: Container(
                                           decoration: BoxDecoration(
-                                            color: Colors.white
-                                                .withOpacity(0.05),
+                                            color: Colors.white.withOpacity(
+                                              0.05,
+                                            ),
                                             borderRadius:
                                                 const BorderRadius.vertical(
-                                                    top: Radius.circular(16)),
+                                                  top: Radius.circular(16),
+                                                ),
                                           ),
-                                          child: const Icon(Icons.fastfood,
-                                              size: 44,
-                                              color: Color(0xFFD4AF37)),
+                                          child: const Icon(
+                                            Icons.fastfood,
+                                            size: 44,
+                                            color: Color(0xFFD4AF37),
+                                          ),
                                         ),
                                       ),
                                       Padding(
@@ -360,20 +405,23 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            Text(p.name,
-                                                style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 14),
-                                                maxLines: 1,
-                                                overflow:
-                                                    TextOverflow.ellipsis),
                                             Text(
-                                                '${p.price.toStringAsFixed(2)} ETB',
-                                                style: const TextStyle(
-                                                    color: Color(0xFFD4AF37),
-                                                    fontWeight:
-                                                        FontWeight.w600,
-                                                    fontSize: 12)),
+                                              p.name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            Text(
+                                              '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                              style: const TextStyle(
+                                                color: Color(0xFFD4AF37),
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 12,
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -407,46 +455,65 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                       padding: const EdgeInsets.all(20),
                       child: Row(
                         children: [
-                          const Icon(Icons.shopping_cart,
-                              color: Color(0xFFD4AF37)),
+                          const Icon(
+                            Icons.shopping_cart,
+                            color: Color(0xFFD4AF37),
+                          ),
                           const SizedBox(width: 10),
-                          const Text('CURRENT ORDER',
-                              style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1)),
+                          Text(
+                            ref.t('order.currentOrder'),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1,
+                            ),
+                          ),
                           const Spacer(),
-                          Text(widget.table.name,
-                              style: const TextStyle(color: Colors.white54)),
+                          Text(
+                            widget.table.name,
+                            style: const TextStyle(color: Colors.white54),
+                          ),
                         ],
                       ),
                     ),
                     // Waiter selector
                     Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 4),
+                        horizontal: 20,
+                        vertical: 4,
+                      ),
                       child: waitersAsync.when(
                         data: (waiters) => DropdownButtonHideUnderline(
                           child: DropdownButton<Waiter>(
-                            hint: const Text('Select Waiter',
-                                style: TextStyle(color: Colors.white54)),
+                            hint: Text(
+                              ref.t('order.selectWaiter'),
+                              style: TextStyle(color: Colors.white54),
+                            ),
                             value: selectedWaiter,
                             dropdownColor: const Color(0xFF121212),
                             style: const TextStyle(color: Colors.white),
                             isExpanded: true,
-                            icon: const Icon(Icons.person,
-                                color: Colors.white38, size: 20),
+                            icon: const Icon(
+                              Icons.person,
+                              color: Colors.white38,
+                              size: 20,
+                            ),
                             items: waiters
-                                .map((w) => DropdownMenuItem(
-                                    value: w, child: Text(w.name)))
+                                .map(
+                                  (w) => DropdownMenuItem(
+                                    value: w,
+                                    child: Text(w.name),
+                                  ),
+                                )
                                 .toList(),
                             onChanged: (w) =>
                                 setState(() => selectedWaiter = w),
                           ),
                         ),
                         loading: () => const LinearProgressIndicator(),
-                        error: (_, __) =>
-                            const Text('Error loading waiters'),
+                        error: (_, __) => Text(
+                          '${ref.t('common.error')}: ${ref.t('order.loadingWaiters')}',
+                        ),
                       ),
                     ),
                     const Divider(color: Colors.white10, height: 1),
@@ -459,59 +526,66 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                             padding: const EdgeInsets.all(14),
                             children: [
                               if (savedItems.isNotEmpty) ...[
-                                const Text('SENT TO KITCHEN',
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white38)),
+                                Text(
+                                  ref.t('order.sentToKitchen'),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white38,
+                                  ),
+                                ),
                                 const SizedBox(height: 6),
-                                ...savedItems.map((item) => _CartItemTile(
-                                      item: item,
-                                      isSaved: true,
-                                      onVoid: () async {
-                                        await ref
-                                            .read(posRepositoryProvider)
-                                            .voidOrderItem(
-                                                item.id!, order!.id!);
-                                        ref.invalidate(activeOrderProvider(
-                                            widget.table.id!));
-                                      },
-                                    )),
+                                ...savedItems.map(
+                                  (item) => _CartItemTile(
+                                    item: item,
+                                    isSaved: true,
+                                    onVoid: () async {
+                                      await ref
+                                          .read(posRepositoryProvider)
+                                          .voidOrderItem(item.id!, order!.id!);
+                                      ref.invalidate(
+                                        activeOrderProvider(widget.table.id!),
+                                      );
+                                    },
+                                  ),
+                                ),
                                 const SizedBox(height: 16),
                               ],
                               if (localItems.isNotEmpty) ...[
-                                const Text('NEW ITEMS',
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFFD4AF37))),
+                                Text(
+                                  ref.t('order.newItems'),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFD4AF37),
+                                  ),
+                                ),
                                 const SizedBox(height: 6),
-                                ...localItems.asMap().entries.map((e) =>
-                                    _CartItemTile(
-                                      item: e.value,
-                                      isSaved: false,
-                                      onAdd: () =>
-                                          _updateQuantity(e.key, 1),
-                                      onRemove: () =>
-                                          _updateQuantity(e.key, -1),
-                                      onDelete: () => _removeItem(e.key),
-                                      onNote: () => _addNoteToItem(e.key),
-                                    )),
+                                ...localItems.asMap().entries.map(
+                                  (e) => _CartItemTile(
+                                    item: e.value,
+                                    isSaved: false,
+                                    onAdd: () => _updateQuantity(e.key, 1),
+                                    onRemove: () => _updateQuantity(e.key, -1),
+                                    onDelete: () => _removeItem(e.key),
+                                    onNote: () => _addNoteToItem(e.key),
+                                  ),
+                                ),
                               ],
                               if (savedItems.isEmpty && localItems.isEmpty)
-                                const Padding(
-                                  padding: EdgeInsets.only(top: 80),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 80),
                                   child: Center(
                                     child: Opacity(
                                       opacity: 0.3,
                                       child: Column(
                                         children: [
-                                          Icon(
-                                              Icons
-                                                  .shopping_basket_outlined,
-                                              size: 56),
-                                          SizedBox(height: 12),
-                                          Text('Cart is empty'),
+                                          const Icon(
+                                            Icons.shopping_basket_outlined,
+                                            size: 56,
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Text(ref.t('order.cartEmpty')),
                                         ],
                                       ),
                                     ),
@@ -528,15 +602,18 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                     // Summary & actions
                     settingsAsync.when(
                       data: (settings) {
-                        final scPercent = double.tryParse(
-                                settings['service_charge_percent'] ?? '5') ??
+                        final scPercent =
+                            double.tryParse(
+                              settings['service_charge_percent'] ?? '5',
+                            ) ??
                             5;
                         return Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
                             color: Colors.black.withOpacity(0.3),
                             borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(24)),
+                              top: Radius.circular(24),
+                            ),
                           ),
                           child: Column(
                             children: [
@@ -545,36 +622,52 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                   final subtotal =
                                       (order?.totalAmount ?? 0) + _localTotal;
                                   final sc = subtotal * (scPercent / 100);
-                                  final total =
-                                      subtotal + sc - _discountAmount;
+                                  final total = subtotal + sc - _discountAmount;
                                   return Column(
                                     children: [
-                                      _SummaryRow('Subtotal',
-                                          '${subtotal.toStringAsFixed(2)} ETB'),
                                       _SummaryRow(
-                                          'Service (${scPercent.toStringAsFixed(0)}%)',
-                                          '${sc.toStringAsFixed(2)} ETB'),
+                                        ref.t('order.subtotal'),
+                                        '${subtotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                      ),
+                                      _SummaryRow(
+                                        ref.t(
+                                          'order.service',
+                                          replacements: {
+                                            'percent': scPercent
+                                                .toStringAsFixed(0),
+                                          },
+                                        ),
+                                        '${sc.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                      ),
                                       if (_discountAmount > 0)
-                                        _SummaryRow('Discount',
-                                            '- ${_discountAmount.toStringAsFixed(2)} ETB',
-                                            color: Colors.greenAccent),
+                                        _SummaryRow(
+                                          ref.t('order.discount'),
+                                          '- ${_discountAmount.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                          color: Colors.greenAccent,
+                                        ),
                                       const Divider(
-                                          color: Colors.white10, height: 16),
+                                        color: Colors.white10,
+                                        height: 16,
+                                      ),
                                       Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceBetween,
                                         children: [
-                                          const Text('TOTAL',
-                                              style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight:
-                                                      FontWeight.w900)),
                                           Text(
-                                              '${total.toStringAsFixed(2)} ETB',
-                                              style: const TextStyle(
-                                                  fontSize: 24,
-                                                  fontWeight: FontWeight.w900,
-                                                  color: Color(0xFFD4AF37))),
+                                            ref.t('order.total'),
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                          Text(
+                                            '${total.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                            style: const TextStyle(
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.w900,
+                                              color: Color(0xFFD4AF37),
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ],
@@ -588,42 +681,59 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                   Expanded(
                                     child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            Colors.orange.withOpacity(0.85),
+                                        backgroundColor: Colors.orange
+                                            .withOpacity(0.85),
                                         foregroundColor: Colors.white,
                                         padding: const EdgeInsets.symmetric(
-                                            vertical: 18),
+                                          vertical: 18,
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(14)),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
                                       ),
                                       onPressed: () => _sendToKitchen(
-                                          activeOrderAsync.value, settings),
-                                      child: const Text('SEND TO KITCHEN',
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.bold)),
+                                        activeOrderAsync.value,
+                                        settings,
+                                      ),
+                                      child: Text(
+                                        ref.t('order.sendToKitchen'),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            const Color(0xFF006B3C),
+                                        backgroundColor: const Color(
+                                          0xFF006B3C,
+                                        ),
                                         foregroundColor: Colors.white,
                                         padding: const EdgeInsets.symmetric(
-                                            vertical: 18),
+                                          vertical: 18,
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(14)),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
                                       ),
                                       onPressed: activeOrderAsync.value == null
                                           ? null
                                           : () => _printBill(
-                                              activeOrderAsync.value!, settings),
-                                      child: const Text('PRINT BILL',
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.bold)),
+                                              activeOrderAsync.value!,
+                                              settings,
+                                            ),
+                                      child: Text(
+                                        ref.t('order.printBill'),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -661,8 +771,14 @@ class _SummaryRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: color ?? Colors.white54, fontSize: 13)),
-          Text(value, style: TextStyle(color: color ?? Colors.white70, fontSize: 13)),
+          Text(
+            label,
+            style: TextStyle(color: color ?? Colors.white54, fontSize: 13),
+          ),
+          Text(
+            value,
+            style: TextStyle(color: color ?? Colors.white70, fontSize: 13),
+          ),
         ],
       ),
     );
@@ -671,7 +787,7 @@ class _SummaryRow extends StatelessWidget {
 
 // ── Bill confirm dialog ───────────────────────────────────────────────────
 
-class _BillConfirmDialog extends StatefulWidget {
+class _BillConfirmDialog extends ConsumerStatefulWidget {
   final OrderModel order;
   final double subtotal;
   final double serviceCharge;
@@ -691,10 +807,10 @@ class _BillConfirmDialog extends StatefulWidget {
   });
 
   @override
-  State<_BillConfirmDialog> createState() => _BillConfirmDialogState();
+  ConsumerState<_BillConfirmDialog> createState() => _BillConfirmDialogState();
 }
 
-class _BillConfirmDialogState extends State<_BillConfirmDialog> {
+class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
   late TextEditingController _discountCtrl;
   double _discount = 0;
 
@@ -702,8 +818,9 @@ class _BillConfirmDialogState extends State<_BillConfirmDialog> {
   void initState() {
     super.initState();
     _discount = widget.initialDiscount;
-    _discountCtrl =
-        TextEditingController(text: _discount > 0 ? _discount.toString() : '');
+    _discountCtrl = TextEditingController(
+      text: _discount > 0 ? _discount.toString() : '',
+    );
   }
 
   @override
@@ -714,35 +831,48 @@ class _BillConfirmDialogState extends State<_BillConfirmDialog> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(languageProvider);
     final total = widget.subtotal + widget.serviceCharge - _discount;
     return AlertDialog(
       backgroundColor: const Color(0xFF1A1A1A),
-      title: const Text('Confirm Bill'),
+      title: Text(ref.t('order.confirmBill')),
       content: SizedBox(
         width: 340,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _Row('Items', '${widget.order.items.length}'),
-            _Row('Subtotal', '${widget.subtotal.toStringAsFixed(2)} ETB'),
+            _Row(ref.t('order.items'), '${widget.order.items.length}'),
             _Row(
-                'Service (${widget.serviceChargePercent.toStringAsFixed(0)}%)',
-                '${widget.serviceCharge.toStringAsFixed(2)} ETB'),
+              ref.t('order.subtotal'),
+              '${widget.subtotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
+            ),
+            _Row(
+              ref.t(
+                'order.service',
+                replacements: {
+                  'percent': widget.serviceChargePercent.toStringAsFixed(0),
+                },
+              ),
+              '${widget.serviceCharge.toStringAsFixed(2)} ${ref.t('common.currency')}',
+            ),
             if (widget.discountEnabled) ...[
               const SizedBox(height: 12),
               TextField(
                 controller: _discountCtrl,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
                 ],
                 style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Discount (ETB)',
-                  labelStyle: TextStyle(color: Colors.white54),
-                  prefixIcon:
-                      Icon(Icons.discount_outlined, color: Colors.white38),
+                decoration: InputDecoration(
+                  labelText: ref.t('common.discountLabel'),
+                  labelStyle: const TextStyle(color: Colors.white54),
+                  prefixIcon: const Icon(
+                    Icons.discount_outlined,
+                    color: Colors.white38,
+                  ),
                 ),
                 onChanged: (v) {
                   setState(() {
@@ -757,14 +887,21 @@ class _BillConfirmDialogState extends State<_BillConfirmDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('TOTAL',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
-                Text('${total.toStringAsFixed(2)} ETB',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                        color: Color(0xFFD4AF37))),
+                Text(
+                  ref.t('order.total'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  '${total.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                    color: Color(0xFFD4AF37),
+                  ),
+                ),
               ],
             ),
           ],
@@ -772,34 +909,36 @@ class _BillConfirmDialogState extends State<_BillConfirmDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel')),
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(ref.t('common.cancel')),
+        ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF006B3C),
-              foregroundColor: Colors.white),
+            backgroundColor: const Color(0xFF006B3C),
+            foregroundColor: Colors.white,
+          ),
           onPressed: () => Navigator.pop(context, true),
-          child: const Text('Print & Close Table'),
+          child: Text(ref.t('order.confirmAndPrint')),
         ),
       ],
     );
   }
 
   Widget _Row(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: const TextStyle(color: Colors.white54)),
-            Text(value, style: const TextStyle(color: Colors.white70)),
-          ],
-        ),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white54)),
+        Text(value, style: const TextStyle(color: Colors.white70)),
+      ],
+    ),
+  );
 }
 
 // ── Cart item tile ────────────────────────────────────────────────────────
 
-class _CartItemTile extends StatelessWidget {
+class _CartItemTile extends ConsumerWidget {
   final OrderItem item;
   final bool isSaved;
   final VoidCallback? onAdd;
@@ -819,7 +958,8 @@ class _CartItemTile extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(languageProvider);
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.all(10),
@@ -843,26 +983,38 @@ class _CartItemTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item.productName,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 13)),
                     Text(
-                        '${item.unitPrice.toStringAsFixed(2)} × ${item.quantity}',
-                        style: const TextStyle(
-                            fontSize: 11, color: Colors.white54)),
+                      item.productName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Text(
+                      '${item.unitPrice.toStringAsFixed(2)} × ${item.quantity}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white54,
+                      ),
+                    ),
                     if (item.notes != null && item.notes!.isNotEmpty)
-                      Text('📝 ${item.notes}',
-                          style: const TextStyle(
-                              fontSize: 11, color: Colors.white38)),
+                      Text(
+                        '${ref.t('common.notes')}: ${item.notes}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.white38,
+                        ),
+                      ),
                   ],
                 ),
               ),
-              Text(item.subtotal.toStringAsFixed(2),
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isSaved
-                          ? Colors.white70
-                          : const Color(0xFFD4AF37))),
+              Text(
+                item.subtotal.toStringAsFixed(2),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isSaved ? Colors.white70 : const Color(0xFFD4AF37),
+                ),
+              ),
               const SizedBox(width: 8),
               if (!isSaved) ...[
                 _IconBtn(Icons.note_alt_outlined, onNote, Colors.white38),
@@ -870,10 +1022,17 @@ class _CartItemTile extends StatelessWidget {
                 _IconBtn(Icons.add_circle_outline, onAdd, Colors.white54),
                 _IconBtn(Icons.delete_outline, onDelete, Colors.redAccent),
               ] else ...[
-                _IconBtn(Icons.remove_circle_outline, onVoid, Colors.redAccent,
-                    tooltip: 'Void item'),
-                const Icon(Icons.check_circle,
-                    color: Color(0xFF006B3C), size: 18),
+                _IconBtn(
+                  Icons.remove_circle_outline,
+                  onVoid,
+                  Colors.redAccent,
+                  tooltip: ref.t('order.voidItem'),
+                ),
+                const Icon(
+                  Icons.check_circle,
+                  color: Color(0xFF006B3C),
+                  size: 18,
+                ),
               ],
             ],
           ),
