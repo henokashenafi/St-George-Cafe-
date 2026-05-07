@@ -8,14 +8,14 @@ import 'package:st_george_pos/models/waiter.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/services/pos_repository.dart';
-import 'package:st_george_pos/services/print_service.dart';
+import 'package:st_george_pos/models/settings.dart';
 
-enum DashboardView { tables, orders, menu, waiters, reports, settings, users }
+enum DashboardView { home, tables, orders, menu, waiters, reports, settings, users }
 
 // ── Repository & Services ─────────────────────────────────────────────────
 
 final posRepositoryProvider = Provider((ref) => PosRepository());
-final printServiceProvider = Provider((ref) => PrintService());
+
 
 // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -40,16 +40,21 @@ final authProvider = NotifierProvider<AuthNotifier, AppUser?>(AuthNotifier.new);
 
 // ── Settings ──────────────────────────────────────────────────────────────
 
-final settingsProvider = FutureProvider<Map<String, String>>((ref) async {
+final appSettingsProvider = FutureProvider<Map<String, String>>((ref) async {
   final repo = ref.watch(posRepositoryProvider);
   return await repo.getSettings();
+});
+
+final cafeSettingsProvider = FutureProvider<CafeSettings>((ref) async {
+  final repo = ref.watch(posRepositoryProvider);
+  return await repo.getCafeSettings();
 });
 
 // ── Dashboard View ────────────────────────────────────────────────────────
 
 class DashboardViewNotifier extends Notifier<DashboardView> {
   @override
-  DashboardView build() => DashboardView.tables;
+  DashboardView build() => DashboardView.home;
   set state(DashboardView view) => super.state = view;
 }
 
@@ -124,8 +129,8 @@ class DateFilterNotifier extends Notifier<DateFilter> {
 final reportDateFilterProvider =
     NotifierProvider<DateFilterNotifier, DateFilter>(DateFilterNotifier.new);
 
-final activeOrderProvider =
-    FutureProvider.autoDispose.family<OrderModel?, int>((ref, tableId) async {
+final activeOrderProvider = FutureProvider.autoDispose.family<OrderModel?, int?>((ref, tableId) async {
+  if (tableId == null) return null;
   final repo = ref.watch(posRepositoryProvider);
   return await repo.getActiveOrderForTable(tableId);
 });
@@ -143,18 +148,30 @@ class ActiveOrderService {
 
   PosRepository get repo => ref.read(posRepositoryProvider);
 
-  Future<void> loadOrderForTable(int tableId) async {
-    ref.invalidate(activeOrderProvider(tableId));
+  Future<void> refreshTableData(int? tableId) async {
+    if (tableId != null) {
+      ref.invalidate(activeOrderProvider(tableId));
+    }
+    ref.invalidate(tablesProvider);
+    ref.invalidate(ordersProvider); // To refresh dashboard stats
   }
 
-  Future<void> createNewOrder(OrderModel order) async {
-    await repo.createOrder(order);
-    await loadOrderForTable(order.tableId);
+  Future<OrderModel?> createNewOrder(OrderModel order) async {
+    final id = await repo.createOrder(order);
+    await refreshTableData(order.tableId);
+    // Fetch the newly created order
+    return await repo.getActiveOrderForTable(order.tableId);
   }
 
-  Future<void> addItems(int orderId, List<OrderItem> items, int tableId) async {
-    await repo.addItemsToOrder(orderId, items);
-    await loadOrderForTable(tableId);
+  Future<int> addItems(int orderId, List<OrderItem> items, int? tableId) async {
+    final roundNumber = await repo.addItemsToOrder(orderId, items);
+    await refreshTableData(tableId);
+    return roundNumber;
+  }
+
+  Future<void> saveSettings(CafeSettings settings) async {
+    await repo.saveSettings(settings);
+    ref.invalidate(cafeSettingsProvider);
   }
 }
 

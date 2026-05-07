@@ -45,7 +45,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final repo = ref.read(posRepositoryProvider);
     await repo.setSetting('service_charge_percent', charge.toString(), currentUser.id!);
     await repo.setSetting('discount_enabled', _discountEnabled.toString(), currentUser.id!);
-    ref.invalidate(settingsProvider);
+    ref.invalidate(appSettingsProvider);
     setState(() => _saving = false);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -56,7 +56,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final settingsAsync = ref.watch(settingsProvider);
+    final settingsAsync = ref.watch(appSettingsProvider);
 
     return settingsAsync.when(
       data: (settings) {

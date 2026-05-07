@@ -11,43 +11,19 @@ import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/models/order_item.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:st_george_pos/models/settings.dart';
 
 class PosRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
   static Map<String, List<Map<String, dynamic>>> _webStorage = {
-    'categories': [
-      {'id': 1, 'name': 'Food'},
-      {'id': 2, 'name': 'Drinks'},
-      {'id': 3, 'name': 'Desserts'},
-    ],
-    'products': [
-      {'id': 1, 'category_id': 1, 'name': 'Classic Burger', 'price': 250.0},
-      {'id': 2, 'category_id': 1, 'name': 'Cheeseburger', 'price': 280.0},
-      {'id': 3, 'category_id': 1, 'name': 'Veggie Pizza', 'price': 450.0},
-      {'id': 4, 'category_id': 2, 'name': 'Cappuccino', 'price': 65.0},
-      {'id': 5, 'category_id': 2, 'name': 'Fresh Orange Juice', 'price': 120.0},
-      {'id': 6, 'category_id': 3, 'name': 'Chocolate Cake', 'price': 180.0},
-    ],
-    'tables': List.generate(20, (i) => {
-      'id': i + 1,
-      'name': 'Table ${i + 1}',
-      'status': 'available',
-      'zone_id': null,
-    }),
+    'categories': [],
+    'products': [],
+    'tables': [],
     'table_zones': [],
     'orders': [],
     'order_items': [],
-    'waiters': [
-      {'id': 1, 'name': 'Waiter 1', 'code': 'W1'},
-      {'id': 2, 'name': 'Waiter 2', 'code': 'W2'},
-      {'id': 3, 'name': 'Waiter 3', 'code': 'W3'},
-      {'id': 4, 'name': 'Waiter 4', 'code': 'W4'},
-      {'id': 5, 'name': 'Waiter 5', 'code': 'W5'},
-      {'id': 6, 'name': 'Waiter 6', 'code': 'W6'},
-      {'id': 7, 'name': 'Waiter 7', 'code': 'W7'},
-      {'id': 8, 'name': 'Waiter 8', 'code': 'W8'},
-    ],
+    'waiters': [],
     'users': [
       {'id': 1, 'username': 'Director', 'password_hash': DatabaseHelper.hashPassword('director123'), 'role': 'director', 'is_active': 1},
       {'id': 2, 'username': 'Cashier 1', 'password_hash': DatabaseHelper.hashPassword('cashier123'), 'role': 'cashier', 'is_active': 1},
@@ -432,19 +408,28 @@ class PosRepository {
 
   Future<int> createOrder(OrderModel order) async {
     if (kIsWeb) {
-      final orderId = (_webStorage['orders']!.isEmpty ? 0 : _webStorage['orders']!.map((o) => o['id'] as int).reduce((a, b) => a > b ? a : b)) + 1;
+      final orderId = (_webStorage['orders']!.isEmpty
+              ? 0
+              : _webStorage['orders']!
+                  .map((o) => o['id'] as int)
+                  .reduce((a, b) => a > b ? a : b)) +
+          1;
       final newOrder = order.toMap();
       newOrder['id'] = orderId;
       _webStorage['orders']!.add(newOrder);
-      await updateTableStatus(order.tableId, TableStatus.occupied);
+      if (order.tableId != 0) {
+        await updateTableStatus(order.tableId, TableStatus.occupied);
+      }
       await _saveWebData();
       return orderId;
     }
     final db = await _dbHelper.database;
     return await db.transaction((txn) async {
       final orderId = await txn.insert('orders', order.toMap());
-      await txn.update('tables', {'status': 'occupied'},
-          where: 'id = ?', whereArgs: [order.tableId]);
+      if (order.tableId != 0) {
+        await txn.update('tables', {'status': 'occupied'},
+            where: 'id = ?', whereArgs: [order.tableId]);
+      }
       return orderId;
     });
   }
@@ -485,35 +470,55 @@ class PosRepository {
     return OrderModel.fromMap(maps.first, items: items);
   }
 
-  Future<void> addItemsToOrder(int orderId, List<OrderItem> items, [int? tableId]) async {
+  Future<int> addItemsToOrder(int orderId, List<OrderItem> items,
+      [int? tableId]) async {
+    int nextRound = 1;
     if (kIsWeb) {
+      final existingItems = _webStorage['order_items']!.where((i) => i['order_id'] == orderId);
+      if (existingItems.isNotEmpty) {
+        nextRound = existingItems.map((i) => (i['kitchen_round'] as int?) ?? 0).reduce((a, b) => a > b ? a : b) + 1;
+      }
       for (var item in items) {
-        final itemMap = item.copyWith(orderId: orderId).toMap();
-        itemMap['id'] = (_webStorage['order_items']!.isEmpty ? 0 : _webStorage['order_items']!.map((i) => i['id'] as int).reduce((a, b) => a > b ? a : b)) + 1;
+        final itemMap = item.copyWith(orderId: orderId, kitchenRound: nextRound).toMap();
+        itemMap['id'] = (_webStorage['order_items']!.isEmpty
+                ? 0
+                : _webStorage['order_items']!
+                    .map((i) => i['id'] as int)
+                    .reduce((a, b) => a > b ? a : b)) +
+            1;
         _webStorage['order_items']!.add(itemMap);
       }
       await _saveWebData();
-      return;
+      return nextRound;
     }
     final db = await _dbHelper.database;
-    await db.transaction((txn) async {
+    return await db.transaction((txn) async {
+      final List<Map<String, dynamic>> roundResult = await txn.rawQuery(
+          'SELECT MAX(kitchen_round) as max_round FROM order_items WHERE order_id = ?',
+          [orderId]);
+      nextRound = ((roundResult.first['max_round'] as int?) ?? 0) + 1;
+
       double totalToAdd = 0;
       for (var item in items) {
-        await txn.insert('order_items', item.copyWith(orderId: orderId).toMap());
+        await txn.insert('order_items', 
+          item.copyWith(orderId: orderId, kitchenRound: nextRound).toMap());
         totalToAdd += item.subtotal;
       }
       await txn.execute(
         'UPDATE orders SET total_amount = total_amount + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
         [totalToAdd, orderId],
       );
+      return nextRound;
     });
   }
 
   Future<void> markItemsAsPrinted(List<int> itemIds) async {
     if (kIsWeb) {
       for (var id in itemIds) {
-        final index = _webStorage['order_items']!.indexWhere((e) => e['id'] == id);
-        if (index != -1) _webStorage['order_items']![index]['is_printed_to_kitchen'] = 1;
+        final index =
+            _webStorage['order_items']!.indexWhere((e) => e['id'] == id);
+        if (index != -1)
+          _webStorage['order_items']![index]['is_printed_to_kitchen'] = 1;
       }
       await _saveWebData();
       return;
@@ -525,35 +530,62 @@ class PosRepository {
 
   Future<void> voidOrderItem(int itemId, int orderId) async {
     if (kIsWeb) {
-      final item = _webStorage['order_items']!.firstWhere((i) => i['id'] == itemId, orElse: () => {});
+      final item = _webStorage['order_items']!
+          .firstWhere((i) => i['id'] == itemId, orElse: () => {});
       if (item.isEmpty) return;
       final subtotal = (item['subtotal'] as num).toDouble();
+      final tableId = _webStorage['orders']!.firstWhere((o) => o['id'] == orderId)['table_id'];
+      
       _webStorage['order_items']!.removeWhere((i) => i['id'] == itemId);
+      
+      final remainingCount = _webStorage['order_items']!.where((i) => i['order_id'] == orderId).length;
       final oIndex = _webStorage['orders']!.indexWhere((o) => o['id'] == orderId);
-      if (oIndex != -1) {
+      
+      if (remainingCount == 0 && oIndex != -1) {
+        _webStorage['orders']!.removeAt(oIndex);
+        await updateTableStatus(tableId, TableStatus.available);
+      } else if (oIndex != -1) {
         _webStorage['orders']![oIndex]['total_amount'] =
-            ((_webStorage['orders']![oIndex]['total_amount'] as num).toDouble() - subtotal).clamp(0, double.infinity);
+            ((_webStorage['orders']![oIndex]['total_amount'] as num)
+                        .toDouble() -
+                    subtotal)
+                .clamp(0, double.infinity);
       }
       await _saveWebData();
       return;
     }
     final db = await _dbHelper.database;
     await db.transaction((txn) async {
-      final rows = await txn.query('order_items', where: 'id = ?', whereArgs: [itemId]);
+      final rows = await txn
+          .query('order_items', where: 'id = ?', whereArgs: [itemId]);
       if (rows.isEmpty) return;
       final subtotal = (rows.first['subtotal'] as num).toDouble();
+      
+      final orderRows = await txn.query('orders', columns: ['table_id'], where: 'id = ?', whereArgs: [orderId]);
+      final tableId = orderRows.first['table_id'] as int;
+
       await txn.delete('order_items', where: 'id = ?', whereArgs: [itemId]);
-      await txn.execute(
-        'UPDATE orders SET total_amount = MAX(0, total_amount - ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        [subtotal, orderId],
-      );
+      
+      final remainingRows = await txn.rawQuery('SELECT COUNT(*) as count FROM order_items WHERE order_id = ?', [orderId]);
+      final remainingCount = remainingRows.first['count'] as int;
+
+      if (remainingCount == 0) {
+        await txn.delete('orders', where: 'id = ?', whereArgs: [orderId]);
+        await txn.update('tables', {'status': 'available'}, where: 'id = ?', whereArgs: [tableId]);
+      } else {
+        await txn.execute(
+          'UPDATE orders SET total_amount = MAX(0, total_amount - ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [subtotal, orderId],
+        );
+      }
     });
   }
 
   Future<void> completeOrder(int orderId, int tableId,
       {double serviceCharge = 0, double discountAmount = 0}) async {
     if (kIsWeb) {
-      final oIndex = _webStorage['orders']!.indexWhere((o) => o['id'] == orderId);
+      final oIndex =
+          _webStorage['orders']!.indexWhere((o) => o['id'] == orderId);
       if (oIndex != -1) {
         _webStorage['orders']![oIndex]['status'] = 'completed';
         _webStorage['orders']![oIndex]['service_charge'] = serviceCharge;
@@ -583,20 +615,28 @@ class PosRepository {
 
   Future<void> updateProduct(Product product) async {
     if (kIsWeb) {
-      final index = _webStorage['products']!.indexWhere((p) => p['id'] == product.id);
+      final index =
+          _webStorage['products']!.indexWhere((p) => p['id'] == product.id);
       if (index != -1) _webStorage['products']![index] = product.toMap();
       await _saveWebData();
       return;
     }
     final db = await _dbHelper.database;
-    await db.update('products', product.toMap(), where: 'id = ?', whereArgs: [product.id]);
+    await db.update('products', product.toMap(),
+        where: 'id = ?', whereArgs: [product.id]);
   }
 
   Future<List<OrderModel>> getAllOrders({DateTime? from, DateTime? to}) async {
     if (kIsWeb) {
       var list = _webStorage['orders']!;
-      if (from != null) list = list.where((o) => DateTime.parse(o['created_at']).isAfter(from)).toList();
-      if (to != null) list = list.where((o) => DateTime.parse(o['created_at']).isBefore(to)).toList();
+      if (from != null)
+        list = list
+            .where((o) => DateTime.parse(o['created_at']).isAfter(from))
+            .toList();
+      if (to != null)
+        list = list
+            .where((o) => DateTime.parse(o['created_at']).isBefore(to))
+            .toList();
       return list.map((o) {
         final items = _webStorage['order_items']!
             .where((i) => i['order_id'] == o['id'])
@@ -640,5 +680,20 @@ class PosRepository {
       orders.add(OrderModel.fromMap(map, items: items));
     }
     return orders;
+  }
+
+  // CafeSettings logic
+  Future<CafeSettings> getCafeSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString('cafe_settings');
+    if (data != null) {
+      return CafeSettings.fromMap(jsonDecode(data));
+    }
+    return CafeSettings();
+  }
+
+  Future<void> saveSettings(CafeSettings settings) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('cafe_settings', jsonEncode(settings.toMap()));
   }
 }

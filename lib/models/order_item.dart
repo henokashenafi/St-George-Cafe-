@@ -2,12 +2,13 @@ class OrderItem {
   final int? id;
   final int? orderId;
   final int productId;
-  final String productName; // Added for convenience in UI
+  final String productName;
   final int quantity;
   final double unitPrice;
   final double subtotal;
   final bool isPrintedToKitchen;
   final String? notes;
+  final int kitchenRound; // 0 = unsent, 1+ = round number sent to kitchen
 
   OrderItem({
     this.id,
@@ -19,6 +20,7 @@ class OrderItem {
     required this.subtotal,
     this.isPrintedToKitchen = false,
     this.notes,
+    this.kitchenRound = 0,
   });
 
   OrderItem copyWith({
@@ -28,17 +30,19 @@ class OrderItem {
     double? subtotal,
     bool? isPrintedToKitchen,
     String? notes,
+    int? kitchenRound,
   }) {
     return OrderItem(
       id: id ?? this.id,
       orderId: orderId ?? this.orderId,
-      productId: this.productId,
-      productName: this.productName,
+      productId: productId,
+      productName: productName,
       quantity: quantity ?? this.quantity,
-      unitPrice: this.unitPrice,
+      unitPrice: unitPrice,
       subtotal: subtotal ?? this.subtotal,
       isPrintedToKitchen: isPrintedToKitchen ?? this.isPrintedToKitchen,
       notes: notes ?? this.notes,
+      kitchenRound: kitchenRound ?? this.kitchenRound,
     );
   }
 
@@ -49,10 +53,11 @@ class OrderItem {
       productId: map['product_id'],
       productName: map['product_name'] ?? '',
       quantity: map['quantity'],
-      unitPrice: map['unit_price'],
-      subtotal: map['subtotal'],
+      unitPrice: (map['unit_price'] as num).toDouble(),
+      subtotal: (map['subtotal'] as num).toDouble(),
       isPrintedToKitchen: map['is_printed_to_kitchen'] == 1,
       notes: map['notes'],
+      kitchenRound: (map['kitchen_round'] as int?) ?? 0,
     );
   }
 
@@ -66,6 +71,7 @@ class OrderItem {
       'subtotal': subtotal,
       'is_printed_to_kitchen': isPrintedToKitchen ? 1 : 0,
       'notes': notes,
+      'kitchen_round': kitchenRound,
     };
   }
 }

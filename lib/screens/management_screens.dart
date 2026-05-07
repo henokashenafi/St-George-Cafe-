@@ -3,12 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:st_george_pos/models/category.dart';
 import 'package:st_george_pos/models/product.dart';
-import 'package:st_george_pos/models/waiter.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/providers/pos_providers.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/services/bill_service.dart';
 import 'package:intl/intl.dart';
+
 
 // ── Menu Management ───────────────────────────────────────────────────────
 
@@ -133,6 +133,14 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
 
   void _showCategoryDialog(BuildContext context, Category? existing) {
     final ctrl = TextEditingController(text: existing?.name ?? '');
+
+    Future<void> doSave(BuildContext ctx) async {
+      if (ctrl.text.trim().isEmpty) return;
+      await ref.read(posRepositoryProvider).addCategory(ctrl.text.trim());
+      ref.invalidate(categoriesProvider);
+      Navigator.pop(ctx);
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -140,10 +148,12 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
         title: Text(existing == null ? 'Add Category' : 'Edit Category'),
         content: TextField(
             controller: ctrl,
+            autofocus: true,
             style: const TextStyle(color: Colors.white),
             decoration: const InputDecoration(
                 labelText: 'Name',
-                labelStyle: TextStyle(color: Colors.white54))),
+                labelStyle: TextStyle(color: Colors.white54)),
+            onSubmitted: (_) => doSave(ctx)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -152,14 +162,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD4AF37),
                 foregroundColor: Colors.black),
-            onPressed: () async {
-              if (ctrl.text.trim().isEmpty) return;
-              await ref
-                  .read(posRepositoryProvider)
-                  .addCategory(ctrl.text.trim());
-              ref.invalidate(categoriesProvider);
-              Navigator.pop(ctx);
-            },
+            onPressed: () => doSave(ctx),
             child: const Text('Save'),
           ),
         ],
@@ -171,6 +174,29 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final priceCtrl = TextEditingController(
         text: existing != null ? existing.price.toString() : '');
+    final priceFocus = FocusNode();
+
+    Future<void> doSave(BuildContext ctx) async {
+      final price = double.tryParse(priceCtrl.text);
+      if (nameCtrl.text.trim().isEmpty || price == null) return;
+      final repo = ref.read(posRepositoryProvider);
+      if (existing == null) {
+        await repo.addProduct(Product(
+            categoryId: selectedCategoryId!,
+            name: nameCtrl.text.trim(),
+            price: price));
+      } else {
+        await repo.updateProduct(Product(
+            id: existing.id,
+            categoryId: existing.categoryId,
+            name: nameCtrl.text.trim(),
+            price: price));
+      }
+      ref.invalidate(productsProvider(selectedCategoryId));
+      ref.invalidate(productsProvider(null));
+      Navigator.pop(ctx);
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -183,22 +209,28 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             children: [
               TextField(
                   controller: nameCtrl,
+                  autofocus: true,
                   style: const TextStyle(color: Colors.white),
+                  textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(
                       labelText: 'Name',
-                      labelStyle: TextStyle(color: Colors.white54))),
+                      labelStyle: TextStyle(color: Colors.white54)),
+                  onSubmitted: (_) => priceFocus.requestFocus()),
               const SizedBox(height: 12),
               TextField(
                 controller: priceCtrl,
+                focusNode: priceFocus,
                 style: const TextStyle(color: Colors.white),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
+                textInputAction: TextInputAction.done,
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))
                 ],
                 decoration: const InputDecoration(
                     labelText: 'Price (ETB)',
                     labelStyle: TextStyle(color: Colors.white54)),
+                onSubmitted: (_) => doSave(ctx),
               ),
             ],
           ),
@@ -211,26 +243,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD4AF37),
                 foregroundColor: Colors.black),
-            onPressed: () async {
-              final price = double.tryParse(priceCtrl.text);
-              if (nameCtrl.text.trim().isEmpty || price == null) return;
-              final repo = ref.read(posRepositoryProvider);
-              if (existing == null) {
-                await repo.addProduct(Product(
-                    categoryId: selectedCategoryId!,
-                    name: nameCtrl.text.trim(),
-                    price: price));
-              } else {
-                await repo.updateProduct(Product(
-                    id: existing.id,
-                    categoryId: existing.categoryId,
-                    name: nameCtrl.text.trim(),
-                    price: price));
-              }
-              ref.invalidate(productsProvider(selectedCategoryId));
-              ref.invalidate(productsProvider(null));
-              Navigator.pop(ctx);
-            },
+            onPressed: () => doSave(ctx),
             child: const Text('Save'),
           ),
         ],
@@ -304,6 +317,14 @@ class WaiterManagementScreen extends ConsumerWidget {
 
   void _showAddWaiterDialog(BuildContext context, WidgetRef ref) {
     final ctrl = TextEditingController();
+
+    Future<void> doAdd(BuildContext ctx) async {
+      if (ctrl.text.trim().isEmpty) return;
+      await ref.read(posRepositoryProvider).addWaiter(ctrl.text.trim());
+      ref.refresh(waitersProvider);
+      Navigator.pop(ctx);
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -311,10 +332,12 @@ class WaiterManagementScreen extends ConsumerWidget {
         title: const Text('Add Waiter'),
         content: TextField(
             controller: ctrl,
+            autofocus: true,
             style: const TextStyle(color: Colors.white),
             decoration: const InputDecoration(
                 labelText: 'Waiter Name',
-                labelStyle: TextStyle(color: Colors.white54))),
+                labelStyle: TextStyle(color: Colors.white54)),
+            onSubmitted: (_) => doAdd(ctx)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -323,15 +346,7 @@ class WaiterManagementScreen extends ConsumerWidget {
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD4AF37),
                 foregroundColor: Colors.black),
-            onPressed: () async {
-              if (ctrl.text.trim().isNotEmpty) {
-                await ref
-                    .read(posRepositoryProvider)
-                    .addWaiter(ctrl.text.trim());
-                ref.refresh(waitersProvider);
-                Navigator.pop(ctx);
-              }
-            },
+            onPressed: () => doAdd(ctx),
             child: const Text('Add'),
           ),
         ],
@@ -381,7 +396,7 @@ class OrderHistoryScreen extends ConsumerWidget {
                       itemBuilder: (_, i) {
                         final o = list[i];
                         final settings =
-                            ref.watch(settingsProvider).value ?? {};
+                            ref.watch(appSettingsProvider).value ?? {};
                         final scPercent = double.tryParse(
                                 settings['service_charge_percent'] ?? '5') ??
                             5;
@@ -399,21 +414,20 @@ class OrderHistoryScreen extends ConsumerWidget {
                                       fontWeight: FontWeight.bold)),
                               const SizedBox(width: 8),
                               if (o.status == OrderStatus.completed)
-                                IconButton(
+                                 IconButton(
                                   icon: const Icon(Icons.print_outlined,
                                       size: 20, color: Colors.white54),
                                   tooltip: 'Reprint bill',
-                                  onPressed: () =>
-                                      BillService.generateAndDownloadBill(
-                                    order: o,
-                                    items: o.items,
-                                    tableName: o.tableName,
-                                    waiterName: o.waiterName,
-                                    cashierName: o.cashierName,
-                                    serviceCharge: o.serviceCharge,
-                                    serviceChargePercent: scPercent,
-                                    discountAmount: o.discountAmount,
-                                  ),
+                                  onPressed: () async {
+                                    final settings = await ref.read(cafeSettingsProvider.future);
+                                    BillService.generateAndDownloadBill(
+                                      order: o,
+                                      items: o.items,
+                                      settings: settings,
+                                      cashierName: o.cashierName,
+                                      serviceChargePercent: scPercent,
+                                    );
+                                  },
                                 ),
                             ],
                           ),
@@ -740,6 +754,145 @@ class _ReportCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// --- Settings Screen ---
+class SettingsScreen extends ConsumerStatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _nameController;
+  late TextEditingController _addressController;
+  late TextEditingController _phoneController;
+  late TextEditingController _vatNumberController;
+  late TextEditingController _vatRateController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _addressController = TextEditingController();
+    _phoneController = TextEditingController();
+    _vatNumberController = TextEditingController();
+    _vatRateController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _addressController.dispose();
+    _phoneController.dispose();
+    _vatNumberController.dispose();
+    _vatRateController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settingsAsync = ref.watch(cafeSettingsProvider);
+
+    return settingsAsync.when(
+      data: (settings) {
+        _nameController.text = settings.name;
+        _addressController.text = settings.address;
+        _phoneController.text = settings.phone;
+        _vatNumberController.text = settings.vatNumber;
+        _vatRateController.text = settings.vatRate.toString();
+
+        return GlassContainer(
+          opacity: 0.05,
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('SYSTEM SETTINGS', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 2, color: Color(0xFFD4AF37))),
+                    const SizedBox(height: 32),
+                    _buildSectionTitle('Cafe Information'),
+                    _buildTextField('Cafe Name', _nameController),
+                    _buildTextField('Address', _addressController),
+                    _buildTextField('Phone Number', _phoneController),
+                    const SizedBox(height: 24),
+                    _buildSectionTitle('Tax & Currency'),
+                    Row(
+                      children: [
+                        Expanded(child: _buildTextField('VAT Number', _vatNumberController)),
+                        const SizedBox(width: 24),
+                        Expanded(child: _buildTextField('VAT Rate (%)', _vatRateController, isNumber: true)),
+                      ],
+                    ),
+                    const SizedBox(height: 48),
+                    Center(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFD4AF37),
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 20),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: () async {
+                          if (_formKey.currentState!.validate()) {
+                            final newSettings = settings.copyWith(
+                              name: _nameController.text,
+                              address: _addressController.text,
+                              phone: _phoneController.text,
+                              vatNumber: _vatNumberController.text,
+                              vatRate: double.tryParse(_vatRateController.text) ?? 5.0,
+                            );
+                            await ref.read(activeOrderServiceProvider).saveSettings(newSettings);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Settings saved successfully')),
+                            );
+                          }
+                        },
+                        child: const Text('SAVE CHANGES', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error: $e')),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Text(title.toUpperCase(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white38, letterSpacing: 1.5)),
+    );
+  }
+
+  Widget _buildTextField(String label, TextEditingController controller, {bool isNumber = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20.0),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.white54),
+          filled: true,
+          fillColor: Colors.white.withOpacity(0.05),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFD4AF37))),
+        ),
+        validator: (value) => value == null || value.isEmpty ? 'Field required' : null,
       ),
     );
   }

@@ -10,9 +10,10 @@ import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/models/waiter.dart';
 import 'package:st_george_pos/services/bill_service.dart';
 
+
 class OrderScreen extends ConsumerStatefulWidget {
-  final TableModel table;
-  const OrderScreen({super.key, required this.table});
+  final TableModel? table;
+  const OrderScreen({super.key, this.table});
 
   @override
   ConsumerState<OrderScreen> createState() => _OrderScreenState();
@@ -25,12 +26,17 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   final TextEditingController _searchController = TextEditingController();
   Waiter? selectedWaiter;
   double _discountAmount = 0;
+  TableModel? selectedTable;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() =>
-        ref.read(activeOrderServiceProvider).loadOrderForTable(widget.table.id!));
+    selectedTable = widget.table;
+    Future.microtask(() {
+      if (selectedTable != null) {
+        ref.read(activeOrderServiceProvider).refreshTableData(selectedTable!.id!);
+      }
+    });
   }
 
   @override
@@ -84,12 +90,13 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         title: Text('Note for ${localItems[index].productName}'),
         content: TextField(
           controller: controller,
+          autofocus: true,
           style: const TextStyle(color: Colors.white),
           decoration: const InputDecoration(
             hintText: 'e.g. no onions, extra sauce...',
             hintStyle: TextStyle(color: Colors.white38),
           ),
-          autofocus: true,
+          onSubmitted: (v) => Navigator.pop(ctx, v),
         ),
         actions: [
           TextButton(
@@ -117,6 +124,12 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   Future<void> _sendToKitchen(OrderModel? existingOrder,
       Map<String, String> settings) async {
     if (localItems.isEmpty) return;
+    
+    if (selectedTable == null) {
+      await _showTableSelectionDialog(context);
+      if (selectedTable == null) return;
+    }
+
     OrderModel? order = existingOrder;
     if (order == null) {
       if (selectedWaiter == null) {
@@ -125,24 +138,32 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         return;
       }
       final currentUser = ref.read(authProvider)!;
-      await ref.read(activeOrderServiceProvider).createNewOrder(OrderModel(
-        tableId: widget.table.id!,
+      order = await ref.read(activeOrderServiceProvider).createNewOrder(OrderModel(
+        tableId: selectedTable!.id!,
         waiterId: selectedWaiter!.id!,
         cashierId: currentUser.id,
-        tableName: widget.table.name,
+        tableName: selectedTable!.name,
         waiterName: selectedWaiter!.name,
         cashierName: currentUser.username,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       ));
-      order = ref.read(activeOrderProvider(widget.table.id!)).value;
     }
     if (order != null) {
       final itemsToPrint =
           localItems.map((e) => e.copyWith(isPrintedToKitchen: true)).toList();
-      await ref
+      
+      final roundNumber = await ref
           .read(activeOrderServiceProvider)
-          .addItems(order.id!, itemsToPrint, widget.table.id!);
+          .addItems(order.id!, itemsToPrint, selectedTable!.id!);
+      
+      // Kitchen Printing PDF
+      await BillService.generateKitchenSlip(
+        order: order, 
+        items: localItems, 
+        roundNumber: roundNumber
+      );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Order sent to kitchen')));
@@ -205,15 +226,13 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     );
 
     if (confirmed == true) {
+      final settings = await ref.read(cafeSettingsProvider.future);
       await BillService.generateAndDownloadBill(
-        order: order,
+        order: order.copyWith(discountAmount: discount), // Ensure order has the discount
         items: order.items,
-        tableName: widget.table.name,
-        waiterName: order.waiterName,
+        settings: settings,
         cashierName: order.cashierName,
-        serviceCharge: serviceCharge,
         serviceChargePercent: serviceChargePercent,
-        discountAmount: discount,
       );
       await ref.read(posRepositoryProvider).completeOrder(
             order.id!,
@@ -228,16 +247,16 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final activeOrderAsync = ref.watch(activeOrderProvider(widget.table.id!));
+    final activeOrderAsync = ref.watch(activeOrderProvider(selectedTable?.id));
     final categoriesAsync = ref.watch(categoriesProvider);
     final productsAsync = ref.watch(productsProvider(selectedCategoryId));
     final waitersAsync = ref.watch(waitersProvider);
-    final settingsAsync = ref.watch(settingsProvider);
+    final settingsAsync = ref.watch(appSettingsProvider);
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('${widget.table.name} — ORDER',
+        title: Text('${selectedTable?.name ?? 'NEW'} — ORDER',
             style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)),
         backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
@@ -416,8 +435,15 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 1)),
                           const Spacer(),
-                          Text(widget.table.name,
-                              style: const TextStyle(color: Colors.white54)),
+                          if (selectedTable != null)
+                            Text(selectedTable!.name,
+                                style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold))
+                          else
+                            TextButton.icon(
+                              onPressed: () => _showTableSelectionDialog(context),
+                              icon: const Icon(Icons.table_restaurant, size: 16, color: Color(0xFFD4AF37)),
+                              label: const Text('SELECT TABLE', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 12)),
+                            ),
                         ],
                       ),
                     ),
@@ -473,8 +499,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                             .read(posRepositoryProvider)
                                             .voidOrderItem(
                                                 item.id!, order!.id!);
-                                        ref.invalidate(activeOrderProvider(
-                                            widget.table.id!));
+                                        if (selectedTable != null) {
+                                          await ref.read(activeOrderServiceProvider)
+                                              .refreshTableData(selectedTable!.id!);
+                                        }
                                       },
                                     )),
                                 const SizedBox(height: 16),
@@ -643,6 +671,43 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _showTableSelectionDialog(BuildContext context) async {
+    final tables = await ref.read(posRepositoryProvider).getTables();
+    final availableTables =
+        tables.where((t) => t.status == TableStatus.available).toList();
+
+    if (!mounted) return;
+
+    final result = await showDialog<TableModel>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: const Text('Select Table'),
+        content: SizedBox(
+          width: 400,
+          height: 300,
+          child: availableTables.isEmpty
+              ? const Center(child: Text('No available tables'))
+              : ListView.builder(
+                  itemCount: availableTables.length,
+                  itemBuilder: (ctx, i) => ListTile(
+                    title: Text(availableTables[i].name),
+                    subtitle: Text(availableTables[i].zoneName ?? 'No Zone'),
+                    onTap: () => Navigator.pop(ctx, availableTables[i]),
+                  ),
+                ),
+        ),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        selectedTable = result;
+      });
+      ref.read(activeOrderServiceProvider).refreshTableData(result.id!);
+    }
   }
 }
 
