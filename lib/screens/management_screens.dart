@@ -8,6 +8,8 @@ import 'package:st_george_pos/providers/pos_providers.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/services/bill_service.dart';
 import 'package:intl/intl.dart';
+import 'package:st_george_pos/models/table_model.dart';
+import 'package:st_george_pos/screens/order_screen.dart';
 
 
 // ── Menu Management ───────────────────────────────────────────────────────
@@ -451,6 +453,85 @@ class OrderHistoryScreen extends ConsumerWidget {
                     ),
               loading: () =>
                   const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Text('$e'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Held Orders (Pending Invoices) ────────────────────────────────────────
+
+class HeldOrdersScreen extends ConsumerWidget {
+  const HeldOrdersScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final orders = ref.watch(ordersProvider);
+
+    return GlassContainer(
+      opacity: 0.05,
+      child: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Icon(Icons.pause_circle_outline, color: Color(0xFFD4AF37), size: 28),
+                SizedBox(width: 12),
+                Text('Held Invoices (Pending)',
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5)),
+              ],
+            ),
+          ),
+          Expanded(
+            child: orders.when(
+              data: (list) {
+                final pending = list.where((o) => o.status == OrderStatus.pending).toList();
+                if (pending.isEmpty) {
+                  return const Center(
+                    child: Opacity(
+                        opacity: 0.4, child: Text('No held orders found')),
+                  );
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: pending.length,
+                  itemBuilder: (_, i) {
+                    final o = pending[i];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      color: Colors.white.withOpacity(0.05),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: ListTile(
+                        onTap: () {
+                          // Jump to the table order screen
+                          final table = TableModel(id: o.tableId, name: o.tableName, status: TableStatus.occupied);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => OrderScreen(table: table)),
+                          );
+                        },
+                        title: Text('${o.tableName} — Order #${o.id}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('Waiter: ${o.waiterName}  |  Items: ${o.items.length}  |  Started: ${DateFormat('HH:mm').format(o.createdAt)}'),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text('${o.totalAmount.toStringAsFixed(2)} ETB', style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold, fontSize: 16)),
+                            const Text('Tap to open', style: TextStyle(color: Colors.white24, fontSize: 10)),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Text('$e'),
             ),
           ),
