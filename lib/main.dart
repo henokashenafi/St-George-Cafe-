@@ -56,10 +56,10 @@ class MyApp extends StatelessWidget {
           surface: const Color(0xFF1A1A1A),
           background: const Color(0xFF121212),
         ),
-        cardTheme: CardThemeData(
-          color: const Color(0xFF1E1E1E),
+        cardTheme: const CardThemeData(
+          color: Color(0xFF1E1E1E),
           elevation: 4,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         ),
       ),
       home: const _AuthGate(),
@@ -112,7 +112,7 @@ class DashboardScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.zero,
               border: Border.all(color: Colors.white12),
             ),
             child: Row(
@@ -130,10 +130,6 @@ class DashboardScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => ref.refresh(tablesProvider),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.settings,
           ),
           const SizedBox(width: 8),
         ],
@@ -157,63 +153,70 @@ class DashboardScreen extends ConsumerWidget {
                 color: Colors.black.withOpacity(0.3),
                 border: const Border(right: BorderSide(color: Colors.white10)),
               ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 80),
-                  _SidebarItem(
-                    icon: Icons.dashboard_outlined,
-                    label: 'Dashboard',
-                    isActive: ref.watch(dashboardViewProvider) == DashboardView.home,
-                    onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.home,
-                  ),
-                  if (!isDirector) ...[
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 60),
                     _SidebarItem(
-                      icon: Icons.history,
-                      label: 'Orders',
-                      isActive: ref.watch(dashboardViewProvider) == DashboardView.orders,
-                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.orders,
+                      icon: Icons.dashboard_outlined,
+                      label: 'Dashboard',
+                      isActive: ref.watch(dashboardViewProvider) == DashboardView.home,
+                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.home,
                     ),
+                    if (!isDirector) ...[
+                      _SidebarItem(
+                        icon: Icons.history,
+                        label: 'History',
+                        isActive: ref.watch(dashboardViewProvider) == DashboardView.orders,
+                        onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.orders,
+                      ),
+                      _SidebarItem(
+                        icon: Icons.pause_circle_outline,
+                        label: 'Held',
+                        isActive: ref.watch(dashboardViewProvider) == DashboardView.heldOrders,
+                        onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.heldOrders,
+                      ),
+                      _SidebarItem(
+                        icon: Icons.restaurant_menu,
+                        label: 'Menu',
+                        isActive: ref.watch(dashboardViewProvider) == DashboardView.menu,
+                        onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.menu,
+                      ),
+                      _SidebarItem(
+                        icon: Icons.people,
+                        label: 'Waiters',
+                        isActive: ref.watch(dashboardViewProvider) == DashboardView.waiters,
+                        onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.waiters,
+                      ),
+                    ],
                     _SidebarItem(
-                      icon: Icons.restaurant_menu,
-                      label: 'Menu',
-                      isActive: ref.watch(dashboardViewProvider) == DashboardView.menu,
-                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.menu,
+                      icon: Icons.bar_chart,
+                      label: 'Reports',
+                      isActive: ref.watch(dashboardViewProvider) == DashboardView.reports,
+                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.reports,
                     ),
+                    if (isDirector) ...[
+                      _SidebarItem(
+                        icon: Icons.manage_accounts_outlined,
+                        label: 'Users',
+                        isActive: ref.watch(dashboardViewProvider) == DashboardView.users,
+                        onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.users,
+                      ),
+                    ],
                     _SidebarItem(
-                      icon: Icons.people,
-                      label: 'Waiters',
-                      isActive: ref.watch(dashboardViewProvider) == DashboardView.waiters,
-                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.waiters,
+                      icon: Icons.tune,
+                      label: 'Settings',
+                      isActive: ref.watch(dashboardViewProvider) == DashboardView.settings,
+                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.settings,
+                    ),
+                    const SizedBox(height: 40),
+                    _SidebarItem(
+                      icon: Icons.logout,
+                      label: 'Logout',
+                      onTap: () => ref.read(authProvider.notifier).logout(),
                     ),
                   ],
-                  _SidebarItem(
-                    icon: Icons.bar_chart,
-                    label: 'Reports',
-                    isActive: ref.watch(dashboardViewProvider) == DashboardView.reports,
-                    onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.reports,
-                  ),
-                  // Director-only: users
-                  if (isDirector) ...[
-                    _SidebarItem(
-                      icon: Icons.manage_accounts_outlined,
-                      label: 'Users',
-                      isActive: ref.watch(dashboardViewProvider) == DashboardView.users,
-                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.users,
-                    ),
-                  ],
-                  _SidebarItem(
-                    icon: Icons.tune,
-                    label: 'Settings',
-                    isActive: ref.watch(dashboardViewProvider) == DashboardView.settings,
-                    onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.settings,
-                  ),
-                  const Spacer(),
-                  _SidebarItem(
-                    icon: Icons.logout,
-                    label: 'Logout',
-                    onTap: () => ref.read(authProvider.notifier).logout(),
-                  ),
-                ],
+                ),
               ),
             ),
             // Main content
@@ -276,6 +279,8 @@ class DashboardScreen extends ConsumerWidget {
         return const DashboardHomeScreen(key: ValueKey('home'));
       case DashboardView.orders:
         return const OrderHistoryScreen(key: ValueKey('orders'));
+      case DashboardView.heldOrders:
+        return const HeldOrdersScreen(key: ValueKey('held_orders'));
       case DashboardView.menu:
         return const MenuManagementScreen(key: ValueKey('menu'));
       case DashboardView.waiters:
@@ -520,7 +525,7 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
         height: screenSize.height * 0.88,
         decoration: BoxDecoration(
           color: const Color(0xFF0F1117),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.zero,
           border: Border.all(color: Colors.white.withOpacity(0.07)),
           boxShadow: [
             BoxShadow(
@@ -531,7 +536,7 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.zero,
           child: Row(
             children: [
               // ── Zone Sidebar ─────────────────────────────────────────
@@ -960,7 +965,7 @@ class _ProfessionalTableCardState extends State<_ProfessionalTableCard> {
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: accentColor.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.zero,
                         border: Border.all(color: accentColor.withOpacity(0.3)),
                       ),
                       child: Row(
@@ -1042,7 +1047,7 @@ class _SidebarItem extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.zero,
         child: Container(
           width: 80,
           padding: const EdgeInsets.symmetric(vertical: 16.0),

@@ -94,10 +94,12 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                       itemBuilder: (_, i) {
                         final p = products[i];
                         return ListTile(
-                          leading: const CircleAvatar(
-                              backgroundColor: Colors.white10,
-                              child: Icon(Icons.fastfood,
-                                  color: Color(0xFFD4AF37))),
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            color: Colors.white10,
+                            child: const Icon(Icons.fastfood, color: Color(0xFFD4AF37)),
+                          ),
                           title: Text(p.name),
                           subtitle:
                               Text('${p.price.toStringAsFixed(2)} ETB'),
@@ -289,9 +291,11 @@ class WaiterManagementScreen extends ConsumerWidget {
                 itemBuilder: (_, i) {
                   final w = waiters[i];
                   return ListTile(
-                    leading: const CircleAvatar(
-                        backgroundColor: Color(0xFFD4AF37),
-                        child: Icon(Icons.person, color: Colors.black)),
+                    leading: Container(
+                        width: 40,
+                        height: 40,
+                        color: const Color(0xFFD4AF37),
+                        child: const Icon(Icons.person, color: Colors.black)),
                     title: Text(w.name),
                     subtitle: Text('Code: ${w.code}'),
                     trailing: IconButton(
@@ -507,7 +511,7 @@ class HeldOrdersScreen extends ConsumerWidget {
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
                       color: Colors.white.withOpacity(0.05),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                       child: ListTile(
                         onTap: () {
                           // Jump to the table order screen
@@ -658,9 +662,11 @@ class ReportsScreen extends ConsumerWidget {
                         child: Column(
                           children: waiterMap.entries
                               .map((e) => ListTile(
-                                    leading: const CircleAvatar(
-                                        backgroundColor: Color(0xFF006B3C),
-                                        child: Icon(Icons.person,
+                                    leading: Container(
+                                        width: 32,
+                                        height: 32,
+                                        color: const Color(0xFF006B3C),
+                                        child: const Icon(Icons.person,
                                             color: Colors.white, size: 18)),
                                     title: Text(e.key),
                                     trailing: Text(
@@ -685,9 +691,11 @@ class ReportsScreen extends ConsumerWidget {
                         child: Column(
                           children: cashierMap.entries
                               .map((e) => ListTile(
-                                    leading: const CircleAvatar(
-                                        backgroundColor: Color(0xFFD4AF37),
-                                        child: Icon(Icons.point_of_sale,
+                                    leading: Container(
+                                        width: 32,
+                                        height: 32,
+                                        color: const Color(0xFFD4AF37),
+                                        child: const Icon(Icons.point_of_sale,
                                             color: Colors.black, size: 18)),
                                     title: Text(e.key),
                                     trailing: Text(
@@ -920,7 +928,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           backgroundColor: const Color(0xFFD4AF37),
                           foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 20),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                         ),
                         onPressed: () async {
                           if (_formKey.currentState!.validate()) {
@@ -970,8 +978,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           labelStyle: const TextStyle(color: Colors.white54),
           filled: true,
           fillColor: Colors.white.withOpacity(0.05),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFD4AF37))),
+          border: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide.none),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: const BorderSide(color: Color(0xFFD4AF37))),
         ),
         validator: (value) => value == null || value.isEmpty ? 'Field required' : null,
       ),

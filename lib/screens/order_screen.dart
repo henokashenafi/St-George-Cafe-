@@ -623,7 +623,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                             vertical: 18),
                                         shape: RoundedRectangleBorder(
                                             borderRadius:
-                                                BorderRadius.circular(14)),
+                                                BorderRadius.zero),
                                       ),
                                       onPressed: () => _sendToKitchen(
                                           activeOrderAsync.value, settings),
@@ -643,7 +643,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                             vertical: 18),
                                         shape: RoundedRectangleBorder(
                                             borderRadius:
-                                                BorderRadius.circular(14)),
+                                                BorderRadius.zero),
                                       ),
                                       onPressed: activeOrderAsync.value == null
                                           ? null
@@ -892,7 +892,7 @@ class _CartItemTile extends StatelessWidget {
         color: isSaved
             ? Colors.white.withOpacity(0.05)
             : const Color(0xFFD4AF37).withOpacity(0.05),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.zero,
         border: Border.all(
           color: isSaved
               ? Colors.white10

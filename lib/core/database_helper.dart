@@ -224,5 +224,41 @@ class DatabaseHelper {
   Future _seedData(Database db) async {
     await _seedUsers(db);
     await _seedSettings(db);
+    
+    // Seed Categories
+    final catIds = <String, int>{};
+    for (var cat in ['Coffee', 'Tea', 'Pastries', 'Soft Drinks']) {
+      final id = await db.insert('categories', {'name': cat});
+      catIds[cat] = id;
+    }
+
+    // Seed Products
+    final products = [
+      {'category': 'Coffee', 'name': 'Macchiato', 'price': 35.0},
+      {'category': 'Coffee', 'name': 'Black Coffee', 'price': 25.0},
+      {'category': 'Coffee', 'name': 'Caffe Latte', 'price': 45.0},
+      {'category': 'Tea', 'name': 'Black Tea', 'price': 15.0},
+      {'category': 'Tea', 'name': 'Spiced Tea', 'price': 20.0},
+      {'category': 'Pastries', 'name': 'Croissant', 'price': 55.0},
+      {'category': 'Pastries', 'name': 'Chocolate Cake', 'price': 75.0},
+      {'category': 'Soft Drinks', 'name': 'Coca Cola', 'price': 30.0},
+      {'category': 'Soft Drinks', 'name': 'Water 0.5L', 'price': 20.0},
+    ];
+
+    for (var p in products) {
+      await db.insert('products', {
+        'category_id': catIds[p['category']],
+        'name': p['name'],
+        'price': p['price'],
+      });
+    }
+
+    // Seed Waiters
+    await db.insert('waiters', {'name': 'Default Waiter', 'code': 'W001'});
+    
+    // Seed Tables
+    for (var i = 1; i <= 10; i++) {
+      await db.insert('tables', {'name': 'Table $i', 'status': 'available'});
+    }
   }
 }

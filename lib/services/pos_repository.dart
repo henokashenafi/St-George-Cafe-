@@ -16,6 +16,7 @@ import 'package:st_george_pos/models/settings.dart';
 class PosRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
+  // Legacy Web Storage Hack (Used because sqflite_ffi_web requires external .wasm/.js binaries)
   static Map<String, List<Map<String, dynamic>>> _webStorage = {
     'categories': [],
     'products': [],
@@ -37,7 +38,43 @@ class PosRepository {
   PosRepository();
 
   Future<void> init() async {
-    if (kIsWeb) await _loadWebData();
+    if (kIsWeb) {
+      await _loadWebData();
+      if (_webStorage['categories']!.isEmpty) {
+        await _seedWebData();
+      }
+    }
+  }
+
+  Future<void> _seedWebData() async {
+    // Categories
+    _webStorage['categories'] = [
+      {'id': 1, 'name': 'Coffee'},
+      {'id': 2, 'name': 'Tea'},
+      {'id': 3, 'name': 'Pastries'},
+      {'id': 4, 'name': 'Soft Drinks'},
+    ];
+
+    // Products
+    _webStorage['products'] = [
+      {'id': 1, 'category_id': 1, 'name': 'Macchiato', 'price': 35.0},
+      {'id': 2, 'category_id': 1, 'name': 'Black Coffee', 'price': 25.0},
+      {'id': 3, 'category_id': 2, 'name': 'Black Tea', 'price': 15.0},
+      {'id': 4, 'category_id': 3, 'name': 'Croissant', 'price': 55.0},
+      {'id': 5, 'category_id': 4, 'name': 'Coca Cola', 'price': 30.0},
+    ];
+
+    // Tables
+    _webStorage['tables'] = List.generate(10, (i) => 
+      {'id': i + 1, 'name': 'Table ${i + 1}', 'status': 'available', 'zone_id': null}
+    );
+
+    // Waiters
+    _webStorage['waiters'] = [
+      {'id': 1, 'name': 'Default Waiter', 'code': 'W001'}
+    ];
+
+    await _saveWebData();
   }
 
   Future<void> _saveWebData() async {
@@ -60,19 +97,12 @@ class PosRepository {
                 (value as List).map((e) => Map<String, dynamic>.from(e))),
           )),
         );
-        // Ensure new keys exist for older stored data
-        _webStorage.putIfAbsent('table_zones', () => []);
-        _webStorage.putIfAbsent('users', () => [
-          {'id': 1, 'username': 'Director', 'password_hash': DatabaseHelper.hashPassword('director123'), 'role': 'director', 'is_active': 1},
-          {'id': 2, 'username': 'Cashier 1', 'password_hash': DatabaseHelper.hashPassword('cashier123'), 'role': 'cashier', 'is_active': 1},
-        ]);
-        _webStorage.putIfAbsent('app_settings', () => [
-          {'key': 'service_charge_percent', 'value': '5.0', 'updated_by': null},
-          {'key': 'discount_enabled', 'value': 'true', 'updated_by': null},
-        ]);
+        // Ensure core keys exist
+        _webStorage.putIfAbsent('users', () => []);
+        _webStorage.putIfAbsent('app_settings', () => []);
       }
     } catch (e) {
-      // ignore load errors, use defaults
+      // fallback to defaults
     }
   }
 
@@ -97,9 +127,7 @@ class PosRepository {
   }
 
   Future<List<AppUser>> getUsers() async {
-    if (kIsWeb) {
-      return _webStorage['users']!.map((u) => AppUser.fromMap(u)).toList();
-    }
+    if (kIsWeb) return _webStorage['users']!.map((u) => AppUser.fromMap(u)).toList();
     final db = await _dbHelper.database;
     final maps = await db.query('users', orderBy: 'username ASC');
     return maps.map((m) => AppUser.fromMap(m)).toList();
@@ -142,9 +170,7 @@ class PosRepository {
   // ── Settings ──────────────────────────────────────────────────────────────
 
   Future<Map<String, String>> getSettings() async {
-    if (kIsWeb) {
-      return {for (var s in _webStorage['app_settings']!) s['key'] as String: s['value'] as String};
-    }
+    if (kIsWeb) return {for (var s in _webStorage['app_settings']!) s['key'] as String: s['value'] as String};
     final db = await _dbHelper.database;
     final maps = await db.query('app_settings');
     return {for (var m in maps) m['key'] as String: m['value'] as String};
@@ -174,9 +200,7 @@ class PosRepository {
   // ── Table Zones ───────────────────────────────────────────────────────────
 
   Future<List<TableZone>> getTableZones() async {
-    if (kIsWeb) {
-      return _webStorage['table_zones']!.map((z) => TableZone.fromMap(z)).toList();
-    }
+    if (kIsWeb) return _webStorage['table_zones']!.map((z) => TableZone.fromMap(z)).toList();
     final db = await _dbHelper.database;
     final maps = await db.rawQuery('''
       SELECT tz.*, w.name as waiter_name
@@ -216,9 +240,7 @@ class PosRepository {
   Future<void> deleteTableZone(int id) async {
     if (kIsWeb) {
       _webStorage['table_zones']!.removeWhere((z) => z['id'] == id);
-      for (var t in _webStorage['tables']!) {
-        if (t['zone_id'] == id) t['zone_id'] = null;
-      }
+      for (var t in _webStorage['tables']!) if (t['zone_id'] == id) t['zone_id'] = null;
       await _saveWebData();
       return;
     }
@@ -287,9 +309,7 @@ class PosRepository {
   Future<void> updateTableStatus(int tableId, TableStatus status) async {
     if (kIsWeb) {
       final index = _webStorage['tables']!.indexWhere((e) => e['id'] == tableId);
-      if (index != -1) {
-        _webStorage['tables']![index]['status'] = status.toString().split('.').last;
-      }
+      if (index != -1) _webStorage['tables']![index]['status'] = status.toString().split('.').last;
       await _saveWebData();
       return;
     }
@@ -301,9 +321,7 @@ class PosRepository {
   // ── Categories ────────────────────────────────────────────────────────────
 
   Future<List<Category>> getCategories() async {
-    if (kIsWeb) {
-      return _webStorage['categories']!.map((c) => Category.fromMap(c)).toList();
-    }
+    if (kIsWeb) return _webStorage['categories']!.map((c) => Category.fromMap(c)).toList();
     final db = await _dbHelper.database;
     final maps = await db.query('categories');
     return maps.map((m) => Category.fromMap(m)).toList();
@@ -337,9 +355,7 @@ class PosRepository {
   Future<List<Product>> getProducts({int? categoryId}) async {
     if (kIsWeb) {
       final list = _webStorage['products']!;
-      final filtered = categoryId != null
-          ? list.where((e) => e['category_id'] == categoryId).toList()
-          : list;
+      final filtered = categoryId != null ? list.where((e) => e['category_id'] == categoryId).toList() : list;
       return filtered.map((p) => Product.fromMap(p)).toList();
     }
     final db = await _dbHelper.database;
@@ -375,9 +391,7 @@ class PosRepository {
   // ── Waiters ───────────────────────────────────────────────────────────────
 
   Future<List<Waiter>> getWaiters() async {
-    if (kIsWeb) {
-      return _webStorage['waiters']!.map((w) => Waiter.fromMap(w)).toList();
-    }
+    if (kIsWeb) return _webStorage['waiters']!.map((w) => Waiter.fromMap(w)).toList();
     final db = await _dbHelper.database;
     final maps = await db.query('waiters');
     return maps.map((m) => Waiter.fromMap(m)).toList();
@@ -408,106 +422,64 @@ class PosRepository {
 
   Future<int> createOrder(OrderModel order) async {
     if (kIsWeb) {
-      final orderId = (_webStorage['orders']!.isEmpty
-              ? 0
-              : _webStorage['orders']!
-                  .map((o) => o['id'] as int)
-                  .reduce((a, b) => a > b ? a : b)) +
-          1;
+      final orderId = (_webStorage['orders']!.isEmpty ? 0 : _webStorage['orders']!.map((o) => o['id'] as int).reduce((a, b) => a > b ? a : b)) + 1;
       final newOrder = order.toMap();
       newOrder['id'] = orderId;
       _webStorage['orders']!.add(newOrder);
-      if (order.tableId != 0) {
-        await updateTableStatus(order.tableId, TableStatus.occupied);
-      }
+      if (order.tableId != 0) await updateTableStatus(order.tableId, TableStatus.occupied);
       await _saveWebData();
       return orderId;
     }
     final db = await _dbHelper.database;
     return await db.transaction((txn) async {
       final orderId = await txn.insert('orders', order.toMap());
-      if (order.tableId != 0) {
-        await txn.update('tables', {'status': 'occupied'},
-            where: 'id = ?', whereArgs: [order.tableId]);
-      }
+      if (order.tableId != 0) await txn.update('tables', {'status': 'occupied'}, where: 'id = ?', whereArgs: [order.tableId]);
       return orderId;
     });
   }
 
   Future<OrderModel?> getActiveOrderForTable(int tableId) async {
     if (kIsWeb) {
-      final orderMap = _webStorage['orders']!.firstWhere(
-        (o) => o['table_id'] == tableId && o['status'] == 'pending',
-        orElse: () => {},
-      );
+      final orderMap = _webStorage['orders']!.firstWhere((o) => o['table_id'] == tableId && o['status'] == 'pending', orElse: () => {});
       if (orderMap.isEmpty) return null;
-      final items = _webStorage['order_items']!
-          .where((i) => i['order_id'] == orderMap['id'])
-          .map((i) => OrderItem.fromMap(i))
-          .toList();
+      final items = _webStorage['order_items']!.where((i) => i['order_id'] == orderMap['id']).map((i) => OrderItem.fromMap(i)).toList();
       return OrderModel.fromMap(orderMap, items: items);
     }
     final db = await _dbHelper.database;
-    final maps = await db.rawQuery('''
-      SELECT o.*, t.name as table_name, w.name as waiter_name,
-             u.username as cashier_name
-      FROM orders o
-      JOIN tables t ON o.table_id = t.id
-      JOIN waiters w ON o.waiter_id = w.id
-      LEFT JOIN users u ON o.cashier_id = u.id
-      WHERE o.table_id = ? AND o.status = 'pending'
-      LIMIT 1
-    ''', [tableId]);
+    final maps = await db.rawQuery('SELECT o.*, t.name as table_name, w.name as waiter_name, u.username as cashier_name FROM orders o JOIN tables t ON o.table_id = t.id JOIN waiters w ON o.waiter_id = w.id LEFT JOIN users u ON o.cashier_id = u.id WHERE o.table_id = ? AND o.status = \'pending\' LIMIT 1', [tableId]);
     if (maps.isEmpty) return null;
     final orderId = maps.first['id'];
-    final itemMaps = await db.rawQuery('''
-      SELECT oi.*, p.name as product_name
-      FROM order_items oi
-      JOIN products p ON oi.product_id = p.id
-      WHERE oi.order_id = ?
-    ''', [orderId]);
+    final itemMaps = await db.rawQuery('SELECT oi.*, p.name as product_name FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?', [orderId]);
     final items = itemMaps.map((i) => OrderItem.fromMap(i)).toList();
     return OrderModel.fromMap(maps.first, items: items);
   }
 
-  Future<int> addItemsToOrder(int orderId, List<OrderItem> items,
-      [int? tableId]) async {
-    int nextRound = 1;
+  Future<int> addItemsToOrder(int orderId, List<OrderItem> items, [int? tableId]) async {
     if (kIsWeb) {
       final existingItems = _webStorage['order_items']!.where((i) => i['order_id'] == orderId);
-      if (existingItems.isNotEmpty) {
-        nextRound = existingItems.map((i) => (i['kitchen_round'] as int?) ?? 0).reduce((a, b) => a > b ? a : b) + 1;
-      }
+      final nextRound = existingItems.isEmpty ? 1 : existingItems.map((i) => (i['kitchen_round'] as int?) ?? 0).reduce((a, b) => a > b ? a : b) + 1;
+      double totalToAdd = 0;
       for (var item in items) {
         final itemMap = item.copyWith(orderId: orderId, kitchenRound: nextRound).toMap();
-        itemMap['id'] = (_webStorage['order_items']!.isEmpty
-                ? 0
-                : _webStorage['order_items']!
-                    .map((i) => i['id'] as int)
-                    .reduce((a, b) => a > b ? a : b)) +
-            1;
+        itemMap['id'] = (_webStorage['order_items']!.isEmpty ? 0 : _webStorage['order_items']!.map((i) => i['id'] as int).reduce((a, b) => a > b ? a : b)) + 1;
         _webStorage['order_items']!.add(itemMap);
+        totalToAdd += item.subtotal;
       }
+      final oIndex = _webStorage['orders']!.indexWhere((o) => o['id'] == orderId);
+      if (oIndex != -1) _webStorage['orders']![oIndex]['total_amount'] = (_webStorage['orders']![oIndex]['total_amount'] as num).toDouble() + totalToAdd;
       await _saveWebData();
       return nextRound;
     }
     final db = await _dbHelper.database;
     return await db.transaction((txn) async {
-      final List<Map<String, dynamic>> roundResult = await txn.rawQuery(
-          'SELECT MAX(kitchen_round) as max_round FROM order_items WHERE order_id = ?',
-          [orderId]);
-      nextRound = ((roundResult.first['max_round'] as int?) ?? 0) + 1;
-
+      final List<Map<String, dynamic>> roundResult = await txn.rawQuery('SELECT MAX(kitchen_round) as max_round FROM order_items WHERE order_id = ?', [orderId]);
+      final nextRound = ((roundResult.first['max_round'] as int?) ?? 0) + 1;
       double totalToAdd = 0;
       for (var item in items) {
-        await txn.insert('order_items', 
-          item.copyWith(orderId: orderId, kitchenRound: nextRound).toMap());
+        await txn.insert('order_items', item.copyWith(orderId: orderId, kitchenRound: nextRound).toMap());
         totalToAdd += item.subtotal;
       }
-      await txn.execute(
-        'UPDATE orders SET total_amount = total_amount + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        [totalToAdd, orderId],
-      );
+      await txn.execute('UPDATE orders SET total_amount = total_amount + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [totalToAdd, orderId]);
       return nextRound;
     });
   }
@@ -515,77 +487,55 @@ class PosRepository {
   Future<void> markItemsAsPrinted(List<int> itemIds) async {
     if (kIsWeb) {
       for (var id in itemIds) {
-        final index =
-            _webStorage['order_items']!.indexWhere((e) => e['id'] == id);
-        if (index != -1)
-          _webStorage['order_items']![index]['is_printed_to_kitchen'] = 1;
+        final index = _webStorage['order_items']!.indexWhere((e) => e['id'] == id);
+        if (index != -1) _webStorage['order_items']![index]['is_printed_to_kitchen'] = 1;
       }
       await _saveWebData();
       return;
     }
     final db = await _dbHelper.database;
-    await db.update('order_items', {'is_printed_to_kitchen': 1},
-        where: 'id IN (${itemIds.join(',')})');
+    await db.update('order_items', {'is_printed_to_kitchen': 1}, where: 'id IN (${itemIds.join(',')})');
   }
 
   Future<void> voidOrderItem(int itemId, int orderId) async {
     if (kIsWeb) {
-      final item = _webStorage['order_items']!
-          .firstWhere((i) => i['id'] == itemId, orElse: () => {});
+      final item = _webStorage['order_items']!.firstWhere((i) => i['id'] == itemId, orElse: () => {});
       if (item.isEmpty) return;
       final subtotal = (item['subtotal'] as num).toDouble();
       final tableId = _webStorage['orders']!.firstWhere((o) => o['id'] == orderId)['table_id'];
-      
       _webStorage['order_items']!.removeWhere((i) => i['id'] == itemId);
-      
       final remainingCount = _webStorage['order_items']!.where((i) => i['order_id'] == orderId).length;
       final oIndex = _webStorage['orders']!.indexWhere((o) => o['id'] == orderId);
-      
       if (remainingCount == 0 && oIndex != -1) {
         _webStorage['orders']!.removeAt(oIndex);
         await updateTableStatus(tableId, TableStatus.available);
       } else if (oIndex != -1) {
-        _webStorage['orders']![oIndex]['total_amount'] =
-            ((_webStorage['orders']![oIndex]['total_amount'] as num)
-                        .toDouble() -
-                    subtotal)
-                .clamp(0, double.infinity);
+        _webStorage['orders']![oIndex]['total_amount'] = ((_webStorage['orders']![oIndex]['total_amount'] as num).toDouble() - subtotal).clamp(0, double.infinity);
       }
       await _saveWebData();
       return;
     }
     final db = await _dbHelper.database;
     await db.transaction((txn) async {
-      final rows = await txn
-          .query('order_items', where: 'id = ?', whereArgs: [itemId]);
+      final rows = await txn.query('order_items', where: 'id = ?', whereArgs: [itemId]);
       if (rows.isEmpty) return;
       final subtotal = (rows.first['subtotal'] as num).toDouble();
-      
       final orderRows = await txn.query('orders', columns: ['table_id'], where: 'id = ?', whereArgs: [orderId]);
       final tableId = orderRows.first['table_id'] as int;
-
       await txn.delete('order_items', where: 'id = ?', whereArgs: [itemId]);
-      
       final remainingRows = await txn.rawQuery('SELECT COUNT(*) as count FROM order_items WHERE order_id = ?', [orderId]);
-      final remainingCount = remainingRows.first['count'] as int;
-
-      if (remainingCount == 0) {
+      if (remainingRows.first['count'] == 0) {
         await txn.delete('orders', where: 'id = ?', whereArgs: [orderId]);
         await txn.update('tables', {'status': 'available'}, where: 'id = ?', whereArgs: [tableId]);
       } else {
-        await txn.execute(
-          'UPDATE orders SET total_amount = MAX(0, total_amount - ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-          [subtotal, orderId],
-        );
+        await txn.execute('UPDATE orders SET total_amount = MAX(0, total_amount - ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?', [subtotal, orderId]);
       }
     });
   }
 
-  Future<void> completeOrder(int orderId, int tableId,
-      {double serviceCharge = 0, double discountAmount = 0}) async {
+  Future<void> completeOrder(int orderId, int tableId, {double serviceCharge = 0, double discountAmount = 0}) async {
     if (kIsWeb) {
-      final oIndex =
-          _webStorage['orders']!.indexWhere((o) => o['id'] == orderId);
+      final oIndex = _webStorage['orders']!.indexWhere((o) => o['id'] == orderId);
       if (oIndex != -1) {
         _webStorage['orders']![oIndex]['status'] = 'completed';
         _webStorage['orders']![oIndex]['service_charge'] = serviceCharge;
@@ -597,98 +547,51 @@ class PosRepository {
     }
     final db = await _dbHelper.database;
     await db.transaction((txn) async {
-      await txn.update(
-        'orders',
-        {
-          'status': 'completed',
-          'service_charge': serviceCharge,
-          'discount_amount': discountAmount,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [orderId],
-      );
-      await txn.update('tables', {'status': 'available'},
-          where: 'id = ?', whereArgs: [tableId]);
+      await txn.update('orders', {'status': 'completed', 'service_charge': serviceCharge, 'discount_amount': discountAmount, 'updated_at': DateTime.now().toIso8601String()}, where: 'id = ?', whereArgs: [orderId]);
+      await txn.update('tables', {'status': 'available'}, where: 'id = ?', whereArgs: [tableId]);
     });
   }
 
   Future<void> updateProduct(Product product) async {
     if (kIsWeb) {
-      final index =
-          _webStorage['products']!.indexWhere((p) => p['id'] == product.id);
+      final index = _webStorage['products']!.indexWhere((p) => p['id'] == product.id);
       if (index != -1) _webStorage['products']![index] = product.toMap();
       await _saveWebData();
       return;
     }
     final db = await _dbHelper.database;
-    await db.update('products', product.toMap(),
-        where: 'id = ?', whereArgs: [product.id]);
+    await db.update('products', product.toMap(), where: 'id = ?', whereArgs: [product.id]);
   }
 
   Future<List<OrderModel>> getAllOrders({DateTime? from, DateTime? to}) async {
     if (kIsWeb) {
       var list = _webStorage['orders']!;
-      if (from != null)
-        list = list
-            .where((o) => DateTime.parse(o['created_at']).isAfter(from))
-            .toList();
-      if (to != null)
-        list = list
-            .where((o) => DateTime.parse(o['created_at']).isBefore(to))
-            .toList();
+      if (from != null) list = list.where((o) => DateTime.parse(o['created_at']).isAfter(from)).toList();
+      if (to != null) list = list.where((o) => DateTime.parse(o['created_at']).isBefore(to)).toList();
       return list.map((o) {
-        final items = _webStorage['order_items']!
-            .where((i) => i['order_id'] == o['id'])
-            .map((i) => OrderItem.fromMap(i))
-            .toList();
+        final items = _webStorage['order_items']!.where((i) => i['order_id'] == o['id']).map((i) => OrderItem.fromMap(i)).toList();
         return OrderModel.fromMap(o, items: items);
       }).toList();
     }
     final db = await _dbHelper.database;
     String whereClause = '';
     List<dynamic> args = [];
-    if (from != null && to != null) {
-      whereClause = 'WHERE o.created_at BETWEEN ? AND ?';
-      args = [from.toIso8601String(), to.toIso8601String()];
-    } else if (from != null) {
-      whereClause = 'WHERE o.created_at >= ?';
-      args = [from.toIso8601String()];
-    } else if (to != null) {
-      whereClause = 'WHERE o.created_at <= ?';
-      args = [to.toIso8601String()];
-    }
-    final maps = await db.rawQuery('''
-      SELECT o.*, t.name as table_name, w.name as waiter_name,
-             u.username as cashier_name
-      FROM orders o
-      JOIN tables t ON o.table_id = t.id
-      JOIN waiters w ON o.waiter_id = w.id
-      LEFT JOIN users u ON o.cashier_id = u.id
-      $whereClause
-      ORDER BY o.created_at DESC
-    ''', args);
+    if (from != null && to != null) { whereClause = 'WHERE o.created_at BETWEEN ? AND ?'; args = [from.toIso8601String(), to.toIso8601String()]; }
+    else if (from != null) { whereClause = 'WHERE o.created_at >= ?'; args = [from.toIso8601String()]; }
+    else if (to != null) { whereClause = 'WHERE o.created_at <= ?'; args = [to.toIso8601String()]; }
+    final maps = await db.rawQuery('SELECT o.*, t.name as table_name, w.name as waiter_name, u.username as cashier_name FROM orders o JOIN tables t ON o.table_id = t.id JOIN waiters w ON o.waiter_id = w.id LEFT JOIN users u ON o.cashier_id = u.id $whereClause ORDER BY o.created_at DESC', args);
     List<OrderModel> orders = [];
     for (var map in maps) {
-      final itemMaps = await db.rawQuery('''
-        SELECT oi.*, p.name as product_name
-        FROM order_items oi
-        JOIN products p ON oi.product_id = p.id
-        WHERE oi.order_id = ?
-      ''', [map['id']]);
-      final items = itemMaps.map((i) => OrderItem.fromMap(i)).toList();
-      orders.add(OrderModel.fromMap(map, items: items));
+      final itemMaps = await db.rawQuery('SELECT oi.*, p.name as product_name FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?', [map['id']]);
+      orders.add(OrderModel.fromMap(map, items: itemMaps.map((i) => OrderItem.fromMap(i)).toList()));
     }
     return orders;
   }
 
-  // CafeSettings logic
   Future<CafeSettings> getCafeSettings() async {
     final prefs = await SharedPreferences.getInstance();
     final data = prefs.getString('cafe_settings');
-    if (data != null) {
-      return CafeSettings.fromMap(jsonDecode(data));
-    }
+    if (data != null) return CafeSettings.fromMap(jsonDecode(data));
     return CafeSettings();
   }
 

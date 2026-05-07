@@ -10,7 +10,7 @@ import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/services/pos_repository.dart';
 import 'package:st_george_pos/models/settings.dart';
 
-enum DashboardView { home, tables, orders, menu, waiters, reports, settings, users }
+enum DashboardView { home, tables, orders, heldOrders, menu, waiters, reports, settings, users }
 
 // ── Repository & Services ─────────────────────────────────────────────────
 
