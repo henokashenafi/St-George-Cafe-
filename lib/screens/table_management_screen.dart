@@ -204,6 +204,19 @@ class _TablesTab extends ConsumerWidget {
     final nameController = TextEditingController(text: existing?.name ?? '');
     int? selectedZoneId = existing?.zoneId;
 
+    Future<void> doSave(BuildContext ctx) async {
+      if (nameController.text.trim().isEmpty) return;
+      final repo = ref.read(posRepositoryProvider);
+      if (existing == null) {
+        await repo.addTable(nameController.text.trim(), zoneId: selectedZoneId);
+      } else {
+        await repo.updateTable(existing.id!, nameController.text.trim(),
+            zoneId: selectedZoneId);
+      }
+      ref.invalidate(tablesProvider);
+      Navigator.pop(ctx);
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -221,11 +234,14 @@ class _TablesTab extends ConsumerWidget {
               children: [
                 TextField(
                   controller: nameController,
+                  autofocus: true,
                   style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: ref.t('tables.tableName'),
-                    labelStyle: const TextStyle(color: Colors.white54),
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Table Name',
+                    labelStyle: TextStyle(color: Colors.white54),
                   ),
+                  onSubmitted: (_) => doSave(ctx),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int?>(
@@ -260,30 +276,9 @@ class _TablesTab extends ConsumerWidget {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD4AF37),
-                foregroundColor: Colors.black,
-              ),
-              onPressed: () async {
-                if (nameController.text.trim().isEmpty) return;
-                final repo = ref.read(posRepositoryProvider);
-                if (existing == null) {
-                  await repo.addTable(
-                    nameController.text.trim(),
-                    zoneId: selectedZoneId,
-                  );
-                } else {
-                  await repo.updateTable(
-                    existing.id!,
-                    nameController.text.trim(),
-                    zoneId: selectedZoneId,
-                  );
-                }
-                ref.invalidate(tablesProvider);
-                Navigator.pop(ctx);
-              },
-              child: Text(
-                existing == null ? ref.t('common.add') : ref.t('common.save'),
-              ),
+                  backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black),
+              onPressed: () => doSave(ctx),
+              child: Text(existing == null ? 'Add' : 'Save'),
             ),
           ],
         ),
@@ -456,6 +451,21 @@ class _ZonesTab extends ConsumerWidget {
     final nameController = TextEditingController(text: existing?.name ?? '');
     int? selectedWaiterId = existing?.waiterId;
 
+    Future<void> doSave(BuildContext ctx) async {
+      if (nameController.text.trim().isEmpty) return;
+      final repo = ref.read(posRepositoryProvider);
+      if (existing == null) {
+        await repo.addTableZone(nameController.text.trim(),
+            waiterId: selectedWaiterId);
+      } else {
+        await repo.updateTableZone(existing.id!, nameController.text.trim(),
+            waiterId: selectedWaiterId);
+      }
+      ref.invalidate(tableZonesProvider);
+      ref.invalidate(waitersProvider);
+      Navigator.pop(ctx);
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -473,11 +483,14 @@ class _ZonesTab extends ConsumerWidget {
               children: [
                 TextField(
                   controller: nameController,
+                  autofocus: true,
                   style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: ref.t('tables.zoneName'),
-                    labelStyle: const TextStyle(color: Colors.white54),
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Zone Name',
+                    labelStyle: TextStyle(color: Colors.white54),
                   ),
+                  onSubmitted: (_) => doSave(ctx),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int?>(
@@ -512,31 +525,9 @@ class _ZonesTab extends ConsumerWidget {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD4AF37),
-                foregroundColor: Colors.black,
-              ),
-              onPressed: () async {
-                if (nameController.text.trim().isEmpty) return;
-                final repo = ref.read(posRepositoryProvider);
-                if (existing == null) {
-                  await repo.addTableZone(
-                    nameController.text.trim(),
-                    waiterId: selectedWaiterId,
-                  );
-                } else {
-                  await repo.updateTableZone(
-                    existing.id!,
-                    nameController.text.trim(),
-                    waiterId: selectedWaiterId,
-                  );
-                }
-                ref.invalidate(tableZonesProvider);
-                ref.invalidate(waitersProvider);
-                Navigator.pop(ctx);
-              },
-              child: Text(
-                existing == null ? ref.t('common.add') : ref.t('common.save'),
-              ),
+                  backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black),
+              onPressed: () => doSave(ctx),
+              child: Text(existing == null ? 'Add' : 'Save'),
             ),
           ],
         ),

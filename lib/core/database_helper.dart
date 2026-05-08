@@ -42,7 +42,7 @@ class DatabaseHelper {
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 3,
+        version: 4,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -89,6 +89,9 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE orders ADD COLUMN cashier_id INTEGER REFERENCES users(id)');
       await db.execute('ALTER TABLE orders ADD COLUMN service_charge REAL DEFAULT 0.0');
       await db.execute('ALTER TABLE orders ADD COLUMN discount_amount REAL DEFAULT 0.0');
+    }
+    if (oldVersion < 4) {
+      await db.execute('ALTER TABLE order_items ADD COLUMN kitchen_round INTEGER DEFAULT 0');
     }
   }
 
@@ -166,6 +169,7 @@ class DatabaseHelper {
         unit_price REAL NOT NULL,
         subtotal REAL NOT NULL,
         is_printed_to_kitchen INTEGER DEFAULT 0,
+        kitchen_round INTEGER DEFAULT 0,
         notes TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (order_id) REFERENCES orders (id),
@@ -218,29 +222,43 @@ class DatabaseHelper {
   }
 
   Future _seedData(Database db) async {
-    for (var i = 1; i <= 20; i++) {
-      await db.insert('tables', {'name': 'Table $i'});
-    }
-
-    await db.insert('categories', {'name': 'Food'});
-    await db.insert('categories', {'name': 'Drinks'});
-    await db.insert('categories', {'name': 'Desserts'});
-
-    await db.insert('products', {'category_id': 1, 'name': 'Burger', 'price': 250.0});
-    await db.insert('products', {'category_id': 1, 'name': 'Pizza', 'price': 450.0});
-    await db.insert('products', {'category_id': 2, 'name': 'Coffee', 'price': 50.0});
-    await db.insert('products', {'category_id': 2, 'name': 'Juice', 'price': 120.0});
-
-    await db.insert('waiters', {'name': 'Waiter 1', 'code': 'W1'});
-    await db.insert('waiters', {'name': 'Waiter 2', 'code': 'W2'});
-    await db.insert('waiters', {'name': 'Waiter 3', 'code': 'W3'});
-    await db.insert('waiters', {'name': 'Waiter 4', 'code': 'W4'});
-    await db.insert('waiters', {'name': 'Waiter 5', 'code': 'W5'});
-    await db.insert('waiters', {'name': 'Waiter 6', 'code': 'W6'});
-    await db.insert('waiters', {'name': 'Waiter 7', 'code': 'W7'});
-    await db.insert('waiters', {'name': 'Waiter 8', 'code': 'W8'});
-
     await _seedUsers(db);
     await _seedSettings(db);
+    
+    // Seed Categories
+    final catIds = <String, int>{};
+    for (var cat in ['Coffee', 'Tea', 'Pastries', 'Soft Drinks']) {
+      final id = await db.insert('categories', {'name': cat});
+      catIds[cat] = id;
+    }
+
+    // Seed Products
+    final products = [
+      {'category': 'Coffee', 'name': 'Macchiato', 'price': 35.0},
+      {'category': 'Coffee', 'name': 'Black Coffee', 'price': 25.0},
+      {'category': 'Coffee', 'name': 'Caffe Latte', 'price': 45.0},
+      {'category': 'Tea', 'name': 'Black Tea', 'price': 15.0},
+      {'category': 'Tea', 'name': 'Spiced Tea', 'price': 20.0},
+      {'category': 'Pastries', 'name': 'Croissant', 'price': 55.0},
+      {'category': 'Pastries', 'name': 'Chocolate Cake', 'price': 75.0},
+      {'category': 'Soft Drinks', 'name': 'Coca Cola', 'price': 30.0},
+      {'category': 'Soft Drinks', 'name': 'Water 0.5L', 'price': 20.0},
+    ];
+
+    for (var p in products) {
+      await db.insert('products', {
+        'category_id': catIds[p['category']],
+        'name': p['name'],
+        'price': p['price'],
+      });
+    }
+
+    // Seed Waiters
+    await db.insert('waiters', {'name': 'Default Waiter', 'code': 'W001'});
+    
+    // Seed Tables
+    for (var i = 1; i <= 10; i++) {
+      await db.insert('tables', {'name': 'Table $i', 'status': 'available'});
+    }
   }
 }
