@@ -19,7 +19,10 @@
     "reports": "Reports",
     "users": "Users",
     "settings": "Settings",
-    "logout": "Logout"
+    "logout": "Logout",
+    "dashboard": "Dashboard",
+    "history": "History",
+    "held": "Held"
   },
   "order": {
     "title": "{table} — ORDER",
@@ -47,6 +50,47 @@
     "loadingWaiters": "Loading waiters",
     "voidItem": "Void item",
     "orderTitle": "Order"
+  },
+  "orderConfirm": {
+    "title": "Confirm & Print Bill",
+    "table": "Table",
+    "waiter": "Waiter",
+    "items": "Items",
+    "subtotal": "Subtotal",
+    "service": "Service ({percent}%)",
+    "discount": "Discount (ETB)",
+    "totalToPay": "TOTAL TO PAY",
+    "cancel": "Cancel",
+    "printBill": "Print Bill"
+  },
+  "main": {
+    "title": "DASHBOARD",
+    "newOrder": "NEW ORDER",
+    "startNewOrder": "START NEW ORDER",
+    "startNewOrderSubtitle": "Select a table and start adding items",
+    "activeTables": "ACTIVE TABLES",
+    "noActiveTables": "No active tables",
+    "todayOverview": "TODAY'S OVERVIEW",
+    "ordersCompleted": "Orders Completed",
+    "totalRevenue": "Total Revenue",
+    "error": "Error"
+  },
+  "zones": {
+    "title": "ZONES",
+    "allTables": "All Tables",
+    "filteredByZone": "Filtered by zone"
+  },
+  "tableSelector": {
+    "title": "SELECT A TABLE",
+    "searchHint": "Search table name...",
+    "noTablesFound": "No tables found",
+    "available": "Available",
+    "occupied": "Occupied",
+    "total": "Total",
+    "busy": "BUSY",
+    "free": "FREE",
+    "noZone": "No zone",
+    "cancel": "Cancel"
   },
   "management": {
     "categories": "Categories",
@@ -96,6 +140,13 @@
     "allTime": "All Time"
   },
   "settings": {
+    "cafeInformation": "Cafe Information",
+    "cafeName": "Cafe Name",
+    "address": "Address",
+    "phoneNumber": "Phone Number",
+    "taxAndCurrency": "Tax & Currency",
+    "vatNumber": "VAT Number",
+    "vatRate": "VAT Rate (%)",
     "billing": "Billing",
     "serviceCharge": "Service Charge (%)",
     "serviceChargeLabel": "Service Charge (%)",
@@ -157,6 +208,7 @@
     "all": "All",
     "search": "Search products...",
     "loading": "Loading...",
+    "fieldRequired": "Field required",
     "error": "Error",
     "confirm": "Confirm",
     "yes": "Yes",
@@ -175,7 +227,43 @@
     "deleteConfirmTitle": "Delete",
     "discountLabel": "Discount (ETB)",
     "tableDoesNotHaveWaiter": "This table does not have an assigned waiter. Please configure it in Table Management.",
-    "notes": "Notes"
+    "notes": "Notes",
+    "numbers": {
+      "zero": "Zero",
+      "one": "One",
+      "two": "Two",
+      "three": "Three",
+      "four": "Four",
+      "five": "Five",
+      "six": "Six",
+      "seven": "Seven",
+      "eight": "Eight",
+      "nine": "Nine",
+      "ten": "Ten",
+      "eleven": "Eleven",
+      "twelve": "Twelve",
+      "thirteen": "Thirteen",
+      "fourteen": "Fourteen",
+      "fifteen": "Fifteen",
+      "sixteen": "Sixteen",
+      "seventeen": "Seventeen",
+      "eighteen": "Eighteen",
+      "nineteen": "Nineteen",
+      "twenty": "Twenty",
+      "thirty": "Thirty",
+      "forty": "Forty",
+      "fifty": "Fifty",
+      "sixty": "Sixty",
+      "seventy": "Seventy",
+      "eighty": "Eighty",
+      "ninety": "Ninety",
+      "hundred": "Hundred",
+      "thousand": "Thousand",
+      "million": "Million",
+      "and": "And",
+      "cents": "Cents",
+      "only": "Only"
+    }
   },
   "bill": {
     "stGeorgeCafe": "ST GEORGE CAFE",
@@ -195,7 +283,15 @@
     "discount": "Discount",
     "grandTotal": "TOTAL",
     "thankYou": "Thank you for visiting!",
-    "comeAgain": "Please come again."
+    "comeAgain": "Please come again.",
+    "cashSalesInvoice": "Cash Sales Invoice",
+    "to": "To",
+    "preparedBy": "Prep By",
+    "voucher": "Vouc.",
+    "unitAmount": "U. Amount",
+    "tin": "TIN: {tin}",
+    "tel": "Tel",
+    "description": "Description"
   },
   "print": {
     "kitchenOrder": "KITCHEN ORDER",
@@ -209,6 +305,44 @@
     "thankYou": "Thank you for visiting!",
     "stGeorgeCafe": "ST GEORGE CAFE",
     "address": "Addis Ababa, Ethiopia",
-    "orderNumber": "Order"
+    "orderNumber": "Order",
+    "roundNumber": "Round #{n}",
+    "items": "{count} item(s)"
+  },
+  "cafe": {
+    "name": "ST GEORGE CAFE",
+    "address": "Addis Ababa, Ethiopia",
+    "phone": "+251 911 000000"
+  },
+  "held": {
+    "title": "Held Invoices (Pending)",
+    "noHeldOrders": "No held orders found",
+    "waiter": "Waiter",
+    "items": "Items",
+    "started": "Started",
+    "tapToOpen": "Tap to open"
+  },
+  "dashboard": {
+    "title": "DASHBOARD",
+    "newOrder": "NEW ORDER",
+    "startNewOrder": "START NEW ORDER",
+    "startNewOrderSubtitle": "Select a table and start adding items",
+    "activeTables": "ACTIVE TABLES",
+    "noActiveTables": "No active tables",
+    "todayOverview": "TODAY'S OVERVIEW",
+    "ordersCompleted": "Orders Completed",
+    "totalRevenue": "Total Revenue",
+    "zones": "ZONES",
+    "selectTable": "SELECT A TABLE",
+    "noTablesFound": "No tables found",
+    "cancel": "Cancel"
+  },
+  "systemSettings": {
+    "title": "SYSTEM SETTINGS",
+    "settingsSaved": "Settings saved successfully",
+    "saveChanges": "SAVE CHANGES"
+  },
+  "errors": {
+    "error": "Error"
   }
 }

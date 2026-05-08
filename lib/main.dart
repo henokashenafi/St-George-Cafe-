@@ -180,48 +180,76 @@ class DashboardScreen extends ConsumerWidget {
                     const SizedBox(height: 60),
                     _SidebarItem(
                       icon: Icons.dashboard_outlined,
-                      label: 'Dashboard',
-                      isActive: ref.watch(dashboardViewProvider) == DashboardView.home,
-                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.home,
+                      label: ref.t('navigation.dashboard'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.home,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.home,
                     ),
                     if (!isDirector) ...[
                       _SidebarItem(
                         icon: Icons.history,
-                        label: 'History',
-                        isActive: ref.watch(dashboardViewProvider) == DashboardView.orders,
-                        onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.orders,
+                        label: ref.t('navigation.history'),
+                        isActive:
+                            ref.watch(dashboardViewProvider) ==
+                            DashboardView.orders,
+                        onTap: () =>
+                            ref.read(dashboardViewProvider.notifier).state =
+                                DashboardView.orders,
                       ),
                       _SidebarItem(
                         icon: Icons.pause_circle_outline,
-                        label: 'Held',
-                        isActive: ref.watch(dashboardViewProvider) == DashboardView.heldOrders,
-                        onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.heldOrders,
+                        label: ref.t('navigation.held'),
+                        isActive:
+                            ref.watch(dashboardViewProvider) ==
+                            DashboardView.heldOrders,
+                        onTap: () =>
+                            ref.read(dashboardViewProvider.notifier).state =
+                                DashboardView.heldOrders,
                       ),
                       _SidebarItem(
                         icon: Icons.restaurant_menu,
-                        label: 'Menu',
-                        isActive: ref.watch(dashboardViewProvider) == DashboardView.menu,
-                        onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.menu,
+                        label: ref.t('navigation.menu'),
+                        isActive:
+                            ref.watch(dashboardViewProvider) ==
+                            DashboardView.menu,
+                        onTap: () =>
+                            ref.read(dashboardViewProvider.notifier).state =
+                                DashboardView.menu,
                       ),
                       _SidebarItem(
                         icon: Icons.people,
-                        label: 'Waiters',
-                        isActive: ref.watch(dashboardViewProvider) == DashboardView.waiters,
-                        onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.waiters,
+                        label: ref.t('navigation.waiters'),
+                        isActive:
+                            ref.watch(dashboardViewProvider) ==
+                            DashboardView.waiters,
+                        onTap: () =>
+                            ref.read(dashboardViewProvider.notifier).state =
+                                DashboardView.waiters,
                       ),
                     ],
                     _SidebarItem(
                       icon: Icons.bar_chart,
-                      label: 'Reports',
-                      isActive: ref.watch(dashboardViewProvider) == DashboardView.reports,
-                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.reports,
+                      label: ref.t('navigation.reports'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.reports,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.reports,
                     ),
                     if (isDirector) ...[
                       _SidebarItem(
                         icon: Icons.manage_accounts_outlined,
-                        label: 'Users',
-                        isActive: ref.watch(dashboardViewProvider) == DashboardView.users,
-                        onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.users,
+                        label: ref.t('navigation.users'),
+                        isActive:
+                            ref.watch(dashboardViewProvider) ==
+                            DashboardView.users,
+                        onTap: () =>
+                            ref.read(dashboardViewProvider.notifier).state =
+                                DashboardView.users,
                       ),
                     ],
                     _SidebarItem(
@@ -237,7 +265,7 @@ class DashboardScreen extends ConsumerWidget {
                     const SizedBox(height: 40),
                     _SidebarItem(
                       icon: Icons.logout,
-                      label: 'Logout',
+                      label: ref.t('navigation.logout'),
                       onTap: () => ref.read(authProvider.notifier).logout(),
                     ),
                   ],
@@ -251,21 +279,22 @@ class DashboardScreen extends ConsumerWidget {
                 child: Consumer(
                   builder: (context, ref, _) {
                     final view = ref.watch(dashboardViewProvider);
-                    
+
                     return AnimatedSwitcher(
                       duration: const Duration(milliseconds: 300),
-                      transitionBuilder: (Widget child, Animation<double> animation) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0.02, 0),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
-                          ),
-                        );
-                      },
+                      transitionBuilder:
+                          (Widget child, Animation<double> animation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0.02, 0),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                                child: child,
+                              ),
+                            );
+                          },
                       child: _buildCurrentView(view, isDirector, ref),
                     );
                   },
@@ -280,7 +309,13 @@ class DashboardScreen extends ConsumerWidget {
         backgroundColor: const Color(0xFFD4AF37),
         foregroundColor: Colors.black,
         icon: const Icon(Icons.add),
-        label: const Text('NEW ORDER', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+        label: Text(
+          ref.t('dashboard.newOrder'),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+          ),
+        ),
       ),
     );
   }
@@ -331,12 +366,17 @@ class DashboardHomeScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'DASHBOARD',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.white70),
+        Text(
+          ref.t('dashboard.title'),
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 2,
+            color: Colors.white70,
+          ),
         ),
         const SizedBox(height: 24),
-        
+
         InkWell(
           onTap: () => _startNewOrderFlowFromDashboard(context, ref),
           child: SizedBox(
@@ -353,15 +393,33 @@ class DashboardHomeScreen extends ConsumerWidget {
                       color: const Color(0xFFD4AF37).withOpacity(0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.add_shopping_cart, size: 48, color: Color(0xFFD4AF37)),
+                    child: const Icon(
+                      Icons.add_shopping_cart,
+                      size: 48,
+                      color: Color(0xFFD4AF37),
+                    ),
                   ),
                   const SizedBox(width: 32),
-                  const Column(
+                  Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('START NEW ORDER', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 3, color: Color(0xFFD4AF37))),
-                      Text('Select a table and start adding items', style: TextStyle(color: Colors.white54, fontSize: 16)),
+                      Text(
+                        ref.t('dashboard.startNewOrder'),
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 3,
+                          color: Color(0xFFD4AF37),
+                        ),
+                      ),
+                      Text(
+                        ref.t('dashboard.startNewOrderSubtitle'),
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 16,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -369,9 +427,9 @@ class DashboardHomeScreen extends ConsumerWidget {
             ),
           ),
         ),
-        
+
         const SizedBox(height: 32),
-        
+
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -380,46 +438,82 @@ class DashboardHomeScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('ACTIVE TABLES', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white38)),
+                  Text(
+                    ref.t('dashboard.activeTables'),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white38,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   tablesAsync.when(
                     data: (tables) {
-                      final occupied = tables.where((t) => t.status == TableStatus.occupied).toList();
+                      final occupied = tables
+                          .where((t) => t.status == TableStatus.occupied)
+                          .toList();
                       if (occupied.isEmpty) {
-                        return const SizedBox(
+                        return SizedBox(
                           height: 200,
                           child: GlassContainer(
                             opacity: 0.05,
-                            child: Center(child: Text('No active tables', style: TextStyle(color: Colors.white24))),
+                            child: Center(
+                              child: Text(
+                                ref.t('dashboard.noActiveTables'),
+                                style: const TextStyle(color: Colors.white24),
+                              ),
+                            ),
                           ),
                         );
                       }
                       return GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
-                          childAspectRatio: 1.2,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                        ),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4,
+                              childAspectRatio: 1.2,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                            ),
                         itemCount: occupied.length,
                         itemBuilder: (context, index) {
                           final table = occupied[index];
                           return GlassContainer(
                             opacity: 0.2,
-                            border: Border.all(color: const Color(0xFF006B3C).withOpacity(0.5), width: 2),
+                            border: Border.all(
+                              color: const Color(0xFF006B3C).withOpacity(0.5),
+                              width: 2,
+                            ),
                             child: InkWell(
                               onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => OrderScreen(table: table)),
+                                MaterialPageRoute(
+                                  builder: (_) => OrderScreen(table: table),
+                                ),
                               ),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(Icons.table_bar, size: 32, color: Color(0xFFD4AF37)),
+                                  const Icon(
+                                    Icons.table_bar,
+                                    size: 32,
+                                    color: Color(0xFFD4AF37),
+                                  ),
                                   const SizedBox(height: 8),
-                                  Text(table.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                  Text(table.zoneName ?? '', style: const TextStyle(fontSize: 10, color: Colors.white38)),
+                                  Text(
+                                    table.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  Text(
+                                    table.zoneName ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.white38,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -427,8 +521,9 @@ class DashboardHomeScreen extends ConsumerWidget {
                         },
                       );
                     },
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => Text('Error: $e'),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => Text('${ref.t('errors.error')}: $e'),
                   ),
                 ],
               ),
@@ -439,30 +534,53 @@ class DashboardHomeScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('TODAY\'S OVERVIEW', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white38)),
+                  Text(
+                    ref.t('dashboard.todayOverview'),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white38,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   ordersAsync.when(
                     data: (orders) {
                       final today = DateTime.now();
-                      final todayOrders = orders.where((o) => 
-                        o.createdAt.day == today.day && 
-                        o.createdAt.month == today.month && 
-                        o.createdAt.year == today.year &&
-                        o.status == OrderStatus.completed
-                      ).toList();
-                      
-                      final totalRevenue = todayOrders.fold(0.0, (sum, o) => sum + o.grandTotal);
-                      
+                      final todayOrders = orders
+                          .where(
+                            (o) =>
+                                o.createdAt.day == today.day &&
+                                o.createdAt.month == today.month &&
+                                o.createdAt.year == today.year &&
+                                o.status == OrderStatus.completed,
+                          )
+                          .toList();
+
+                      final totalRevenue = todayOrders.fold(
+                        0.0,
+                        (sum, o) => sum + o.grandTotal,
+                      );
+
                       return Column(
                         children: [
-                          _StatCard(title: 'Orders Completed', value: '${todayOrders.length}', icon: Icons.check_circle_outline),
+                          _StatCard(
+                            title: ref.t('dashboard.ordersCompleted'),
+                            value: '${todayOrders.length}',
+                            icon: Icons.check_circle_outline,
+                          ),
                           const SizedBox(height: 16),
-                          _StatCard(title: 'Total Revenue', value: '${totalRevenue.toStringAsFixed(2)} ETB', icon: Icons.payments_outlined, color: const Color(0xFFD4AF37)),
+                          _StatCard(
+                            title: ref.t('dashboard.totalRevenue'),
+                            value: '${totalRevenue.toStringAsFixed(2)} ETB',
+                            icon: Icons.payments_outlined,
+                            color: const Color(0xFFD4AF37),
+                          ),
                         ],
                       );
                     },
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => Text('Error: $e'),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => Text('${ref.t('errors.error')}: $e'),
                   ),
                 ],
               ),
@@ -479,7 +597,12 @@ class _StatCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color? color;
-  const _StatCard({required this.title, required this.value, required this.icon, this.color});
+  const _StatCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    this.color,
+  });
   @override
   Widget build(BuildContext context) {
     return GlassContainer(
@@ -492,8 +615,18 @@ class _StatCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontSize: 12, color: Colors.white54)),
-              Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color ?? Colors.white)),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 12, color: Colors.white54),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: color ?? Colors.white,
+                ),
+              ),
             ],
           ),
         ],
@@ -504,7 +637,10 @@ class _StatCard extends StatelessWidget {
 
 // ── Professional Table Selector Dialog ────────────────────────────────────
 
-void _startNewOrderFlowFromDashboard(BuildContext context, WidgetRef ref) async {
+void _startNewOrderFlowFromDashboard(
+  BuildContext context,
+  WidgetRef ref,
+) async {
   final selectedTable = await showDialog<TableModel>(
     context: context,
     barrierColor: Colors.black87,
@@ -522,7 +658,8 @@ class _TableSelectorDialog extends ConsumerStatefulWidget {
   const _TableSelectorDialog();
 
   @override
-  ConsumerState<_TableSelectorDialog> createState() => _TableSelectorDialogState();
+  ConsumerState<_TableSelectorDialog> createState() =>
+      _TableSelectorDialogState();
 }
 
 class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
@@ -557,7 +694,7 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
               color: Colors.black.withOpacity(0.6),
               blurRadius: 60,
               spreadRadius: 10,
-            )
+            ),
           ],
         ),
         child: ClipRRect(
@@ -602,28 +739,33 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: [
-                  Container(
-                    width: 3,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD4AF37),
-                      borderRadius: BorderRadius.circular(2),
+                Row(
+                  children: [
+                    Container(
+                      width: 3,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD4AF37),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text('ZONES',
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 2,
-                          color: Color(0xFF8B90A0))),
-                ]),
+                    const SizedBox(width: 10),
+                    Text(
+                      ref.t('dashboard.zones'),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 2,
+                        color: Color(0xFF8B90A0),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
           _ZoneTile(
-            label: 'All Tables',
+            label: ref.t('zones.allTables'),
             icon: Icons.grid_view_rounded,
             isSelected: _selectedZoneId == null,
             onTap: () => setState(() => _selectedZoneId = null),
@@ -657,7 +799,10 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
               ),
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.close, size: 16),
-              label: const Text('Cancel', style: TextStyle(fontSize: 13)),
+              label: Text(
+                ref.t('dashboard.cancel'),
+                style: const TextStyle(fontSize: 13),
+              ),
             ),
           ),
         ],
@@ -678,15 +823,20 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('SELECT A TABLE',
-                  style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1,
-                      color: Colors.white)),
+              Text(
+                ref.t('dashboard.selectTable'),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                  color: Colors.white,
+                ),
+              ),
               const SizedBox(height: 2),
               Text(
-                _selectedZoneId == null ? 'All Zones' : 'Filtered by zone',
+                _selectedZoneId == null
+                    ? ref.t('zones.allTables')
+                    : ref.t('zones.filteredByZone'),
                 style: const TextStyle(fontSize: 12, color: Color(0xFF8B90A0)),
               ),
             ],
@@ -696,15 +846,31 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
           tablesAsync.maybeWhen(
             data: (tables) {
               final all = tables as List;
-              final available = all.where((t) => t.status == TableStatus.available).length;
-              final occupied = all.where((t) => t.status == TableStatus.occupied).length;
+              final available = all
+                  .where((t) => t.status == TableStatus.available)
+                  .length;
+              final occupied = all
+                  .where((t) => t.status == TableStatus.occupied)
+                  .length;
               return Row(
                 children: [
-                  _StatBadge(label: 'Available', count: available, color: const Color(0xFF22C55E)),
+                  _StatBadge(
+                    label: ref.t('dashboard.available'),
+                    count: available,
+                    color: const Color(0xFF22C55E),
+                  ),
                   const SizedBox(width: 12),
-                  _StatBadge(label: 'Occupied', count: occupied, color: const Color(0xFFEF4444)),
+                  _StatBadge(
+                    label: ref.t('dashboard.occupied'),
+                    count: occupied,
+                    color: const Color(0xFFEF4444),
+                  ),
                   const SizedBox(width: 12),
-                  _StatBadge(label: 'Total', count: all.length, color: const Color(0xFFD4AF37)),
+                  _StatBadge(
+                    label: ref.t('dashboard.total'),
+                    count: all.length,
+                    color: const Color(0xFFD4AF37),
+                  ),
                 ],
               );
             },
@@ -748,7 +914,11 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
             ),
             if (_search.isNotEmpty)
               IconButton(
-                icon: const Icon(Icons.close, size: 16, color: Color(0xFF8B90A0)),
+                icon: const Icon(
+                  Icons.close,
+                  size: 16,
+                  color: Color(0xFF8B90A0),
+                ),
                 onPressed: () {
                   _searchCtrl.clear();
                   setState(() => _search = '');
@@ -767,10 +937,14 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
       data: (tables) {
         var filtered = tables as List<TableModel>;
         if (_selectedZoneId != null) {
-          filtered = filtered.where((t) => t.zoneId == _selectedZoneId).toList();
+          filtered = filtered
+              .where((t) => t.zoneId == _selectedZoneId)
+              .toList();
         }
         if (_search.isNotEmpty) {
-          filtered = filtered.where((t) => t.name.toLowerCase().contains(_search)).toList();
+          filtered = filtered
+              .where((t) => t.name.toLowerCase().contains(_search))
+              .toList();
         }
 
         if (filtered.isEmpty) {
@@ -778,10 +952,16 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.table_bar_outlined, size: 64, color: Colors.white.withOpacity(0.1)),
+                Icon(
+                  Icons.table_bar_outlined,
+                  size: 64,
+                  color: Colors.white.withOpacity(0.1),
+                ),
                 const SizedBox(height: 16),
-                const Text('No tables found',
-                    style: TextStyle(color: Color(0xFF8B90A0), fontSize: 16)),
+                Text(
+                  ref.t('dashboard.noTablesFound'),
+                  style: const TextStyle(color: Colors.white24),
+                ),
               ],
             ),
           );
@@ -796,14 +976,28 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
             mainAxisSpacing: 14,
           ),
           itemCount: filtered.length,
-          itemBuilder: (_, i) => _ProfessionalTableCard(
-            table: filtered[i],
-            onTap: () => Navigator.pop(context, filtered[i]),
-          ),
+          itemBuilder: (_, i) {
+            final tableOccupied = filtered[i].status == TableStatus.occupied;
+            return _ProfessionalTableCard(
+              table: filtered[i],
+              statusLabel: tableOccupied
+                  ? ref.t('tableSelector.busy')
+                  : ref.t('tableSelector.free'),
+              noZoneLabel: ref.t('tableSelector.noZone'),
+              onTap: () => Navigator.pop(context, filtered[i]),
+            );
+          },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37))),
-      error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: Colors.redAccent))),
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
+      ),
+      error: (e, _) => Center(
+        child: Text(
+          '${ref.t('errors.error')}: $e',
+          style: const TextStyle(color: Colors.redAccent),
+        ),
+      ),
     );
   }
 }
@@ -848,7 +1042,9 @@ class _ZoneTile extends StatelessWidget {
                 Icon(
                   icon,
                   size: 16,
-                  color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF8B90A0),
+                  color: isSelected
+                      ? const Color(0xFFD4AF37)
+                      : const Color(0xFF8B90A0),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -856,8 +1052,12 @@ class _ZoneTile extends StatelessWidget {
                     label,
                     style: TextStyle(
                       fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-                      color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF8B90A0),
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w400,
+                      color: isSelected
+                          ? const Color(0xFFD4AF37)
+                          : const Color(0xFF8B90A0),
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -887,7 +1087,11 @@ class _StatBadge extends StatelessWidget {
   final int count;
   final Color color;
 
-  const _StatBadge({required this.label, required this.count, required this.color});
+  const _StatBadge({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -903,13 +1107,16 @@ class _StatBadge extends StatelessWidget {
           Text(
             '$count',
             style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                color: color),
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
           ),
           const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(fontSize: 10, color: Color(0xFF8B90A0))),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 10, color: Color(0xFF8B90A0)),
+          ),
         ],
       ),
     );
@@ -921,8 +1128,15 @@ class _StatBadge extends StatelessWidget {
 class _ProfessionalTableCard extends StatefulWidget {
   final TableModel table;
   final VoidCallback onTap;
+  final String statusLabel;
+  final String noZoneLabel;
 
-  const _ProfessionalTableCard({required this.table, required this.onTap});
+  const _ProfessionalTableCard({
+    required this.table,
+    required this.onTap,
+    required this.statusLabel,
+    required this.noZoneLabel,
+  });
 
   @override
   State<_ProfessionalTableCard> createState() => _ProfessionalTableCardState();
@@ -934,7 +1148,9 @@ class _ProfessionalTableCardState extends State<_ProfessionalTableCard> {
   @override
   Widget build(BuildContext context) {
     final isOccupied = widget.table.status == TableStatus.occupied;
-    final accentColor = isOccupied ? const Color(0xFFEF4444) : const Color(0xFF22C55E);
+    final accentColor = isOccupied
+        ? const Color(0xFFEF4444)
+        : const Color(0xFF22C55E);
     final hoverColor = isOccupied
         ? const Color(0xFFEF4444).withOpacity(0.08)
         : const Color(0xFF22C55E).withOpacity(0.06);
@@ -942,13 +1158,13 @@ class _ProfessionalTableCardState extends State<_ProfessionalTableCard> {
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      cursor: isOccupied ? SystemMouseCursors.forbidden : SystemMouseCursors.click,
+      cursor: isOccupied
+          ? SystemMouseCursors.forbidden
+          : SystemMouseCursors.click,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         decoration: BoxDecoration(
-          color: _hovered
-              ? hoverColor
-              : const Color(0xFF1A1D27),
+          color: _hovered ? hoverColor : const Color(0xFF1A1D27),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: _hovered
@@ -957,7 +1173,12 @@ class _ProfessionalTableCardState extends State<_ProfessionalTableCard> {
             width: _hovered ? 1.5 : 1,
           ),
           boxShadow: _hovered
-              ? [BoxShadow(color: accentColor.withOpacity(0.12), blurRadius: 16)]
+              ? [
+                  BoxShadow(
+                    color: accentColor.withOpacity(0.12),
+                    blurRadius: 16,
+                  ),
+                ]
               : [],
         ),
         child: InkWell(
@@ -987,7 +1208,10 @@ class _ProfessionalTableCardState extends State<_ProfessionalTableCard> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: accentColor.withOpacity(0.12),
                         borderRadius: BorderRadius.zero,
@@ -1006,7 +1230,7 @@ class _ProfessionalTableCardState extends State<_ProfessionalTableCard> {
                           ),
                           const SizedBox(width: 5),
                           Text(
-                            isOccupied ? 'BUSY' : 'FREE',
+                            widget.statusLabel,
                             style: TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.w800,
@@ -1035,9 +1259,11 @@ class _ProfessionalTableCardState extends State<_ProfessionalTableCard> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      widget.table.zoneName ?? 'No zone',
+                      widget.table.zoneName ?? widget.noZoneLabel,
                       style: const TextStyle(
-                          fontSize: 11, color: Color(0xFF8B90A0)),
+                        fontSize: 11,
+                        color: Color(0xFF8B90A0),
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],

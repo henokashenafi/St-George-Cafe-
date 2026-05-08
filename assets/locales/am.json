@@ -19,7 +19,10 @@
     "reports": "ሪፖርቶች",
     "users": "ተጠቃሚዎች",
     "settings": "ቅንብሮች",
-    "logout": "መውጫ"
+    "logout": "መውጫ",
+    "dashboard": "ዳሽቦርድ",
+    "history": "ታሪክ",
+    "held": "ተይዘዋል"
   },
   "order": {
     "title": "{table} — ትዕዛዝ",
@@ -47,6 +50,47 @@
     "loadingWaiters": "አስተናጋጆች በመጫን ላይ",
     "voidItem": "ዕቃ ሰርዝ",
     "orderTitle": "ትዕዛዝ"
+  },
+  "orderConfirm": {
+    "title": "ሂሳብ አረጋግጥ እና አትም",
+    "table": "ጠረጴዛ",
+    "waiter": "አስተናጋጅ",
+    "items": "እቃዎች",
+    "subtotal": "የንዑስ ድምር",
+    "service": "አገልግሎት ({percent}%)",
+    "discount": "ቅነሳ (ብር)",
+    "totalToPay": "ለመክፈል ድምር",
+    "cancel": "ይቅር",
+    "printBill": "ሂሳብ አትም"
+  },
+  "main": {
+    "title": "ዳሽቦርድ",
+    "newOrder": "አዲስ ትዕዛዝ",
+    "startNewOrder": "አዲስ ትዕዛዝ ይጀምሩ",
+    "startNewOrderSubtitle": "ጠረጴዛ ይምረጡ እና እቃዎች መጨመር ይጀምሩ",
+    "activeTables": "ንቁ ጠረጴዛዎች",
+    "noActiveTables": "ምንም ንቁ ጠረጴዛዎች የሉም",
+    "todayOverview": "የዛሬ መረጃ",
+    "ordersCompleted": "የተጠናቀቁ ትዕዛዛት",
+    "totalRevenue": "ጠቅላላ ገቢ",
+    "error": "ስህተት"
+  },
+  "zones": {
+    "title": "ክፍለ-አከባቢዎች",
+    "allTables": "ሁሉም ጠረጴዛዎች",
+    "filteredByZone": "በክፍለ-አከባቢ የተጣራ"
+  },
+  "tableSelector": {
+    "title": "ጠረጴዛ ይምረጡ",
+    "searchHint": "ጠረጴዛ በስም ይፈልጉ...",
+    "noTablesFound": "ምንም ጠረጴዛ አልተገኘም",
+    "available": "ነፃ",
+    "occupied": "ተይዟል",
+    "total": "ጠቅላላ",
+    "busy": "ተይዟል",
+    "free": "ነፃ",
+    "noZone": "ክፍለ-አከባቢ የለም",
+    "cancel": "ይቅር"
   },
   "management": {
     "categories": "ምድቦች",
@@ -96,6 +140,13 @@
     "allTime": "ሁሉም ጊዜ"
   },
   "settings": {
+    "cafeInformation": "የካፌ መረጃ",
+    "cafeName": "የካፌ ስም",
+    "address": "አድራሻ",
+    "phoneNumber": "ስልክ ቁጥር",
+    "taxAndCurrency": "ግብር እና ገንዘብ",
+    "vatNumber": "የግብር ቁጥር",
+    "vatRate": "የግብር መጠን (%)",
     "billing": "ክፍያ",
     "serviceCharge": "የአገልግሎት ክፍያ (%)",
     "serviceChargeLabel": "የአገልግሎት ክፍያ (%)",
@@ -157,6 +208,7 @@
     "all": "ሁሉም",
     "search": "እቃዎችን ይፈልጉ...",
     "loading": "በመጫን ላይ...",
+    "fieldRequired": "መሙላት ያስፈልጋል",
     "error": "ስህተት",
     "confirm": "ያረጋግጡ",
     "yes": "አዎ",
@@ -175,7 +227,49 @@
     "deleteConfirmTitle": "ሰርዝ",
     "discountLabel": "ቅነሳ (ብር)",
     "tableDoesNotHaveWaiter": "ይህ ጠረጴዛ የተመደበ አስተናጋጅ የለውም። እባክዎ በጠረጴዛ አስተዳዳሪው ያዋቅሩት።",
-    "notes": "ማስታወሻ"
+    "notes": "ማስታወሻ",
+    "numbers": {
+      "zero": "ዜሮ",
+      "one": "አንድ",
+      "two": "ሁለት",
+      "three": "ሶስት",
+      "four": "አራት",
+      "five": "አምስት",
+      "six": "ስድስት",
+      "seven": "ሰባት",
+      "eight": "ስምንት",
+      "nine": "ዘጠኝ",
+      "ten": "አስር",
+      "eleven": "አስራ አንድ",
+      "twelve": "አስራ ሁለት",
+      "thirteen": "አስራ ሶስት",
+      "fourteen": "አስራ አራት",
+      "fifteen": "አስራ አምስት",
+      "sixteen": "አስራ ስድስት",
+      "seventeen": "አስራ ሰባት",
+      "eighteen": "አስራ ስምንት",
+      "nineteen": "አስራ ዘጠኝ",
+      "twenty": "ሃያ",
+      "thirty": "ሰላሳ",
+      "forty": "አርባ",
+      "fifty": "ሃምሳ",
+      "sixty": "ስልሳ",
+      "seventy": "ሰባ",
+      "eighty": "ሰማኒያ",
+      "ninety": "ዘጠና",
+      "hundred": "መቶ",
+      "thousand": "ሺህ",
+      "million": "ሚሊዮን",
+      "and": "እና",
+      "cents": "ሴንትስ",
+      "only": "ብቻ"
+    },
+    "total": "ድምር",
+    "subtotal": "የንዑስ ድምር",
+    "serviceCharge": "አገልግሎት ({percent}%)",
+    "discount": "ቅነሳ",
+    "grandTotal": "ጠቅላላ",
+    "thankYou": "ለመጎብኘት አመሰግናለሁ!"
   },
   "bill": {
     "stGeorgeCafe": "ቅዱስ ጊዮርጊስ ካፌ",
@@ -195,7 +289,15 @@
     "discount": "ቅነሳ",
     "grandTotal": "ጠቅላላ",
     "thankYou": "ለመጎብኘት አመሰግናለሁ!",
-    "comeAgain": "እንደገና ይምጡ።"
+    "comeAgain": "እንደገና ይምጡ።",
+    "cashSalesInvoice": "የገንዘብ ሽያጭ ደረሰኝ",
+    "to": "ለ",
+    "preparedBy": "ያዘጋጀው",
+    "voucher": "ቫዉቸር",
+    "unitAmount": "የአንድ ዋጋ",
+    "tin": "ግብር ቁጥር: {tin}",
+    "tel": "ስልክ",
+    "description": "መግለጫ"
   },
   "print": {
     "kitchenOrder": "የማእድ ቤት ትዕዛዝ",
@@ -209,6 +311,44 @@
     "thankYou": "ለመጎብኘት አመሰግናለሁ!",
     "stGeorgeCafe": "ቅዱስ ጊዮርጊስ ካፌ",
     "address": "አዲስ አበባ, ኢትዮጵያ",
-    "orderNumber": "ትዕዛዝ"
+    "orderNumber": "ትዕዛዝ",
+    "roundNumber": "ዙር #{n}",
+    "items": "{count} እቃ(ዎች)"
+  },
+  "cafe": {
+    "name": "ቅዱስ ጊዮርጊስ ካፌ",
+    "address": "አዲስ አበባ, ኢትዮጵያ",
+    "phone": "+251 911 000000"
+  },
+  "held": {
+    "title": "የተያዙ ትዕዛዛች (በመጠባበቅ ላይ)",
+    "noHeldOrders": "ምንም የተያዙ ትዕዛዛት አልተገኙም",
+    "waiter": "አስተናጋጅ",
+    "items": "እቃዎች",
+    "started": "የተጀመረ",
+    "tapToOpen": "ለመክፈት ይንኩ"
+  },
+  "dashboard": {
+    "title": "ዳሽቦርድ",
+    "newOrder": "አዲስ ትዕዛዝ",
+    "startNewOrder": "አዲስ ትዕዛዝ ይጀምሩ",
+    "startNewOrderSubtitle": "ጠረጴዛ ይምረጡ እና እቃዎች መጨመር ይጀምሩ",
+    "activeTables": "ንቁ ጠረጴዛዎች",
+    "noActiveTables": "ምንም ንቁ ጠረጴዛዎች የሉም",
+    "todayOverview": "የዛሬ መረጃ",
+    "ordersCompleted": "የተጠናቀቁ ትዕዛዛት",
+    "totalRevenue": "ጠቅላላ ገቢ",
+    "zones": "ክፍለ-አከባቢዎች",
+    "selectTable": "ጠረጴዛ ይምረጡ",
+    "noTablesFound": "ምንም ጠረጴዛ አልተገኘም",
+    "cancel": "ይቅር"
+  },
+  "systemSettings": {
+    "title": "የስርዓት ቅንብሮች",
+    "settingsSaved": "ቅንብሮች በተሳካ ሁኔታ ተቀምጠዋል",
+    "saveChanges": "ለውጦችን አስቀምጥ"
+  },
+  "errors": {
+    "error": "ስህተት"
   }
 }

@@ -13,7 +13,6 @@ import 'package:intl/intl.dart';
 import 'package:st_george_pos/models/table_model.dart';
 import 'package:st_george_pos/screens/order_screen.dart';
 
-
 // ── Menu Management ───────────────────────────────────────────────────────
 
 class MenuManagementScreen extends ConsumerStatefulWidget {
@@ -109,7 +108,10 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                             width: 40,
                             height: 40,
                             color: Colors.white10,
-                            child: const Icon(Icons.fastfood, color: Color(0xFFD4AF37)),
+                            child: const Icon(
+                              Icons.fastfood,
+                              color: Color(0xFFD4AF37),
+                            ),
                           ),
                           title: Text(p.name),
                           subtitle: Text(
@@ -172,13 +174,15 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
               : ref.t('common.edit'),
         ),
         content: TextField(
-            controller: ctrl,
-            autofocus: true,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-                labelText: 'Name',
-                labelStyle: TextStyle(color: Colors.white54)),
-            onSubmitted: (_) => doSave(ctx)),
+          controller: ctrl,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            labelText: ref.t('management.name'),
+            labelStyle: const TextStyle(color: Colors.white54),
+          ),
+          onSubmitted: (_) => doSave(ctx),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -186,10 +190,11 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD4AF37),
-                foregroundColor: Colors.black),
+              backgroundColor: const Color(0xFFD4AF37),
+              foregroundColor: Colors.black,
+            ),
             onPressed: () => doSave(ctx),
-            child: const Text('Save'),
+            child: Text(ref.t('management.save')),
           ),
         ],
       ),
@@ -199,7 +204,8 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
   void _showProductDialog(BuildContext context, Product? existing) {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final priceCtrl = TextEditingController(
-        text: existing != null ? existing.price.toString() : '');
+      text: existing != null ? existing.price.toString() : '',
+    );
     final priceFocus = FocusNode();
 
     Future<void> doSave(BuildContext ctx) async {
@@ -207,16 +213,22 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
       if (nameCtrl.text.trim().isEmpty || price == null) return;
       final repo = ref.read(posRepositoryProvider);
       if (existing == null) {
-        await repo.addProduct(Product(
+        await repo.addProduct(
+          Product(
             categoryId: selectedCategoryId!,
             name: nameCtrl.text.trim(),
-            price: price));
+            price: price,
+          ),
+        );
       } else {
-        await repo.updateProduct(Product(
+        await repo.updateProduct(
+          Product(
             id: existing.id,
             categoryId: existing.categoryId,
             name: nameCtrl.text.trim(),
-            price: price));
+            price: price,
+          ),
+        );
       }
       ref.invalidate(productsProvider(selectedCategoryId));
       ref.invalidate(productsProvider(null));
@@ -238,28 +250,35 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                  controller: nameCtrl,
-                  autofocus: true,
-                  style: const TextStyle(color: Colors.white),
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                      labelText: 'Name',
-                      labelStyle: TextStyle(color: Colors.white54)),
-                  onSubmitted: (_) => priceFocus.requestFocus()),
+                controller: nameCtrl,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  labelText: ref.t('management.productName'),
+                  labelStyle: const TextStyle(color: Colors.white54),
+                ),
+                onSubmitted: (_) => priceFocus.requestFocus(),
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: priceCtrl,
                 focusNode: priceFocus,
                 style: const TextStyle(color: Colors.white),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 textInputAction: TextInputAction.done,
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
                 ],
-                decoration: const InputDecoration(
-                    labelText: 'Price (ETB)',
-                    labelStyle: TextStyle(color: Colors.white54)),
+                decoration: InputDecoration(
+                  labelText: ref.t(
+                    'management.priceLabel',
+                    replacements: {'currency': ref.t('common.currency')},
+                  ),
+                  labelStyle: const TextStyle(color: Colors.white54),
+                ),
                 onSubmitted: (_) => doSave(ctx),
               ),
             ],
@@ -272,10 +291,11 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD4AF37),
-                foregroundColor: Colors.black),
+              backgroundColor: const Color(0xFFD4AF37),
+              foregroundColor: Colors.black,
+            ),
             onPressed: () => doSave(ctx),
-            child: const Text('Save'),
+            child: Text(ref.t('management.save')),
           ),
         ],
       ),
@@ -321,10 +341,11 @@ class WaiterManagementScreen extends ConsumerWidget {
                   final w = waiters[i];
                   return ListTile(
                     leading: Container(
-                        width: 40,
-                        height: 40,
-                        color: const Color(0xFFD4AF37),
-                        child: const Icon(Icons.person, color: Colors.black)),
+                      width: 40,
+                      height: 40,
+                      color: const Color(0xFFD4AF37),
+                      child: const Icon(Icons.person, color: Colors.black),
+                    ),
                     title: Text(w.name),
                     subtitle: Text('${ref.t('management.code')}: ${w.code}'),
                     trailing: IconButton(
@@ -367,13 +388,15 @@ class WaiterManagementScreen extends ConsumerWidget {
         backgroundColor: const Color(0xFF1A1A1A),
         title: Text(ref.t('management.addWaiter')),
         content: TextField(
-            controller: ctrl,
-            autofocus: true,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-                labelText: 'Waiter Name',
-                labelStyle: TextStyle(color: Colors.white54)),
-            onSubmitted: (_) => doAdd(ctx)),
+          controller: ctrl,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            labelText: ref.t('management.waiterNameLabel'),
+            labelStyle: const TextStyle(color: Colors.white54),
+          ),
+          onSubmitted: (_) => doAdd(ctx),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -381,10 +404,11 @@ class WaiterManagementScreen extends ConsumerWidget {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD4AF37),
-                foregroundColor: Colors.black),
+              backgroundColor: const Color(0xFFD4AF37),
+              foregroundColor: Colors.black,
+            ),
             onPressed: () => doAdd(ctx),
-            child: const Text('Add'),
+            child: Text(ref.t('management.add')),
           ),
         ],
       ),
@@ -432,69 +456,97 @@ class OrderHistoryScreen extends ConsumerWidget {
           Expanded(
             child: orders.when(
               data: (list) => list.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Opacity(
-                          opacity: 0.4, child: Text('No orders in range')))
+                        opacity: 0.4,
+                        child: Text(ref.t('management.noOrdersInRange')),
+                      ),
+                    )
                   : ListView.builder(
                       itemCount: list.length,
                       itemBuilder: (_, i) {
                         final o = list[i];
                         final settings =
                             ref.watch(appSettingsProvider).value ?? {};
-                        final scPercent = double.tryParse(
-                                settings['service_charge_percent'] ?? '5') ??
+                        final scPercent =
+                            double.tryParse(
+                              settings['service_charge_percent'] ?? '5',
+                            ) ??
                             5;
                         return ExpansionTile(
-                          title: Text('Order #${o.id} — ${o.tableName}'),
+                          title: Text(
+                            ref.t(
+                              'management.order',
+                              replacements: {
+                                'id': '${o.id}',
+                                'table': o.tableName,
+                              },
+                            ),
+                          ),
                           subtitle: Text(
-                              'Waiter: ${o.waiterName}  |  Cashier: ${o.cashierName}  |  ${DateFormat('dd/MM HH:mm').format(o.createdAt)}'),
+                            '${ref.t('bill.waiter')}: ${o.waiterName}  |  ${ref.t('bill.cashier')}: ${o.cashierName}  |  ${DateFormat('dd/MM HH:mm').format(o.createdAt)}',
+                          ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                  '${o.grandTotal.toStringAsFixed(2)} ETB',
-                                  style: const TextStyle(
-                                      color: Color(0xFFD4AF37),
-                                      fontWeight: FontWeight.bold)),
+                                '${o.grandTotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                style: const TextStyle(
+                                  color: Color(0xFFD4AF37),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                               const SizedBox(width: 8),
                               if (o.status == OrderStatus.completed)
-                                 IconButton(
-                                  icon: const Icon(Icons.print_outlined,
-                                      size: 20, color: Colors.white54),
-                                  tooltip: 'Reprint bill',
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.print_outlined,
+                                    size: 20,
+                                    color: Colors.white54,
+                                  ),
+                                  tooltip: ref.t('management.reprintBill'),
                                   onPressed: () async {
-                                    final settings = await ref.read(cafeSettingsProvider.future);
+                                    final settings = await ref.read(
+                                      cafeSettingsProvider.future,
+                                    );
                                     BillService.generateAndDownloadBill(
                                       order: o,
                                       items: o.items,
                                       settings: settings,
                                       cashierName: o.cashierName,
                                       serviceChargePercent: scPercent,
+                                      t: ref.t,
                                     );
                                   },
                                 ),
                             ],
                           ),
                           children: o.items
-                              .map((item) => ListTile(
-                                    dense: true,
-                                    title: Text(item.productName),
-                                    subtitle: item.notes != null &&
-                                            item.notes!.isNotEmpty
-                                        ? Text(item.notes!,
-                                            style: const TextStyle(
-                                                color: Colors.white38,
-                                                fontSize: 11))
-                                        : null,
-                                    trailing: Text(
-                                        '${item.quantity} × ${item.unitPrice.toStringAsFixed(2)}'),
-                                  ))
+                              .map(
+                                (item) => ListTile(
+                                  dense: true,
+                                  title: Text(item.productName),
+                                  subtitle:
+                                      item.notes != null &&
+                                          item.notes!.isNotEmpty
+                                      ? Text(
+                                          item.notes!,
+                                          style: const TextStyle(
+                                            color: Colors.white38,
+                                            fontSize: 11,
+                                          ),
+                                        )
+                                      : null,
+                                  trailing: Text(
+                                    '${item.quantity} × ${item.unitPrice.toStringAsFixed(2)}',
+                                  ),
+                                ),
+                              )
                               .toList(),
                         );
                       },
                     ),
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Text('$e'),
             ),
           ),
@@ -517,28 +569,39 @@ class HeldOrdersScreen extends ConsumerWidget {
       opacity: 0.05,
       child: Column(
         children: [
-          const Padding(
-            padding: EdgeInsets.all(20),
+          Padding(
+            padding: const EdgeInsets.all(20),
             child: Row(
               children: [
-                Icon(Icons.pause_circle_outline, color: Color(0xFFD4AF37), size: 28),
-                SizedBox(width: 12),
-                Text('Held Invoices (Pending)',
-                    style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5)),
+                const Icon(
+                  Icons.pause_circle_outline,
+                  color: Color(0xFFD4AF37),
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  ref.t('held.title'),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.5,
+                  ),
+                ),
               ],
             ),
           ),
           Expanded(
             child: orders.when(
               data: (list) {
-                final pending = list.where((o) => o.status == OrderStatus.pending).toList();
+                final pending = list
+                    .where((o) => o.status == OrderStatus.pending)
+                    .toList();
                 if (pending.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Opacity(
-                        opacity: 0.4, child: Text('No held orders found')),
+                      opacity: 0.4,
+                      child: Text(ref.t('held.noHeldOrders')),
+                    ),
                   );
                 }
                 return ListView.builder(
@@ -549,23 +612,55 @@ class HeldOrdersScreen extends ConsumerWidget {
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
                       color: Colors.white.withOpacity(0.05),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.zero,
+                      ),
                       child: ListTile(
                         onTap: () {
                           // Jump to the table order screen
-                          final table = TableModel(id: o.tableId, name: o.tableName, status: TableStatus.occupied);
+                          final table = TableModel(
+                            id: o.tableId,
+                            name: o.tableName,
+                            status: TableStatus.occupied,
+                          );
                           Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => OrderScreen(table: table)),
+                            MaterialPageRoute(
+                              builder: (_) => OrderScreen(table: table),
+                            ),
                           );
                         },
-                        title: Text('${o.tableName} — Order #${o.id}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Waiter: ${o.waiterName}  |  Items: ${o.items.length}  |  Started: ${DateFormat('HH:mm').format(o.createdAt)}'),
+                        title: Text(
+                          ref.t(
+                            'management.order',
+                            replacements: {
+                              'id': '${o.id}',
+                              'table': o.tableName,
+                            },
+                          ),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          '${ref.t('bill.waiter')}: ${o.waiterName}  |  ${ref.t('order.items')}: ${o.items.length}  |  ${ref.t('held.started')}: ${DateFormat('HH:mm').format(o.createdAt)}',
+                        ),
                         trailing: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text('${o.totalAmount.toStringAsFixed(2)} ETB', style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold, fontSize: 16)),
-                            const Text('Tap to open', style: TextStyle(color: Colors.white24, fontSize: 10)),
+                            Text(
+                              '${o.totalAmount.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                              style: const TextStyle(
+                                color: Color(0xFFD4AF37),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Text(
+                              ref.t('held.tapToOpen'),
+                              style: const TextStyle(
+                                color: Colors.white24,
+                                fontSize: 10,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -724,20 +819,28 @@ class ReportsScreen extends ConsumerWidget {
                         opacity: 0.05,
                         child: Column(
                           children: waiterMap.entries
-                              .map((e) => ListTile(
-                                    leading: Container(
-                                        width: 32,
-                                        height: 32,
-                                        color: const Color(0xFF006B3C),
-                                        child: const Icon(Icons.person,
-                                            color: Colors.white, size: 18)),
-                                    title: Text(e.key),
-                                    trailing: Text(
-                                        '${e.value.toStringAsFixed(2)} ETB',
-                                        style: const TextStyle(
-                                            color: Color(0xFFD4AF37),
-                                            fontWeight: FontWeight.bold)),
-                                  ))
+                              .map(
+                                (e) => ListTile(
+                                  leading: Container(
+                                    width: 32,
+                                    height: 32,
+                                    color: const Color(0xFF006B3C),
+                                    child: const Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                  ),
+                                  title: Text(e.key),
+                                  trailing: Text(
+                                    '${e.value.toStringAsFixed(2)} ETB',
+                                    style: const TextStyle(
+                                      color: Color(0xFFD4AF37),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              )
                               .toList(),
                         ),
                       ),
@@ -757,20 +860,28 @@ class ReportsScreen extends ConsumerWidget {
                         opacity: 0.05,
                         child: Column(
                           children: cashierMap.entries
-                              .map((e) => ListTile(
-                                    leading: Container(
-                                        width: 32,
-                                        height: 32,
-                                        color: const Color(0xFFD4AF37),
-                                        child: const Icon(Icons.point_of_sale,
-                                            color: Colors.black, size: 18)),
-                                    title: Text(e.key),
-                                    trailing: Text(
-                                        '${e.value.toStringAsFixed(2)} ETB',
-                                        style: const TextStyle(
-                                            color: Color(0xFFD4AF37),
-                                            fontWeight: FontWeight.bold)),
-                                  ))
+                              .map(
+                                (e) => ListTile(
+                                  leading: Container(
+                                    width: 32,
+                                    height: 32,
+                                    color: const Color(0xFFD4AF37),
+                                    child: const Icon(
+                                      Icons.point_of_sale,
+                                      color: Colors.black,
+                                      size: 18,
+                                    ),
+                                  ),
+                                  title: Text(e.key),
+                                  trailing: Text(
+                                    '${e.value.toStringAsFixed(2)} ETB',
+                                    style: const TextStyle(
+                                      color: Color(0xFFD4AF37),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              )
                               .toList(),
                         ),
                       ),
@@ -992,19 +1103,52 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('SYSTEM SETTINGS', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 2, color: Color(0xFFD4AF37))),
+                    Text(
+                      ref.t('systemSettings.title'),
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
+                        color: Color(0xFFD4AF37),
+                      ),
+                    ),
                     const SizedBox(height: 32),
-                    _buildSectionTitle('Cafe Information'),
-                    _buildTextField('Cafe Name', _nameController),
-                    _buildTextField('Address', _addressController),
-                    _buildTextField('Phone Number', _phoneController),
+                    _buildSectionTitle(ref.t('settings.cafeInformation')),
+                    _buildTextField(
+                      ref.t('settings.cafeName'),
+                      _nameController,
+                      requiredFieldMessage: ref.t('common.fieldRequired'),
+                    ),
+                    _buildTextField(
+                      ref.t('settings.address'),
+                      _addressController,
+                      requiredFieldMessage: ref.t('common.fieldRequired'),
+                    ),
+                    _buildTextField(
+                      ref.t('settings.phoneNumber'),
+                      _phoneController,
+                      requiredFieldMessage: ref.t('common.fieldRequired'),
+                    ),
                     const SizedBox(height: 24),
-                    _buildSectionTitle('Tax & Currency'),
+                    _buildSectionTitle(ref.t('settings.taxAndCurrency')),
                     Row(
                       children: [
-                        Expanded(child: _buildTextField('VAT Number', _vatNumberController)),
+                        Expanded(
+                          child: _buildTextField(
+                            ref.t('settings.vatNumber'),
+                            _vatNumberController,
+                            requiredFieldMessage: ref.t('common.fieldRequired'),
+                          ),
+                        ),
                         const SizedBox(width: 24),
-                        Expanded(child: _buildTextField('VAT Rate (%)', _vatRateController, isNumber: true)),
+                        Expanded(
+                          child: _buildTextField(
+                            ref.t('settings.vatRate'),
+                            _vatRateController,
+                            isNumber: true,
+                            requiredFieldMessage: ref.t('common.fieldRequired'),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 48),
@@ -1013,8 +1157,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFD4AF37),
                           foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 20),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 48,
+                            vertical: 20,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.zero,
+                          ),
                         ),
                         onPressed: () async {
                           if (_formKey.currentState!.validate()) {
@@ -1023,15 +1172,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               address: _addressController.text,
                               phone: _phoneController.text,
                               vatNumber: _vatNumberController.text,
-                              vatRate: double.tryParse(_vatRateController.text) ?? 5.0,
+                              vatRate:
+                                  double.tryParse(_vatRateController.text) ??
+                                  5.0,
                             );
-                            await ref.read(activeOrderServiceProvider).saveSettings(newSettings);
+                            await ref
+                                .read(activeOrderServiceProvider)
+                                .saveSettings(newSettings);
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Settings saved successfully')),
+                              SnackBar(
+                                content: Text(
+                                  ref.t('systemSettings.settingsSaved'),
+                                ),
+                              ),
                             );
                           }
                         },
-                        child: const Text('SAVE CHANGES', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                        child: Text(
+                          ref.t('systemSettings.saveChanges'),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -1042,18 +1205,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => Center(child: Text('${ref.t('errors.error')}: $e')),
     );
   }
 
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
-      child: Text(title.toUpperCase(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white38, letterSpacing: 1.5)),
+      child: Text(
+        title.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+          color: Colors.white38,
+          letterSpacing: 1.5,
+        ),
+      ),
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, {bool isNumber = false}) {
+  Widget _buildTextField(
+    String label,
+    TextEditingController controller, {
+    bool isNumber = false,
+    String requiredFieldMessage = 'Field required',
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20.0),
       child: TextFormField(
@@ -1064,10 +1240,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           labelStyle: const TextStyle(color: Colors.white54),
           filled: true,
           fillColor: Colors.white.withOpacity(0.05),
-          border: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide.none),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: const BorderSide(color: Color(0xFFD4AF37))),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.zero,
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.zero,
+            borderSide: const BorderSide(color: Color(0xFFD4AF37)),
+          ),
         ),
-        validator: (value) => value == null || value.isEmpty ? 'Field required' : null,
+        validator: (value) =>
+            value == null || value.isEmpty ? requiredFieldMessage : null,
       ),
     );
   }

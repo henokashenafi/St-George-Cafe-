@@ -9,7 +9,7 @@ import 'package:st_george_pos/providers/pos_providers.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/models/waiter.dart';
 import 'package:st_george_pos/services/bill_service.dart';
-
+import 'package:st_george_pos/locales/app_localizations.dart';
 
 class OrderScreen extends ConsumerStatefulWidget {
   final TableModel? table;
@@ -34,7 +34,9 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     selectedTable = widget.table;
     Future.microtask(() {
       if (selectedTable != null) {
-        ref.read(activeOrderServiceProvider).refreshTableData(selectedTable!.id!);
+        ref
+            .read(activeOrderServiceProvider)
+            .refreshTableData(selectedTable!.id!);
       }
     });
   }
@@ -142,7 +144,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     Map<String, String> settings,
   ) async {
     if (localItems.isEmpty) return;
-    
+
     if (selectedTable == null) {
       await _showTableSelectionDialog(context);
       if (selectedTable == null) return;
@@ -157,30 +159,36 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         return;
       }
       final currentUser = ref.read(authProvider)!;
-      order = await ref.read(activeOrderServiceProvider).createNewOrder(OrderModel(
-        tableId: selectedTable!.id!,
-        waiterId: selectedWaiter!.id!,
-        cashierId: currentUser.id,
-        tableName: selectedTable!.name,
-        waiterName: selectedWaiter!.name,
-        cashierName: currentUser.username,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ));
+      order = await ref
+          .read(activeOrderServiceProvider)
+          .createNewOrder(
+            OrderModel(
+              tableId: selectedTable!.id!,
+              waiterId: selectedWaiter!.id!,
+              cashierId: currentUser.id,
+              tableName: selectedTable!.name,
+              waiterName: selectedWaiter!.name,
+              cashierName: currentUser.username,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ),
+          );
     }
     if (order != null) {
-      final itemsToPrint =
-          localItems.map((e) => e.copyWith(isPrintedToKitchen: true)).toList();
-      
+      final itemsToPrint = localItems
+          .map((e) => e.copyWith(isPrintedToKitchen: true))
+          .toList();
+
       final roundNumber = await ref
           .read(activeOrderServiceProvider)
           .addItems(order.id!, itemsToPrint, selectedTable!.id!);
-      
+
       // Kitchen Printing PDF
       await BillService.generateKitchenSlip(
-        order: order, 
-        items: localItems, 
-        roundNumber: roundNumber
+        order: order,
+        items: localItems,
+        roundNumber: roundNumber,
+        t: ref.t,
       );
 
       if (mounted) {
@@ -251,11 +259,14 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     if (confirmed == true) {
       final settings = await ref.read(cafeSettingsProvider.future);
       await BillService.generateAndDownloadBill(
-        order: order.copyWith(discountAmount: discount), // Ensure order has the discount
+        order: order.copyWith(
+          discountAmount: discount,
+        ), // Ensure order has the discount
         items: order.items,
         settings: settings,
         cashierName: order.cashierName,
         serviceChargePercent: serviceChargePercent,
+        t: ref.t,
       );
       await ref
           .read(posRepositoryProvider)
@@ -281,8 +292,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('${selectedTable?.name ?? 'NEW'} — ORDER',
-            style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)),
+        title: Text(
+          '${selectedTable?.name ?? 'NEW'} — ORDER',
+          style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),
+        ),
         backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
       ),
@@ -476,13 +489,29 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                           ),
                           const Spacer(),
                           if (selectedTable != null)
-                            Text(selectedTable!.name,
-                                style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold))
+                            Text(
+                              selectedTable!.name,
+                              style: const TextStyle(
+                                color: Color(0xFFD4AF37),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
                           else
                             TextButton.icon(
-                              onPressed: () => _showTableSelectionDialog(context),
-                              icon: const Icon(Icons.table_restaurant, size: 16, color: Color(0xFFD4AF37)),
-                              label: const Text('SELECT TABLE', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 12)),
+                              onPressed: () =>
+                                  _showTableSelectionDialog(context),
+                              icon: const Icon(
+                                Icons.table_restaurant,
+                                size: 16,
+                                color: Color(0xFFD4AF37),
+                              ),
+                              label: const Text(
+                                'SELECT TABLE',
+                                style: TextStyle(
+                                  color: Color(0xFFD4AF37),
+                                  fontSize: 12,
+                                ),
+                              ),
                             ),
                         ],
                       ),
@@ -546,20 +575,24 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 6),
-                                ...savedItems.map((item) => _CartItemTile(
-                                      item: item,
-                                      isSaved: true,
-                                      onVoid: () async {
+                                ...savedItems.map(
+                                  (item) => _CartItemTile(
+                                    item: item,
+                                    isSaved: true,
+                                    onVoid: () async {
+                                      await ref
+                                          .read(posRepositoryProvider)
+                                          .voidOrderItem(item.id!, order!.id!);
+                                      if (selectedTable != null) {
                                         await ref
-                                            .read(posRepositoryProvider)
-                                            .voidOrderItem(
-                                                item.id!, order!.id!);
-                                        if (selectedTable != null) {
-                                          await ref.read(activeOrderServiceProvider)
-                                              .refreshTableData(selectedTable!.id!);
-                                        }
-                                      },
-                                    )),
+                                            .read(activeOrderServiceProvider)
+                                            .refreshTableData(
+                                              selectedTable!.id!,
+                                            );
+                                      }
+                                    },
+                                  ),
+                                ),
                                 const SizedBox(height: 16),
                               ],
                               if (localItems.isNotEmpty) ...[
@@ -699,8 +732,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                           vertical: 18,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.zero),
+                                          borderRadius: BorderRadius.zero,
+                                        ),
                                       ),
                                       onPressed: () => _sendToKitchen(
                                         activeOrderAsync.value,
@@ -726,8 +759,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                           vertical: 18,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.zero),
+                                          borderRadius: BorderRadius.zero,
+                                        ),
                                       ),
                                       onPressed: activeOrderAsync.value == null
                                           ? null
@@ -764,8 +797,9 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
 
   Future<void> _showTableSelectionDialog(BuildContext context) async {
     final tables = await ref.read(posRepositoryProvider).getTables();
-    final availableTables =
-        tables.where((t) => t.status == TableStatus.available).toList();
+    final availableTables = tables
+        .where((t) => t.status == TableStatus.available)
+        .toList();
 
     if (!mounted) return;
 
