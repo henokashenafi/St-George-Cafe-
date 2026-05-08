@@ -1,6 +1,6 @@
 import 'package:st_george_pos/models/order_item.dart';
 
-enum OrderStatus { pending, completed, cancelled }
+enum OrderStatus { pending, completed, cancelled, held }
 
 class OrderModel {
   final int? id;
@@ -17,6 +17,10 @@ class OrderModel {
   final double serviceCharge; // computed at bill time
   final double discountAmount;
   final List<OrderItem> items;
+  final String sessionId;     // Track multiple sessions per table
+  final bool isHeld;          // Order holding status
+  final int? parentOrderId;   // Link to main order for held orders
+  final int? zoneId;          // Zone assignment for automatic waiter mapping
 
   OrderModel({
     this.id,
@@ -33,6 +37,10 @@ class OrderModel {
     this.serviceCharge = 0.0,
     this.discountAmount = 0.0,
     this.items = const [],
+    this.sessionId = '',
+    this.isHeld = false,
+    this.parentOrderId,
+    this.zoneId,
   });
 
   double get grandTotal => totalAmount + serviceCharge - discountAmount;
@@ -47,6 +55,10 @@ class OrderModel {
     double? serviceCharge,
     double? discountAmount,
     List<OrderItem>? items,
+    String? sessionId,
+    bool? isHeld,
+    int? parentOrderId,
+    int? zoneId,
   }) {
     return OrderModel(
       id: id ?? this.id,
@@ -63,6 +75,10 @@ class OrderModel {
       serviceCharge: serviceCharge ?? this.serviceCharge,
       discountAmount: discountAmount ?? this.discountAmount,
       items: items ?? this.items,
+      sessionId: sessionId ?? this.sessionId,
+      isHeld: isHeld ?? this.isHeld,
+      parentOrderId: parentOrderId ?? this.parentOrderId,
+      zoneId: zoneId ?? this.zoneId,
     );
   }
 
@@ -86,6 +102,10 @@ class OrderModel {
       serviceCharge: (map['service_charge'] as num? ?? 0).toDouble(),
       discountAmount: (map['discount_amount'] as num? ?? 0).toDouble(),
       items: items,
+      sessionId: map['session_id'] ?? '',
+      isHeld: map['is_held'] ?? false,
+      parentOrderId: map['parent_order_id'],
+      zoneId: map['zone_id'],
     );
   }
 
@@ -101,6 +121,10 @@ class OrderModel {
       'total_amount': totalAmount,
       'service_charge': serviceCharge,
       'discount_amount': discountAmount,
+      'session_id': sessionId,
+      'is_held': isHeld,
+      'parent_order_id': parentOrderId,
+      'zone_id': zoneId,
     };
   }
 }
