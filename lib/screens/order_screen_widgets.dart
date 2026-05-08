@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/models/order.dart';
+import 'package:st_george_pos/locales/app_localizations.dart';
 
 // ── Color constants ────────────────────────────────────────────────────────
 const kBg        = Color(0xFF0F1117);
@@ -14,13 +16,13 @@ const kTextSub   = Color(0xFF8B90A0);
 
 // ── Section label ─────────────────────────────────────────────────────────
 
-class SectionLabel extends StatelessWidget {
+class SectionLabel extends ConsumerWidget {
   final String text;
   final Color? color;
   const SectionLabel(this.text, {this.color, super.key});
 
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context, WidgetRef ref) => Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Text(text,
             style: TextStyle(
@@ -33,7 +35,7 @@ class SectionLabel extends StatelessWidget {
 
 // ── Cart item tile ─────────────────────────────────────────────────────────
 
-class CartItemTile extends StatelessWidget {
+class CartItemTile extends ConsumerWidget {
   final OrderItem item;
   final bool isSaved;
   final VoidCallback? onAdd;
@@ -54,7 +56,7 @@ class CartItemTile extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -99,7 +101,7 @@ class CartItemTile extends StatelessWidget {
                   ],
                 ),
               ),
-              Text('${item.subtotal.toStringAsFixed(2)} ETB',
+              Text('${item.subtotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
@@ -169,7 +171,7 @@ class SummaryRow extends StatelessWidget {
 
 // ── Bill confirm dialog ────────────────────────────────────────────────────
 
-class BillConfirmDialog extends StatefulWidget {
+class BillConfirmDialog extends ConsumerStatefulWidget {
   final OrderModel order;
   final double subtotal;
   final double serviceCharge;
@@ -190,10 +192,10 @@ class BillConfirmDialog extends StatefulWidget {
   });
 
   @override
-  State<BillConfirmDialog> createState() => _BillConfirmDialogState();
+  ConsumerState<BillConfirmDialog> createState() => _BillConfirmDialogState();
 }
 
-class _BillConfirmDialogState extends State<BillConfirmDialog> {
+class _BillConfirmDialogState extends ConsumerState<BillConfirmDialog> {
   late TextEditingController _discountCtrl;
   double _discount = 0;
 
@@ -221,8 +223,8 @@ class _BillConfirmDialogState extends State<BillConfirmDialog> {
         children: const [
           Icon(Icons.receipt_long, color: kGold),
           SizedBox(width: 10),
-          Text('Confirm & Print Bill',
-              style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(ref.t('orderConfirm.title'),
+              style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
       content: SizedBox(
@@ -230,15 +232,15 @@ class _BillConfirmDialogState extends State<BillConfirmDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _DialogRow('Table', widget.order.tableName),
-            _DialogRow('Waiter', widget.order.waiterName),
-            _DialogRow('Items', '${widget.order.items.length}'),
+            _DialogRow(ref.t('orderConfirm.table'), widget.order.tableName),
+            _DialogRow(ref.t('orderConfirm.waiter'), widget.order.waiterName),
+            _DialogRow(ref.t('orderConfirm.items'), '${widget.order.items.length}'),
             const Divider(color: kBorder, height: 20),
-            _DialogRow('Subtotal',
-                '${widget.subtotal.toStringAsFixed(2)} ETB'),
+            _DialogRow(ref.t('orderConfirm.subtotal'),
+                '${widget.subtotal.toStringAsFixed(2)} ${ref.t('common.currency')}'),
             _DialogRow(
-                'Service (${widget.serviceChargePercent.toStringAsFixed(0)}%)',
-                '${widget.serviceCharge.toStringAsFixed(2)} ETB'),
+                ref.t('orderConfirm.service', replacements: {'percent': widget.serviceChargePercent.toStringAsFixed(0)}),
+                '${widget.serviceCharge.toStringAsFixed(2)} ${ref.t('common.currency')}'),
             if (widget.discountEnabled) ...[
               const SizedBox(height: 12),
               TextField(
@@ -271,10 +273,10 @@ class _BillConfirmDialogState extends State<BillConfirmDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('TOTAL TO PAY',
-                    style: TextStyle(
+                Text(ref.t('orderConfirm.totalToPay'),
+                    style: const TextStyle(
                         fontWeight: FontWeight.w900, fontSize: 15)),
-                Text('${total.toStringAsFixed(2)} ETB',
+                Text('${total.toStringAsFixed(2)} ${ref.t('common.currency')}',
                     style: const TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 24,
@@ -287,13 +289,13 @@ class _BillConfirmDialogState extends State<BillConfirmDialog> {
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: kTextSub))),
+            child: Text(ref.t('orderConfirm.cancel'), style: const TextStyle(color: kTextSub))),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
               backgroundColor: kGreen, foregroundColor: Colors.white),
           onPressed: () => Navigator.pop(context, true),
           icon: const Icon(Icons.print),
-          label: const Text('Print Bill'),
+          label: Text(ref.t('orderConfirm.printBill')),
         ),
       ],
     );
@@ -321,7 +323,7 @@ class _DialogRow extends StatelessWidget {
 
 // ── Product card ───────────────────────────────────────────────────────────
 
-class ProductCard extends StatelessWidget {
+class ProductCard extends ConsumerWidget {
   final String name;
   final double price;
   final VoidCallback onTap;
@@ -332,7 +334,7 @@ class ProductCard extends StatelessWidget {
       required this.onTap});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -367,7 +369,7 @@ class ProductCard extends StatelessWidget {
                       color: Colors.white)),
             ),
             const SizedBox(height: 4),
-            Text('${price.toStringAsFixed(2)} ETB',
+            Text('${price.toStringAsFixed(2)} ${ref.t('common.currency')}',
                 style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
