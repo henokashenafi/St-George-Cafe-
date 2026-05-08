@@ -10,6 +10,7 @@ import 'package:st_george_pos/screens/login_screen.dart';
 import 'package:st_george_pos/screens/management_screens.dart';
 import 'package:st_george_pos/screens/table_management_screen.dart';
 import 'package:st_george_pos/screens/zone_management_screen.dart';
+import 'package:st_george_pos/screens/new_order_screen.dart';
 import 'package:st_george_pos/screens/settings_screen.dart' hide SettingsScreen;
 import 'package:st_george_pos/screens/table_management_screen.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
@@ -189,6 +190,16 @@ class DashboardScreen extends ConsumerWidget {
                           ref.read(dashboardViewProvider.notifier).state =
                               DashboardView.home,
                     ),
+                    if (!isDirector) _SidebarItem(
+                      icon: Icons.add_shopping_cart,
+                      label: ref.t('navigation.newOrder'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.newOrder,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.newOrder,
+                    ),
                     if (!isDirector) ...[
                       _SidebarItem(
                         icon: Icons.history,
@@ -364,6 +375,8 @@ class DashboardScreen extends ConsumerWidget {
         return const TableManagementScreen(key: ValueKey('settings'));
       case DashboardView.zones:
         return const ZoneManagementScreen(key: ValueKey('zones'));
+      case DashboardView.newOrder:
+        return const NewOrderScreen(key: ValueKey('newOrder'));
       default:
         return const DashboardHomeScreen(key: ValueKey('home'));
     }

@@ -23,7 +23,8 @@
     "dashboard": "ዳሽቦርድ",
     "history": "ታሪክ",
     "held": "ተይዘዋል",
-    "zones": "ዞኖች"
+    "zones": "ዞኖች",
+    "newOrder": "አዲስ ትዕዛዝ"
   },
   "order": {
     "title": "{table} — ትዕዛዝ",
