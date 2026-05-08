@@ -3,12 +3,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:st_george_pos/providers/pos_providers.dart';
+import 'package:st_george_pos/locales/app_localizations.dart';
+import 'package:st_george_pos/widgets/language_switcher.dart';
 
 // Debug only — maps seeded usernames to their passwords
-const _kDebugPasswords = {
-  'Director': 'director123',
-  'Cashier 1': 'cashier123',
-};
+const _kDebugPasswords = {'Director': 'director123', 'Cashier 1': 'cashier123'};
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -37,18 +36,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _login() async {
     if (_selectedUsername == null || _passwordController.text.isEmpty) {
-      setState(() => _error = 'Please select a user and enter your password.');
+      setState(() => _error = ref.t('auth.selectUser'));
       return;
     }
-    setState(() { _loading = true; _error = null; });
-    final success = await ref.read(authProvider.notifier).login(
-      _selectedUsername!,
-      _passwordController.text,
-    );
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final success = await ref
+        .read(authProvider.notifier)
+        .login(_selectedUsername!, _passwordController.text);
     if (!mounted) return;
     setState(() => _loading = false);
     if (!success) {
-      setState(() => _error = 'Incorrect password. Please try again.');
+      setState(() => _error = ref.t('auth.incorrectPassword'));
       _passwordController.clear();
     }
     // On success, main.dart watches authProvider and navigates automatically
@@ -56,6 +57,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(languageProvider);
     final usersAsync = ref.watch(usersProvider);
 
     return Scaffold(
@@ -86,11 +88,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Logo / Title
-                      const Icon(Icons.restaurant, size: 56, color: Color(0xFFD4AF37)),
+                      const Icon(
+                        Icons.restaurant,
+                        size: 56,
+                        color: Color(0xFFD4AF37),
+                      ),
                       const SizedBox(height: 16),
-                      const Text(
-                        'ST GEORGE CAFE',
-                        style: TextStyle(
+                      Text(
+                        ref.t('app.title'),
+                        style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 4,
@@ -98,52 +104,82 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        'Point of Sale',
-                        style: TextStyle(color: Colors.white38, fontSize: 13, letterSpacing: 2),
+                      // Language switcher
+                      const CompactLanguageSwitcher(),
+                      Text(
+                        ref.t('app.pos'),
+                        style: const TextStyle(
+                          color: Colors.white38,
+                          fontSize: 13,
+                          letterSpacing: 2,
+                        ),
                       ),
                       const SizedBox(height: 40),
 
                       // Username dropdown
                       usersAsync.when(
                         data: (users) {
-                          final activeUsers = users.where((u) => u.isActive).toList();
+                          final activeUsers = users
+                              .where((u) => u.isActive)
+                              .toList();
                           return DropdownButtonFormField<String>(
                             value: _selectedUsername,
                             dropdownColor: const Color(0xFF1A1A1A),
-                            style: const TextStyle(color: Colors.white, fontSize: 15),
-                            decoration: _inputDecoration('Select User', Icons.person_outline),
-                            items: activeUsers.map((u) => DropdownMenuItem(
-                              value: u.username,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    u.role.toString().contains('director')
-                                        ? Icons.admin_panel_settings_outlined
-                                        : Icons.point_of_sale,
-                                    size: 18,
-                                    color: u.role.toString().contains('director')
-                                        ? const Color(0xFFD4AF37)
-                                        : Colors.white54,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Text(u.username),
-                                ],
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                            ),
+                            decoration: InputDecoration(
+                              labelText: ref.t('auth.username'),
+                              labelStyle: const TextStyle(
+                                color: Colors.white38,
                               ),
-                            )).toList(),
+                              border: InputBorder.none,
+                            ),
+                            items: activeUsers
+                                .map(
+                                  (u) => DropdownMenuItem(
+                                    value: u.username,
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          u.role.toString().contains('director')
+                                              ? Icons
+                                                    .admin_panel_settings_outlined
+                                              : Icons.point_of_sale,
+                                          size: 18,
+                                          color:
+                                              u.role.toString().contains(
+                                                'director',
+                                              )
+                                              ? const Color(0xFFD4AF37)
+                                              : Colors.white54,
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Text(u.username),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                                .toList(),
                             onChanged: (val) {
                               setState(() {
                                 _selectedUsername = val;
                                 _error = null;
                                 // DEBUG: autofill password
-                                if (kDebugMode) _passwordController.text = _kDebugPasswords[val] ?? '';
+                                if (kDebugMode)
+                                  _passwordController.text =
+                                      _kDebugPasswords[val] ?? '';
                               });
                               _passwordFocus.requestFocus();
                             },
                           );
                         },
                         loading: () => const LinearProgressIndicator(),
-                        error: (e, _) => Text('Error: $e', style: const TextStyle(color: Colors.redAccent)),
+                        error: (e, _) => Text(
+                          '${ref.t('common.error')}: $e',
+                          style: const TextStyle(color: Colors.redAccent),
+                        ),
                       ),
 
                       const SizedBox(height: 20),
@@ -154,16 +190,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         focusNode: _passwordFocus,
                         obscureText: _obscure,
                         style: const TextStyle(color: Colors.white),
-                        decoration: _inputDecoration('Password', Icons.lock_outline).copyWith(
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                              color: Colors.white38,
-                              size: 20,
+                        decoration:
+                            _inputDecoration(
+                              ref.t('auth.password'),
+                              Icons.lock_outline,
+                            ).copyWith(
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscure
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                  color: Colors.white38,
+                                  size: 20,
+                                ),
+                                onPressed: () =>
+                                    setState(() => _obscure = !_obscure),
+                              ),
                             ),
-                            onPressed: () => setState(() => _obscure = !_obscure),
-                          ),
-                        ),
                         onFieldSubmitted: (_) => _login(),
                       ),
 
@@ -171,17 +214,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       if (_error != null) ...[
                         const SizedBox(height: 16),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.redAccent.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.redAccent.withOpacity(0.3),
+                            ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
+                              const Icon(
+                                Icons.error_outline,
+                                color: Colors.redAccent,
+                                size: 16,
+                              ),
                               const SizedBox(width: 8),
-                              Expanded(child: Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 13))),
+                              Expanded(
+                                child: Text(
+                                  _error!,
+                                  style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -197,7 +257,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFD4AF37),
                             foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                             elevation: 0,
                           ),
                           onPressed: _loading ? null : _login,
@@ -205,11 +267,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ? const SizedBox(
                                   width: 22,
                                   height: 22,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.black,
+                                  ),
                                 )
-                              : const Text(
-                                  'SIGN IN',
-                                  style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 15),
+                              : Text(
+                                  ref.t('auth.login').toUpperCase(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 2,
+                                    fontSize: 15,
+                                  ),
                                 ),
                         ),
                       ),

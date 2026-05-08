@@ -5,12 +5,14 @@ import 'package:st_george_pos/models/table_zone.dart';
 import 'package:st_george_pos/models/waiter.dart';
 import 'package:st_george_pos/providers/pos_providers.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
+import 'package:st_george_pos/locales/app_localizations.dart';
 
 class TableManagementScreen extends ConsumerStatefulWidget {
   const TableManagementScreen({super.key});
 
   @override
-  ConsumerState<TableManagementScreen> createState() => _TableManagementScreenState();
+  ConsumerState<TableManagementScreen> createState() =>
+      _TableManagementScreenState();
 }
 
 class _TableManagementScreenState extends ConsumerState<TableManagementScreen>
@@ -31,6 +33,7 @@ class _TableManagementScreenState extends ConsumerState<TableManagementScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(languageProvider);
     return Column(
       children: [
         TabBar(
@@ -38,19 +41,16 @@ class _TableManagementScreenState extends ConsumerState<TableManagementScreen>
           labelColor: const Color(0xFFD4AF37),
           unselectedLabelColor: Colors.white38,
           indicatorColor: const Color(0xFFD4AF37),
-          tabs: const [
-            Tab(text: 'TABLES'),
-            Tab(text: 'ZONES'),
+          tabs: [
+            Tab(text: ref.t('tables.tablesTab')),
+            Tab(text: ref.t('tables.zonesTab')),
           ],
         ),
         const SizedBox(height: 16),
         Expanded(
           child: TabBarView(
             controller: _tabController,
-            children: const [
-              _TablesTab(),
-              _ZonesTab(),
-            ],
+            children: const [_TablesTab(), _ZonesTab()],
           ),
         ),
       ],
@@ -65,6 +65,7 @@ class _TablesTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(languageProvider);
     final tablesAsync = ref.watch(tablesProvider);
     final zonesAsync = ref.watch(tableZonesProvider);
 
@@ -75,14 +76,16 @@ class _TablesTab extends ConsumerWidget {
           children: [
             ElevatedButton.icon(
               icon: const Icon(Icons.add),
-              label: const Text('Add Table'),
+              label: Text(ref.t('tables.addTable')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD4AF37),
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-              onPressed: () => _showTableDialog(context, ref, null,
-                  zonesAsync.value ?? []),
+              onPressed: () =>
+                  _showTableDialog(context, ref, null, zonesAsync.value ?? []),
             ),
           ],
         ),
@@ -93,7 +96,8 @@ class _TablesTab extends ConsumerWidget {
               opacity: 0.05,
               child: ListView.separated(
                 itemCount: tables.length,
-                separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 1),
+                separatorBuilder: (_, __) =>
+                    const Divider(color: Colors.white10, height: 1),
                 itemBuilder: (context, index) {
                   final t = tables[index];
                   final isOccupied = t.status == TableStatus.occupied;
@@ -104,20 +108,33 @@ class _TablesTab extends ConsumerWidget {
                           : Colors.white10,
                       child: Icon(
                         Icons.table_bar,
-                        color: isOccupied ? const Color(0xFFD4AF37) : Colors.white38,
+                        color: isOccupied
+                            ? const Color(0xFFD4AF37)
+                            : Colors.white38,
                         size: 20,
                       ),
                     ),
-                    title: Text(t.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    title: Text(
+                      t.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     subtitle: Text(
-                      t.zoneName != null ? 'Zone: ${t.zoneName}' : 'No zone assigned',
-                      style: const TextStyle(color: Colors.white38, fontSize: 12),
+                      t.zoneName != null
+                          ? '${ref.t('tables.zone')}: ${t.zoneName}'
+                          : ref.t('tables.noZoneAssigned'),
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 12,
+                      ),
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: isOccupied
                                 ? const Color(0xFF006B3C).withOpacity(0.2)
@@ -125,23 +142,41 @@ class _TablesTab extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            t.status.toString().split('.').last.toUpperCase(),
+                            t.status == TableStatus.available
+                                ? ref.t('tables.statusAvailable')
+                                : t.status == TableStatus.occupied
+                                ? ref.t('tables.statusOccupied')
+                                : ref.t('tables.statusReserved'),
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
-                              color: isOccupied ? const Color(0xFF006B3C) : Colors.white38,
+                              color: isOccupied
+                                  ? const Color(0xFF006B3C)
+                                  : Colors.white38,
                               letterSpacing: 1,
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         IconButton(
-                          icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white54),
+                          icon: const Icon(
+                            Icons.edit_outlined,
+                            size: 18,
+                            color: Colors.white54,
+                          ),
                           onPressed: () => _showTableDialog(
-                              context, ref, t, zonesAsync.value ?? []),
+                            context,
+                            ref,
+                            t,
+                            zonesAsync.value ?? [],
+                          ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: Colors.redAccent,
+                          ),
                           onPressed: isOccupied
                               ? null
                               : () => _confirmDeleteTable(context, ref, t),
@@ -153,15 +188,19 @@ class _TablesTab extends ConsumerWidget {
               ),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text('Error: $e'),
+            error: (e, _) => Text('${ref.t('common.error')}: $e'),
           ),
         ),
       ],
     );
   }
 
-  void _showTableDialog(BuildContext context, WidgetRef ref,
-      TableModel? existing, List<TableZone> zones) {
+  void _showTableDialog(
+    BuildContext context,
+    WidgetRef ref,
+    TableModel? existing,
+    List<TableZone> zones,
+  ) {
     final nameController = TextEditingController(text: existing?.name ?? '');
     int? selectedZoneId = existing?.zoneId;
 
@@ -183,7 +222,11 @@ class _TablesTab extends ConsumerWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
-          title: Text(existing == null ? 'Add Table' : 'Edit Table'),
+          title: Text(
+            existing == null
+                ? ref.t('tables.addTable')
+                : ref.t('tables.editTable'),
+          ),
           content: SizedBox(
             width: 320,
             child: Column(
@@ -205,16 +248,21 @@ class _TablesTab extends ConsumerWidget {
                   value: selectedZoneId,
                   dropdownColor: const Color(0xFF1A1A1A),
                   style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Zone (optional)',
-                    labelStyle: TextStyle(color: Colors.white54),
+                  decoration: InputDecoration(
+                    labelText: ref.t('tables.zoneOptional'),
+                    labelStyle: const TextStyle(color: Colors.white54),
                   ),
                   items: [
-                    const DropdownMenuItem<int?>(value: null, child: Text('No Zone')),
-                    ...zones.map((z) => DropdownMenuItem<int?>(
-                          value: z.id,
-                          child: Text(z.name),
-                        )),
+                    DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text(ref.t('tables.noZone')),
+                    ),
+                    ...zones.map(
+                      (z) => DropdownMenuItem<int?>(
+                        value: z.id,
+                        child: Text(z.name),
+                      ),
+                    ),
                   ],
                   onChanged: (v) => setDialogState(() => selectedZoneId = v),
                 ),
@@ -222,7 +270,10 @@ class _TablesTab extends ConsumerWidget {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(ref.t('common.cancel')),
+            ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black),
@@ -235,24 +286,38 @@ class _TablesTab extends ConsumerWidget {
     );
   }
 
-  void _confirmDeleteTable(BuildContext context, WidgetRef ref, TableModel table) {
+  void _confirmDeleteTable(
+    BuildContext context,
+    WidgetRef ref,
+    TableModel table,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('Delete Table'),
-        content: Text('Remove "${table.name}"?'),
+        title: Text(ref.t('tables.deleteTable')),
+        content: Text(
+          ref.t(
+            'tables.deleteTableConfirm',
+            replacements: {'name': table.name},
+          ),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ref.t('common.cancel')),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
               await ref.read(posRepositoryProvider).deleteTable(table.id!);
               ref.invalidate(tablesProvider);
               Navigator.pop(ctx);
             },
-            child: const Text('Delete'),
+            child: Text(ref.t('common.delete')),
           ),
         ],
       ),
@@ -267,6 +332,7 @@ class _ZonesTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(languageProvider);
     final zonesAsync = ref.watch(tableZonesProvider);
     final waitersAsync = ref.watch(waitersProvider);
 
@@ -277,14 +343,16 @@ class _ZonesTab extends ConsumerWidget {
           children: [
             ElevatedButton.icon(
               icon: const Icon(Icons.add),
-              label: const Text('Add Zone'),
+              label: Text(ref.t('tables.addZone')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD4AF37),
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-              onPressed: () => _showZoneDialog(
-                  context, ref, null, waitersAsync.value ?? []),
+              onPressed: () =>
+                  _showZoneDialog(context, ref, null, waitersAsync.value ?? []),
             ),
           ],
         ),
@@ -297,10 +365,10 @@ class _ZonesTab extends ConsumerWidget {
                       opacity: 0.4,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.map_outlined, size: 56),
-                          SizedBox(height: 12),
-                          Text('No zones yet. Add a zone to group tables by waiter.'),
+                        children: [
+                          const Icon(Icons.map_outlined, size: 56),
+                          const SizedBox(height: 12),
+                          Text(ref.t('tables.noZonesYet')),
                         ],
                       ),
                     ),
@@ -316,28 +384,47 @@ class _ZonesTab extends ConsumerWidget {
                         return ListTile(
                           leading: const CircleAvatar(
                             backgroundColor: Color(0xFF006B3C),
-                            child: Icon(Icons.map_outlined, color: Colors.white, size: 18),
+                            child: Icon(
+                              Icons.map_outlined,
+                              color: Colors.white,
+                              size: 18,
+                            ),
                           ),
-                          title: Text(z.name,
-                              style: const TextStyle(fontWeight: FontWeight.w600)),
+                          title: Text(
+                            z.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
                           subtitle: Text(
                             z.waiterName != null
-                                ? 'Waiter: ${z.waiterName}'
-                                : 'No waiter assigned',
-                            style: const TextStyle(color: Colors.white38, fontSize: 12),
+                                ? '${ref.t('tables.waiter')}: ${z.waiterName}'
+                                : ref.t('tables.noWaiterAssigned'),
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 12,
+                            ),
                           ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: const Icon(Icons.edit_outlined,
-                                    size: 18, color: Colors.white54),
+                                icon: const Icon(
+                                  Icons.edit_outlined,
+                                  size: 18,
+                                  color: Colors.white54,
+                                ),
                                 onPressed: () => _showZoneDialog(
-                                    context, ref, z, waitersAsync.value ?? []),
+                                  context,
+                                  ref,
+                                  z,
+                                  waitersAsync.value ?? [],
+                                ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline,
-                                    size: 18, color: Colors.redAccent),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  size: 18,
+                                  color: Colors.redAccent,
+                                ),
                                 onPressed: () =>
                                     _confirmDeleteZone(context, ref, z),
                               ),
@@ -348,15 +435,19 @@ class _ZonesTab extends ConsumerWidget {
                     ),
                   ),
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text('Error: $e'),
+            error: (e, _) => Text('${ref.t('common.error')}: $e'),
           ),
         ),
       ],
     );
   }
 
-  void _showZoneDialog(BuildContext context, WidgetRef ref,
-      TableZone? existing, List<Waiter> waiters) {
+  void _showZoneDialog(
+    BuildContext context,
+    WidgetRef ref,
+    TableZone? existing,
+    List<Waiter> waiters,
+  ) {
     final nameController = TextEditingController(text: existing?.name ?? '');
     int? selectedWaiterId = existing?.waiterId;
 
@@ -380,7 +471,11 @@ class _ZonesTab extends ConsumerWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
-          title: Text(existing == null ? 'Add Zone' : 'Edit Zone'),
+          title: Text(
+            existing == null
+                ? ref.t('tables.addZone')
+                : ref.t('tables.editZone'),
+          ),
           content: SizedBox(
             width: 320,
             child: Column(
@@ -402,16 +497,21 @@ class _ZonesTab extends ConsumerWidget {
                   value: selectedWaiterId,
                   dropdownColor: const Color(0xFF1A1A1A),
                   style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Assigned Waiter (optional)',
-                    labelStyle: TextStyle(color: Colors.white54),
+                  decoration: InputDecoration(
+                    labelText: ref.t('tables.assignedWaiterOptional'),
+                    labelStyle: const TextStyle(color: Colors.white54),
                   ),
                   items: [
-                    const DropdownMenuItem<int?>(value: null, child: Text('No Waiter')),
-                    ...waiters.map((w) => DropdownMenuItem<int?>(
-                          value: w.id,
-                          child: Text(w.name),
-                        )),
+                    DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text(ref.t('tables.noWaiter')),
+                    ),
+                    ...waiters.map(
+                      (w) => DropdownMenuItem<int?>(
+                        value: w.id,
+                        child: Text(w.name),
+                      ),
+                    ),
                   ],
                   onChanged: (v) => setDialogState(() => selectedWaiterId = v),
                 ),
@@ -419,7 +519,10 @@ class _ZonesTab extends ConsumerWidget {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(ref.t('common.cancel')),
+            ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black),
@@ -437,21 +540,27 @@ class _ZonesTab extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('Delete Zone'),
+        title: Text(ref.t('tables.deleteZone')),
         content: Text(
-            'Remove "${zone.name}"? Tables in this zone will be unassigned.'),
+          ref.t('tables.deleteZoneConfirm', replacements: {'name': zone.name}),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ref.t('common.cancel')),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
               await ref.read(posRepositoryProvider).deleteTableZone(zone.id!);
               ref.invalidate(tableZonesProvider);
               ref.invalidate(tablesProvider);
               Navigator.pop(ctx);
             },
-            child: const Text('Delete'),
+            child: Text(ref.t('common.delete')),
           ),
         ],
       ),

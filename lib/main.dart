@@ -14,12 +14,15 @@ import 'package:st_george_pos/screens/table_management_screen.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/services/pos_repository.dart';
+import 'package:st_george_pos/locales/app_localizations.dart';
+import 'package:st_george_pos/widgets/language_switcher.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   if (!kIsWeb) {
-    final isDesktop = defaultTargetPlatform == TargetPlatform.windows ||
+    final isDesktop =
+        defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.linux ||
         defaultTargetPlatform == TargetPlatform.macOS;
     if (isDesktop) {
@@ -31,10 +34,16 @@ void main() async {
   final repo = PosRepository();
   await repo.init();
 
-  runApp(ProviderScope(
-    overrides: [posRepositoryProvider.overrideWithValue(repo)],
-    child: const MyApp(),
-  ));
+  // Initialize saved language and load it
+  final savedLang = await AppLocalizations.getSavedLanguage();
+  await AppLocalizations.load(savedLang);
+
+  runApp(
+    ProviderScope(
+      overrides: [posRepositoryProvider.overrideWithValue(repo)],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -86,15 +95,20 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(languageProvider);
     final user = ref.watch(authProvider)!;
     final isDirector = user.role == UserRole.director;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text(
-          'ST GEORGE CAFE',
-          style: TextStyle(letterSpacing: 4, fontWeight: FontWeight.w900, color: Color(0xFFD4AF37)),
+        title: Text(
+          ref.t('app.title'),
+          style: const TextStyle(
+            letterSpacing: 4,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFFD4AF37),
+          ),
         ),
         centerTitle: true,
         backgroundColor: Colors.black.withOpacity(0.3),
@@ -106,6 +120,8 @@ class DashboardScreen extends ConsumerWidget {
           ),
         ),
         actions: [
+          // Language switcher
+          const LanguageSwitcher(),
           // Logged-in user chip
           Container(
             margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
@@ -118,12 +134,17 @@ class DashboardScreen extends ConsumerWidget {
             child: Row(
               children: [
                 Icon(
-                  isDirector ? Icons.admin_panel_settings_outlined : Icons.point_of_sale,
+                  isDirector
+                      ? Icons.admin_panel_settings_outlined
+                      : Icons.point_of_sale,
                   size: 16,
                   color: isDirector ? const Color(0xFFD4AF37) : Colors.white54,
                 ),
                 const SizedBox(width: 6),
-                Text(user.username, style: const TextStyle(fontSize: 13, color: Colors.white70)),
+                Text(
+                  user.username,
+                  style: const TextStyle(fontSize: 13, color: Colors.white70),
+                ),
               ],
             ),
           ),
@@ -205,9 +226,13 @@ class DashboardScreen extends ConsumerWidget {
                     ],
                     _SidebarItem(
                       icon: Icons.tune,
-                      label: 'Settings',
-                      isActive: ref.watch(dashboardViewProvider) == DashboardView.settings,
-                      onTap: () => ref.read(dashboardViewProvider.notifier).state = DashboardView.settings,
+                      label: ref.t('navigation.settings'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.settings,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.settings,
                     ),
                     const SizedBox(height: 40),
                     _SidebarItem(
@@ -1053,9 +1078,11 @@ class _SidebarItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 16.0),
           child: Column(
             children: [
-              Icon(icon,
-                  color: isActive ? const Color(0xFFD4AF37) : Colors.white54,
-                  size: 32),
+              Icon(
+                icon,
+                color: isActive ? const Color(0xFFD4AF37) : Colors.white54,
+                size: 32,
+              ),
               const SizedBox(height: 4),
               Text(
                 label,

@@ -6,7 +6,9 @@ import 'package:st_george_pos/models/product.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/providers/pos_providers.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
+import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:st_george_pos/services/bill_service.dart';
+import 'package:st_george_pos/core/database_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:st_george_pos/models/table_model.dart';
 import 'package:st_george_pos/screens/order_screen.dart';
@@ -26,6 +28,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(languageProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
     final productsAsync = ref.watch(productsProvider(selectedCategoryId));
 
@@ -37,7 +40,10 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             opacity: 0.05,
             child: Column(
               children: [
-                _Header(title: 'Categories', onAdd: () => _showCategoryDialog(context, null)),
+                _Header(
+                  title: ref.t('management.categories'),
+                  onAdd: () => _showCategoryDialog(context, null),
+                ),
                 Expanded(
                   child: categoriesAsync.when(
                     data: (cats) => ListView.builder(
@@ -45,21 +51,26 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                       itemBuilder: (_, i) {
                         final cat = cats[i];
                         return ListTile(
-                          title: Text(cat.name,
-                              style: TextStyle(
-                                color: selectedCategoryId == cat.id
-                                    ? const Color(0xFFD4AF37)
-                                    : Colors.white,
-                                fontWeight: selectedCategoryId == cat.id
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                              )),
+                          title: Text(
+                            cat.name,
+                            style: TextStyle(
+                              color: selectedCategoryId == cat.id
+                                  ? const Color(0xFFD4AF37)
+                                  : Colors.white,
+                              fontWeight: selectedCategoryId == cat.id
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
                           selected: selectedCategoryId == cat.id,
                           onTap: () =>
                               setState(() => selectedCategoryId = cat.id),
                           trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline,
-                                color: Colors.redAccent, size: 20),
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.redAccent,
+                              size: 20,
+                            ),
                             onPressed: () => _deleteCategory(cat.id!),
                           ),
                         );
@@ -67,7 +78,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                     ),
                     loading: () =>
                         const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => Text('$e'),
+                    error: (e, _) => Text('${ref.t('common.error')}: $e'),
                   ),
                 ),
               ],
@@ -82,7 +93,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             child: Column(
               children: [
                 _Header(
-                  title: 'Products',
+                  title: ref.t('management.products'),
                   onAdd: selectedCategoryId == null
                       ? null
                       : () => _showProductDialog(context, null),
@@ -101,20 +112,26 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                             child: const Icon(Icons.fastfood, color: Color(0xFFD4AF37)),
                           ),
                           title: Text(p.name),
-                          subtitle:
-                              Text('${p.price.toStringAsFixed(2)} ETB'),
+                          subtitle: Text(
+                            '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                          ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: const Icon(Icons.edit_outlined,
-                                    color: Colors.white54, size: 20),
-                                onPressed: () =>
-                                    _showProductDialog(context, p),
+                                icon: const Icon(
+                                  Icons.edit_outlined,
+                                  color: Colors.white54,
+                                  size: 20,
+                                ),
+                                onPressed: () => _showProductDialog(context, p),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline,
-                                    color: Colors.redAccent, size: 20),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.redAccent,
+                                  size: 20,
+                                ),
                                 onPressed: () => _deleteProduct(p.id!),
                               ),
                             ],
@@ -124,7 +141,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                     ),
                     loading: () =>
                         const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => Text('$e'),
+                    error: (e, _) => Text('${ref.t('common.error')}: $e'),
                   ),
                 ),
               ],
@@ -149,7 +166,11 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: Text(existing == null ? 'Add Category' : 'Edit Category'),
+        title: Text(
+          existing == null
+              ? ref.t('management.addCategory')
+              : ref.t('common.edit'),
+        ),
         content: TextField(
             controller: ctrl,
             autofocus: true,
@@ -160,8 +181,9 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             onSubmitted: (_) => doSave(ctx)),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ref.t('common.cancel')),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD4AF37),
@@ -205,7 +227,11 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: Text(existing == null ? 'Add Product' : 'Edit Product'),
+        title: Text(
+          existing == null
+              ? ref.t('management.addProduct')
+              : ref.t('common.edit'),
+        ),
         content: SizedBox(
           width: 300,
           child: Column(
@@ -229,7 +255,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                     const TextInputType.numberWithOptions(decimal: true),
                 textInputAction: TextInputAction.done,
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
                 ],
                 decoration: const InputDecoration(
                     labelText: 'Price (ETB)',
@@ -241,8 +267,9 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ref.t('common.cancel')),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD4AF37),
@@ -276,14 +303,16 @@ class WaiterManagementScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(languageProvider);
     final waitersAsync = ref.watch(waitersProvider);
     return GlassContainer(
       opacity: 0.05,
       child: Column(
         children: [
           _Header(
-              title: 'Waiters',
-              onAdd: () => _showAddWaiterDialog(context, ref)),
+            title: ref.t('management.waiters'),
+            onAdd: () => _showAddWaiterDialog(context, ref),
+          ),
           Expanded(
             child: waitersAsync.when(
               data: (waiters) => ListView.builder(
@@ -297,10 +326,12 @@ class WaiterManagementScreen extends ConsumerWidget {
                         color: const Color(0xFFD4AF37),
                         child: const Icon(Icons.person, color: Colors.black)),
                     title: Text(w.name),
-                    subtitle: Text('Code: ${w.code}'),
+                    subtitle: Text('${ref.t('management.code')}: ${w.code}'),
                     trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline,
-                          color: Colors.redAccent),
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.redAccent,
+                      ),
                       onPressed: () async {
                         await ref
                             .read(posRepositoryProvider)
@@ -311,9 +342,8 @@ class WaiterManagementScreen extends ConsumerWidget {
                   );
                 },
               ),
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Text('$e'),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Text('${ref.t('common.error')}: $e'),
             ),
           ),
         ],
@@ -335,7 +365,7 @@ class WaiterManagementScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('Add Waiter'),
+        title: Text(ref.t('management.addWaiter')),
         content: TextField(
             controller: ctrl,
             autofocus: true,
@@ -346,8 +376,9 @@ class WaiterManagementScreen extends ConsumerWidget {
             onSubmitted: (_) => doAdd(ctx)),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ref.t('common.cancel')),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD4AF37),
@@ -368,6 +399,7 @@ class OrderHistoryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(languageProvider);
     final orders = ref.watch(ordersProvider);
     final filter = ref.watch(reportDateFilterProvider);
 
@@ -379,15 +411,21 @@ class OrderHistoryScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(20),
             child: Row(
               children: [
-                const Text('Order History',
-                    style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5)),
+                Text(
+                  ref.t('management.orders'),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.5,
+                  ),
+                ),
                 const Spacer(),
-                _DateFilterChips(filter: filter, onChanged: (f) {
-                  ref.read(reportDateFilterProvider.notifier).set(f);
-                }),
+                _DateFilterChips(
+                  filter: filter,
+                  onChanged: (f) {
+                    ref.read(reportDateFilterProvider.notifier).set(f);
+                  },
+                ),
               ],
             ),
           ),
@@ -552,6 +590,7 @@ class ReportsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(languageProvider);
     final orders = ref.watch(ordersProvider);
     final filter = ref.watch(reportDateFilterProvider);
 
@@ -563,36 +602,46 @@ class ReportsScreen extends ConsumerWidget {
           padding: const EdgeInsets.only(bottom: 20),
           child: Row(
             children: [
-              const Text('Reports',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5)),
+              Text(
+                ref.t('management.reports'),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
               const Spacer(),
               _DateFilterChips(
-                  filter: filter,
-                  onChanged: (f) =>
-                      ref.read(reportDateFilterProvider.notifier).set(f)),
+                filter: filter,
+                onChanged: (f) =>
+                    ref.read(reportDateFilterProvider.notifier).set(f),
+              ),
             ],
           ),
         ),
         Expanded(
           child: orders.when(
             data: (orderList) {
-              final completed =
-                  orderList.where((o) => o.status == OrderStatus.completed).toList();
-              final subtotalSum =
-                  completed.fold(0.0, (s, o) => s + o.totalAmount);
-              final serviceSum =
-                  completed.fold(0.0, (s, o) => s + o.serviceCharge);
-              final discountSum =
-                  completed.fold(0.0, (s, o) => s + o.discountAmount);
-              final grandSum =
-                  completed.fold(0.0, (s, o) => s + o.grandTotal);
+              final completed = orderList
+                  .where((o) => o.status == OrderStatus.completed)
+                  .toList();
+              final subtotalSum = completed.fold(
+                0.0,
+                (s, o) => s + o.totalAmount,
+              );
+              final serviceSum = completed.fold(
+                0.0,
+                (s, o) => s + o.serviceCharge,
+              );
+              final discountSum = completed.fold(
+                0.0,
+                (s, o) => s + o.discountAmount,
+              );
+              final grandSum = completed.fold(0.0, (s, o) => s + o.grandTotal);
               final itemsSum = completed.fold(
-                  0,
-                  (s, o) =>
-                      s + o.items.fold(0, (ss, i) => ss + i.quantity));
+                0,
+                (s, o) => s + o.items.fold(0, (ss, i) => ss + i.quantity),
+              );
 
               // Per-waiter
               final waiterMap = <String, double>{};
@@ -604,10 +653,10 @@ class ReportsScreen extends ConsumerWidget {
               // Per-cashier
               final cashierMap = <String, double>{};
               for (final o in completed) {
-                final name =
-                    o.cashierName.isNotEmpty ? o.cashierName : 'Unknown';
-                cashierMap[name] =
-                    (cashierMap[name] ?? 0) + o.grandTotal;
+                final name = o.cashierName.isNotEmpty
+                    ? o.cashierName
+                    : ref.t('management.unknown');
+                cashierMap[name] = (cashierMap[name] ?? 0) + o.grandTotal;
               }
 
               return SingleChildScrollView(
@@ -624,38 +673,52 @@ class ReportsScreen extends ConsumerWidget {
                       childAspectRatio: 2.2,
                       children: [
                         _ReportCard(
-                            title: 'Subtotal',
-                            value: '${subtotalSum.toStringAsFixed(2)} ETB',
-                            icon: Icons.receipt_outlined),
+                          title: ref.t('management.subtotal'),
+                          value:
+                              '${subtotalSum.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                          icon: Icons.receipt_outlined,
+                        ),
                         _ReportCard(
-                            title: 'Service Charge',
-                            value: '${serviceSum.toStringAsFixed(2)} ETB',
-                            icon: Icons.room_service_outlined),
+                          title: ref.t('management.serviceCharge'),
+                          value:
+                              '${serviceSum.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                          icon: Icons.room_service_outlined,
+                        ),
                         _ReportCard(
-                            title: 'Discounts Given',
-                            value: '${discountSum.toStringAsFixed(2)} ETB',
-                            icon: Icons.discount_outlined),
+                          title: ref.t('management.discountsGiven'),
+                          value:
+                              '${discountSum.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                          icon: Icons.discount_outlined,
+                        ),
                         _ReportCard(
-                            title: 'Grand Total',
-                            value: '${grandSum.toStringAsFixed(2)} ETB',
-                            icon: Icons.trending_up,
-                            color: const Color(0xFFD4AF37)),
+                          title: ref.t('management.grandTotal'),
+                          value:
+                              '${grandSum.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                          icon: Icons.trending_up,
+                          color: const Color(0xFFD4AF37),
+                        ),
                         _ReportCard(
-                            title: 'Orders',
-                            value: '${completed.length}',
-                            icon: Icons.shopping_bag_outlined),
+                          title: ref.t('management.orderCount'),
+                          value: '${completed.length}',
+                          icon: Icons.shopping_bag_outlined,
+                        ),
                         _ReportCard(
-                            title: 'Items Sold',
-                            value: '$itemsSum',
-                            icon: Icons.fastfood_outlined),
+                          title: ref.t('management.itemsSold'),
+                          value: '$itemsSum',
+                          icon: Icons.fastfood_outlined,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 28),
                     // Per-waiter
                     if (waiterMap.isNotEmpty) ...[
-                      const Text('By Waiter',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(
+                        ref.t('management.byWaiter'),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 10),
                       GlassContainer(
                         opacity: 0.05,
@@ -682,9 +745,13 @@ class ReportsScreen extends ConsumerWidget {
                     ],
                     // Per-cashier
                     if (cashierMap.isNotEmpty) ...[
-                      const Text('By Cashier',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(
+                        ref.t('management.byCashier'),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 10),
                       GlassContainer(
                         opacity: 0.05,
@@ -712,9 +779,8 @@ class ReportsScreen extends ConsumerWidget {
                 ),
               );
             },
-            loading: () =>
-                const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text('$e'),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Text('${ref.t('common.error')}: $e'),
           ),
         ),
       ],
@@ -724,13 +790,14 @@ class ReportsScreen extends ConsumerWidget {
 
 // ── Date filter chips ─────────────────────────────────────────────────────
 
-class _DateFilterChips extends StatelessWidget {
+class _DateFilterChips extends ConsumerWidget {
   final DateFilter filter;
   final ValueChanged<DateFilter> onChanged;
   const _DateFilterChips({required this.filter, required this.onChanged});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(languageProvider);
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
     final todayEnd = todayStart.add(const Duration(days: 1));
@@ -744,60 +811,73 @@ class _DateFilterChips extends StatelessWidget {
 
     return Row(
       children: [
-        _chip('Today', isToday,
-            () => onChanged(DateFilter(from: todayStart, to: todayEnd))),
+        _chip(
+          ref.t('filters.today'),
+          isToday,
+          () => onChanged(DateFilter(from: todayStart, to: todayEnd)),
+        ),
         const SizedBox(width: 8),
-        _chip('This Week', isWeek,
-            () => onChanged(DateFilter(from: weekStart, to: todayEnd))),
+        _chip(
+          ref.t('filters.thisWeek'),
+          isWeek,
+          () => onChanged(DateFilter(from: weekStart, to: todayEnd)),
+        ),
         const SizedBox(width: 8),
-        _chip('This Month', isMonth,
-            () => onChanged(DateFilter(from: monthStart, to: todayEnd))),
+        _chip(
+          ref.t('filters.thisMonth'),
+          isMonth,
+          () => onChanged(DateFilter(from: monthStart, to: todayEnd)),
+        ),
         const SizedBox(width: 8),
-        _chip('All Time', isAll,
-            () => onChanged(const DateFilter())),
+        _chip(
+          ref.t('filters.allTime'),
+          isAll,
+          () => onChanged(const DateFilter()),
+        ),
       ],
     );
   }
 
-  Widget _chip(String label, bool selected, VoidCallback onTap) =>
-      ChoiceChip(
-        label: Text(label),
-        selected: selected,
-        selectedColor: const Color(0xFFD4AF37),
-        onSelected: (_) => onTap(),
-      );
+  Widget _chip(String label, bool selected, VoidCallback onTap) => ChoiceChip(
+    label: Text(label),
+    selected: selected,
+    selectedColor: const Color(0xFFD4AF37),
+    onSelected: (_) => onTap(),
+  );
 }
 
 // ── Common components ─────────────────────────────────────────────────────
 
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   final String title;
   final VoidCallback? onAdd;
   const _Header({required this.title, this.onAdd});
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5)),
-          if (onAdd != null)
-            ElevatedButton.icon(
-              icon: const Icon(Icons.add),
-              label: const Text('Add New'),
-              onPressed: onAdd,
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD4AF37),
-                  foregroundColor: Colors.black),
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(languageProvider);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+          ),
+        ),
+        if (onAdd != null)
+          ElevatedButton.icon(
+            icon: const Icon(Icons.add),
+            label: Text(ref.t('management.addNew')),
+            onPressed: onAdd,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD4AF37),
+              foregroundColor: Colors.black,
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }
@@ -807,11 +887,12 @@ class _ReportCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color? color;
-  const _ReportCard(
-      {required this.title,
-      required this.value,
-      required this.icon,
-      this.color});
+  const _ReportCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -828,16 +909,21 @@ class _ReportCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(title,
-                      style: const TextStyle(
-                          color: Colors.white54, fontSize: 12)),
+                  Text(
+                    title,
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   const SizedBox(height: 4),
-                  Text(value,
-                      style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: color ?? Colors.white),
-                      overflow: TextOverflow.ellipsis),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: color ?? Colors.white,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
