@@ -11,6 +11,8 @@ import 'package:st_george_pos/providers/order_workflow_provider.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/models/waiter.dart';
 import 'package:st_george_pos/services/bill_service.dart';
+import 'package:st_george_pos/services/enhanced_print_service.dart';
+import 'package:st_george_pos/services/enhanced_bill_service.dart';
 import 'package:st_george_pos/services/order_workflow_service.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
 
@@ -647,6 +649,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen>
 
     try {
       final workflowState = ref.read(orderWorkflowProvider);
+      final settingsAsync = ref.read(appSettingsProvider);
       
       if (workflowState.error != null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -672,11 +675,19 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen>
       // Add items to order
       ref.read(orderWorkflowProvider.notifier).addItemsToOrder(localItems);
       
+      // Print order list for kitchen
+      final settings = await settingsAsync;
+      await EnhancedPrintService.printOrderList(
+        order: order,
+        settings: settings,
+        t: ref.t,
+      );
+      
       // Clear local items
       setState(() => localItems = []);
       
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Items sent to kitchen')),
+        const SnackBar(content: Text('Items sent to kitchen and order list printed')),
       );
       
     } catch (e) {
@@ -694,9 +705,156 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen>
       return;
     }
 
-    // TODO: Implement bill printing
+    final workflowState = ref.read(orderWorkflowProvider);
+    
+    if (workflowState.existingOrders.isEmpty && localItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No items to bill')),
+      );
+      return;
+    }
+
+    try {
+      final settingsAsync = ref.read(appSettingsProvider);
+      final settings = await settingsAsync;
+
+      // Show print options dialog
+      final printOption = await _showPrintOptionsDialog();
+      if (printOption == null) return;
+
+      switch (printOption) {
+        case 'orderList':
+          await _printOrderListOption(settings);
+          break;
+        case 'finalReceipt':
+          await _printFinalReceiptOption(settings);
+          break;
+        case 'combined':
+          await _printCombinedOrdersOption(settings);
+          break;
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
+  Future<String?> _showPrintOptionsDialog() async {
+    final workflowState = ref.read(orderWorkflowProvider);
+    final hasMultipleSessions = workflowState.existingOrders.length > 1;
+    
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: Text(ref.t('print.selectPrintOption')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(ref.t('print.printOrderList')),
+              subtitle: Text(ref.t('print.printOrderListDesc')),
+              leading: const Icon(Icons.list_alt, color: Color(0xFFD4AF37)),
+              onTap: () => Navigator.pop(ctx, 'orderList'),
+            ),
+            ListTile(
+              title: Text(ref.t('print.printFinalReceipt')),
+              subtitle: Text(ref.t('print.printFinalReceiptDesc')),
+              leading: const Icon(Icons.receipt, color: Color(0xFFD4AF37)),
+              onTap: () => Navigator.pop(ctx, 'finalReceipt'),
+            ),
+            if (hasMultipleSessions) ...[
+              ListTile(
+                title: Text(ref.t('print.printCombined')),
+                subtitle: Text(ref.t('print.printCombinedDesc')),
+                leading: const Icon(Icons.merge_type, color: Color(0xFFD4AF37)),
+                onTap: () => Navigator.pop(ctx, 'combined'),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ref.t('common.cancel')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _printOrderListOption(Map<String, String> settings) async {
+    final workflowState = ref.read(orderWorkflowProvider);
+    
+    if (workflowState.currentOrder != null) {
+      await EnhancedPrintService.printOrderList(
+        order: workflowState.currentOrder!,
+        settings: settings,
+        t: ref.t,
+      );
+    } else if (workflowState.existingOrders.isNotEmpty) {
+      await EnhancedPrintService.printOrderList(
+        order: workflowState.existingOrders.last,
+        settings: settings,
+        t: ref.t,
+      );
+    }
+    
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Bill printing coming soon')),
+      const SnackBar(content: Text('Order list printed')),
+    );
+  }
+
+  Future<void> _printFinalReceiptOption(Map<String, String> settings) async {
+    final workflowState = ref.read(orderWorkflowProvider);
+    
+    // Combine current items with existing orders
+    List<OrderModel> allSessions = List.from(workflowState.existingOrders);
+    
+    if (localItems.isNotEmpty && workflowState.currentOrder != null) {
+      allSessions.add(workflowState.currentOrder!);
+    }
+    
+    if (allSessions.isEmpty) {
+      throw Exception('No orders to print');
+    }
+
+    await EnhancedBillService.printFinalReceiptForTable(
+      tableId: selectedTable!.id!,
+      sessions: allSessions,
+      settings: settings,
+      t: ref.t,
+    );
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Final receipt printed')),
+    );
+  }
+
+  Future<void> _printCombinedOrdersOption(Map<String, String> settings) async {
+    final workflowState = ref.read(orderWorkflowProvider);
+    
+    // Combine current items with existing orders
+    List<OrderModel> allSessions = List.from(workflowState.existingOrders);
+    
+    if (localItems.isNotEmpty && workflowState.currentOrder != null) {
+      allSessions.add(workflowState.currentOrder!);
+    }
+    
+    if (allSessions.isEmpty) {
+      throw Exception('No orders to combine');
+    }
+
+    // Print combined order list for kitchen
+    await EnhancedPrintService.printCombinedOrderList(
+      sessions: allSessions,
+      settings: settings,
+      t: ref.t,
+    );
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Combined order list printed')),
     );
   }
 
