@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "ST GEORGE CAFE",
+    "title": "St. George Cafe POS",
     "pos": "POINT OF SALE"
   },
   "auth": {
@@ -51,7 +51,12 @@
     "confirmAndPrint": "Confirm & Print",
     "loadingWaiters": "Loading waiters",
     "voidItem": "Void item",
-    "orderTitle": "Order"
+    "orderTitle": "Order",
+    "confirmComplete": "Complete Order?",
+    "confirmCompleteMessage": "Would you like to finalize this order and free the table?",
+    "later": "LATER",
+    "yesFinalize": "YES, FINALIZE",
+    "completedAndFreed": "Order completed and table freed"
   },
   "orderConfirm": {
     "title": "Confirm & Print Bill",
@@ -88,6 +93,7 @@
     "noTablesFound": "No tables found",
     "available": "Available",
     "occupied": "Occupied",
+    "reserved": "Reserved",
     "busy": "BUSY",
     "free": "FREE",
     "noZone": "NO ZONE",
@@ -250,35 +256,6 @@
     "deleteZone": "Delete Zone",
     "deleteZoneConfirm": "Remove \"{name}\"? Tables will be unassigned.",
     "searchTable": "Search table by name...",
-    "statusAvailable": "AVAILABLE",
-    "statusOccupied": "OCCUPIED",
-    "statusReserved": "RESERVED"
-  },
-  "common": {
-    "currency": "ETB",
-    "all": "All",
-    "search": "Search products...",
-    "loading": "Loading...",
-    "fieldRequired": "Field required",
-    "error": "Error",
-    "confirm": "Confirm",
-    "yes": "Yes",
-    "no": "No",
-    "refresh": "Refresh",
-    "ok": "OK",
-    "close": "Close",
-    "edit": "Edit",
-    "void": "Void",
-    "remove": "Remove",
-    "add": "Add",
-    "update": "Update",
-    "delete": "Delete",
-    "save": "Save",
-    "cancel": "Cancel",
-    "deleteConfirmTitle": "Delete",
-    "discountLabel": "Discount (ETB)",
-    "tableDoesNotHaveWaiter": "This table does not have an assigned waiter. Please configure it in Table Management.",
-    "notes": "Notes",
     "numbers": {
       "zero": "Zero",
       "one": "One",

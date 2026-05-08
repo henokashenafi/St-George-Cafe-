@@ -84,6 +84,15 @@ final productsProvider = FutureProvider.family<List<Product>, int?>((ref, catego
   return await repo.getProducts(categoryId: categoryId);
 });
 
+class SelectedCategoryNotifier extends Notifier<int?> {
+  @override
+  int? build() => null;
+  void set(int? id) => state = id;
+}
+
+final selectedCategoryProvider =
+    NotifierProvider<SelectedCategoryNotifier, int?>(SelectedCategoryNotifier.new);
+
 final tableZonesProvider = FutureProvider<List<TableZone>>((ref) async {
   final repo = ref.watch(posRepositoryProvider);
   return await repo.getTableZones();
@@ -104,6 +113,20 @@ final ordersProvider = FutureProvider.autoDispose<List<OrderModel>>((ref) async 
   final repo = ref.watch(posRepositoryProvider);
   final filter = ref.watch(reportDateFilterProvider);
   return await repo.getAllOrders(from: filter.from, to: filter.to);
+});
+
+final activeOrdersProvider = FutureProvider.autoDispose<List<OrderModel>>((ref) async {
+  final repo = ref.watch(posRepositoryProvider);
+  final allOrders = await repo.getAllOrders();
+  return allOrders.where((o) => o.status == 'pending').toList();
+});
+
+final todaysOrdersProvider = FutureProvider.autoDispose<List<OrderModel>>((ref) async {
+  final repo = ref.watch(posRepositoryProvider);
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final tomorrow = today.add(const Duration(days: 1));
+  return await repo.getAllOrders(from: today, to: tomorrow);
 });
 
 // ── Report date filter ────────────────────────────────────────────────────

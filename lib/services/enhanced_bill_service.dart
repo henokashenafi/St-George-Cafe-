@@ -1,11 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/models/order_item.dart';
-import 'package:st_george_pos/models/settings.dart';
 import 'package:st_george_pos/services/enhanced_print_service.dart';
 import 'package:st_george_pos/services/order_workflow_service.dart';
-import 'package:st_george_pos/providers/pos_providers.dart';
-import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:intl/intl.dart';
 
 class EnhancedBillService {
@@ -281,7 +279,7 @@ class EnhancedBillService {
             children: [
               pw.Text(
                 '${t('print.table')}: ${combinedOrder.tableName}',
-                style: const pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
               ),
               pw.Text(
                 '${t('print.waiter')}: ${combinedOrder.waiterName}',
@@ -307,7 +305,7 @@ class EnhancedBillService {
             pw.SizedBox(height: 10),
             pw.Text(
               '${t('print.sessionDetails')}: ${sessions.map((s) => DateFormat('HH:mm').format(s.createdAt)).join(', ')}',
-              style: const pw.TextStyle(fontSize: 12, fontStyle: pw.FontStyle.italic),
+              style: pw.TextStyle(fontSize: 12, fontStyle: pw.FontStyle.italic),
             ),
           ],
         ],
@@ -327,7 +325,7 @@ class EnhancedBillService {
         children: [
           pw.Text(
             t('print.sessionDetails'),
-            style: const pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 10),
           ...sessions.map((session) => pw.Container(
@@ -371,21 +369,21 @@ class EnhancedBillService {
       children: [
         pw.Text(
           t('print.items'),
-          style: const pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+          style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
         ),
         pw.SizedBox(height: 10),
         pw.Table(
           border: pw.TableBorder.all(width: 0.5),
           columnWidths: {
-            0: const pw.FlexColumnWidth(2),
-            1: const pw.FlexColumnWidth(1),
-            2: const pw.FlexColumnWidth(1),
-            3: const pw.FlexColumnWidth(1),
+            0: pw.FlexColumnWidth(2),
+            1: pw.FlexColumnWidth(1),
+            2: pw.FlexColumnWidth(1),
+            3: pw.FlexColumnWidth(1),
           },
           children: [
             // Header
             pw.TableRow(
-              decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+              decoration: pw.BoxDecoration(color: PdfColors.grey200),
               children: [
                 _buildPDFCell(t('print.items'), isHeader: true),
                 _buildPDFCell(t('print.quantity'), isHeader: true),
@@ -414,7 +412,7 @@ class EnhancedBillService {
       child: pw.Text(
         text,
         style: pw.TextStyle(
-          fontSize: isHeader ? 12 : 11,
+          fontSize: 12,
           fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
         ),
         textAlign: isHeader ? pw.TextAlign.center : pw.TextAlign.left,
@@ -488,18 +486,18 @@ class EnhancedBillService {
             children: [
               pw.Text(
                 t('print.total'),
-                style: const pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
               ),
               pw.Text(
                 grandTotal.toStringAsFixed(2),
-                style: const pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
               ),
             ],
           ),
           pw.SizedBox(height: 10),
           pw.Text(
             _numberToWords(grandTotal, t),
-            style: const pw.TextStyle(fontSize: 12, fontStyle: pw.FontStyle.italic),
+            style: pw.TextStyle(fontSize: 12, fontStyle: pw.FontStyle.italic),
             textAlign: pw.TextAlign.center,
           ),
         ],
@@ -514,7 +512,7 @@ class EnhancedBillService {
         pw.SizedBox(height: 10),
         pw.Text(
           t('print.thankYou'),
-          style: const pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+          style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
           textAlign: pw.TextAlign.center,
         ),
         pw.SizedBox(height: 5),

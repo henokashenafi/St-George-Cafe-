@@ -8,11 +8,10 @@ import 'package:st_george_pos/models/table_model.dart';
 import 'package:st_george_pos/providers/pos_providers.dart';
 import 'package:st_george_pos/screens/login_screen.dart';
 import 'package:st_george_pos/screens/management_screens.dart';
+import 'package:st_george_pos/screens/order_screen.dart';
 import 'package:st_george_pos/screens/table_management_screen.dart';
 import 'package:st_george_pos/screens/zone_management_screen.dart';
-import 'package:st_george_pos/screens/new_order_screen.dart';
 import 'package:st_george_pos/screens/settings_screen.dart' hide SettingsScreen;
-import 'package:st_george_pos/screens/table_management_screen.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/services/pos_repository.dart';
@@ -48,13 +47,13 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
-      title: 'St George Cafe POS',
+      title: ref.t('app.title'),
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -190,7 +189,7 @@ class DashboardScreen extends ConsumerWidget {
                           ref.read(dashboardViewProvider.notifier).state =
                               DashboardView.home,
                     ),
-                    if (!isDirector) _SidebarItem(
+                    _SidebarItem(
                       icon: Icons.add_shopping_cart,
                       label: ref.t('navigation.newOrder'),
                       isActive:
@@ -200,49 +199,49 @@ class DashboardScreen extends ConsumerWidget {
                           ref.read(dashboardViewProvider.notifier).state =
                               DashboardView.newOrder,
                     ),
-                    if (!isDirector) ...[
+                    _SidebarItem(
+                      icon: Icons.history,
+                      label: ref.t('navigation.history'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.orders,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.orders,
+                    ),
+                    _SidebarItem(
+                      icon: Icons.pause_circle_outline,
+                      label: ref.t('navigation.held'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.heldOrders,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.heldOrders,
+                    ),
+                    _SidebarItem(
+                      icon: Icons.restaurant_menu,
+                      label: ref.t('navigation.menu'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.menu,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.menu,
+                    ),
+                    _SidebarItem(
+                      icon: Icons.people,
+                      label: ref.t('navigation.waiters'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.waiters,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.waiters,
+                    ),
+                    if (isDirector)
                       _SidebarItem(
-                        icon: Icons.history,
-                        label: ref.t('navigation.history'),
-                        isActive:
-                            ref.watch(dashboardViewProvider) ==
-                            DashboardView.orders,
-                        onTap: () =>
-                            ref.read(dashboardViewProvider.notifier).state =
-                                DashboardView.orders,
-                      ),
-                      _SidebarItem(
-                        icon: Icons.pause_circle_outline,
-                        label: ref.t('navigation.held'),
-                        isActive:
-                            ref.watch(dashboardViewProvider) ==
-                            DashboardView.heldOrders,
-                        onTap: () =>
-                            ref.read(dashboardViewProvider.notifier).state =
-                                DashboardView.heldOrders,
-                      ),
-                      _SidebarItem(
-                        icon: Icons.restaurant_menu,
-                        label: ref.t('navigation.menu'),
-                        isActive:
-                            ref.watch(dashboardViewProvider) ==
-                            DashboardView.menu,
-                        onTap: () =>
-                            ref.read(dashboardViewProvider.notifier).state =
-                                DashboardView.menu,
-                      ),
-                      _SidebarItem(
-                        icon: Icons.people,
-                        label: ref.t('navigation.waiters'),
-                        isActive:
-                            ref.watch(dashboardViewProvider) ==
-                            DashboardView.waiters,
-                        onTap: () =>
-                            ref.read(dashboardViewProvider.notifier).state =
-                                DashboardView.waiters,
-                      ),
-                      if (isDirector) _SidebarItem(
-                        icon: Icons.dashboard_outlined,
+                        icon: Icons.map_outlined,
                         label: ref.t('navigation.zones'),
                         isActive:
                             ref.watch(dashboardViewProvider) ==
@@ -251,7 +250,6 @@ class DashboardScreen extends ConsumerWidget {
                             ref.read(dashboardViewProvider.notifier).state =
                                 DashboardView.zones,
                       ),
-                    ],
                     _SidebarItem(
                       icon: Icons.bar_chart,
                       label: ref.t('navigation.reports'),
@@ -301,22 +299,13 @@ class DashboardScreen extends ConsumerWidget {
                 child: Consumer(
                   builder: (context, ref, _) {
                     final view = ref.watch(dashboardViewProvider);
+                    final user = ref.watch(authProvider)!;
+                    final isDirector = user.role == UserRole.director;
 
                     return AnimatedSwitcher(
                       duration: const Duration(milliseconds: 300),
-                      transitionBuilder:
-                          (Widget child, Animation<double> animation) {
-                            return FadeTransition(
-                              opacity: animation,
-                              child: SlideTransition(
-                                position: Tween<Offset>(
-                                  begin: const Offset(0.02, 0),
-                                  end: Offset.zero,
-                                ).animate(animation),
-                                child: child,
-                              ),
-                            );
-                          },
+                      transitionBuilder: (child, animation) =>
+                          FadeTransition(opacity: animation, child: child),
                       child: _buildCurrentView(view, isDirector, ref),
                     );
                   },
@@ -326,41 +315,35 @@ class DashboardScreen extends ConsumerWidget {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _startNewOrderFlowFromDashboard(context, ref),
-        backgroundColor: const Color(0xFFD4AF37),
-        foregroundColor: Colors.black,
-        icon: const Icon(Icons.add),
-        label: Text(
-          ref.t('dashboard.newOrder'),
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
-          ),
-        ),
-      ),
     );
   }
 
-  Widget _buildCurrentView(DashboardView view, bool isDirector, WidgetRef ref) {
-    if (isDirector) {
-      switch (view) {
-        case DashboardView.reports:
-          return const ReportsScreen(key: ValueKey('reports'));
-        case DashboardView.users:
-          return const UserManagementScreen(key: ValueKey('users'));
-        case DashboardView.settings:
-          return const SettingsScreen(key: ValueKey('settings'));
-        case DashboardView.zones:
-          return const ZoneManagementScreen(key: ValueKey('zones'));
-        default:
-          return const DashboardHomeScreen(key: ValueKey('home'));
+  void _startNewOrderFlowFromDashboard(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    // Navigate to a table selection dialog or directly to the order screen
+    final selectedTable = await showDialog<TableModel>(
+      context: context,
+      builder: (ctx) => const _TableSelectorDialog(),
+    );
+
+    if (selectedTable != null) {
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => OrderScreen(table: selectedTable)),
+        );
       }
     }
+  }
 
+  Widget _buildCurrentView(DashboardView view, bool isDirector, WidgetRef ref) {
     switch (view) {
       case DashboardView.home:
         return const DashboardHomeScreen(key: ValueKey('home'));
+      case DashboardView.newOrder:
+        return const OrderScreen(key: ValueKey('newOrder'));
       case DashboardView.orders:
         return const OrderHistoryScreen(key: ValueKey('orders'));
       case DashboardView.heldOrders:
@@ -371,12 +354,18 @@ class DashboardScreen extends ConsumerWidget {
         return const WaiterManagementScreen(key: ValueKey('waiters'));
       case DashboardView.reports:
         return const ReportsScreen(key: ValueKey('reports'));
+      case DashboardView.users:
+        if (!isDirector)
+          return const DashboardHomeScreen(key: ValueKey('home'));
+        return const UserManagementScreen(key: ValueKey('users'));
       case DashboardView.settings:
-        return const TableManagementScreen(key: ValueKey('settings'));
+        return isDirector
+            ? const SettingsScreen(key: ValueKey('settings'))
+            : const TableManagementScreen(key: ValueKey('settings'));
       case DashboardView.zones:
+        if (!isDirector)
+          return const DashboardHomeScreen(key: ValueKey('home'));
         return const ZoneManagementScreen(key: ValueKey('zones'));
-      case DashboardView.newOrder:
-        return const NewOrderScreen(key: ValueKey('newOrder'));
       default:
         return const DashboardHomeScreen(key: ValueKey('home'));
     }
@@ -395,226 +384,217 @@ class DashboardHomeScreen extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          ref.t('dashboard.title'),
+          ref.t('main.title'),
           style: const TextStyle(
-            fontSize: 24,
+            fontSize: 28,
             fontWeight: FontWeight.w900,
-            letterSpacing: 2,
-            color: Colors.white70,
+            letterSpacing: 3,
+            color: Colors.white,
           ),
         ),
-        const SizedBox(height: 24),
-
-        InkWell(
-          onTap: () => _startNewOrderFlowFromDashboard(context, ref),
-          child: SizedBox(
-            height: 160,
-            width: double.infinity,
-            child: GlassContainer(
-              opacity: 0.1,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD4AF37).withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.add_shopping_cart,
-                      size: 48,
-                      color: Color(0xFFD4AF37),
-                    ),
-                  ),
-                  const SizedBox(width: 32),
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        ref.t('dashboard.startNewOrder'),
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 3,
-                          color: Color(0xFFD4AF37),
-                        ),
-                      ),
-                      Text(
-                        ref.t('dashboard.startNewOrderSubtitle'),
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 32),
-
+        const SizedBox(height: 30),
+        // Quick stats
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    ref.t('dashboard.activeTables'),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white38,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  tablesAsync.when(
-                    data: (tables) {
-                      final occupied = tables
-                          .where((t) => t.status == TableStatus.occupied)
-                          .toList();
-                      if (occupied.isEmpty) {
-                        return SizedBox(
-                          height: 200,
-                          child: GlassContainer(
+              child: _DashboardCard(
+                title: ref.t('main.activeTables'),
+                child: ref
+                    .watch(activeOrdersProvider)
+                    .when(
+                      data: (orders) {
+                        if (orders.isEmpty) {
+                          return Opacity(
                             opacity: 0.05,
                             child: Center(
                               child: Text(
-                                ref.t('dashboard.noActiveTables'),
+                                ref.t('main.noActiveTables'),
                                 style: const TextStyle(color: Colors.white24),
+                              ),
+                            ),
+                          );
+                        }
+                        return ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: orders.length,
+                          itemBuilder: (ctx, i) => _ActiveTableTile(
+                            order: orders[i],
+                            currency: ref.t('common.currency'),
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => OrderScreen(
+                                  table: TableModel(
+                                    id: orders[i].tableId,
+                                    name: orders[i].tableName,
+                                    status: TableStatus.occupied,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         );
-                      }
-                      return GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 4,
-                              childAspectRatio: 1.2,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
-                            ),
-                        itemCount: occupied.length,
-                        itemBuilder: (context, index) {
-                          final table = occupied[index];
-                          return GlassContainer(
-                            opacity: 0.2,
-                            border: Border.all(
-                              color: const Color(0xFF006B3C).withOpacity(0.5),
-                              width: 2,
-                            ),
-                            child: InkWell(
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => OrderScreen(table: table),
-                                ),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(
-                                    Icons.table_bar,
-                                    size: 32,
-                                    color: Color(0xFFD4AF37),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    table.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  Text(
-                                    table.zoneName ?? '',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.white38,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => Text('${ref.t('errors.error')}: $e'),
-                  ),
-                ],
+                      },
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Text('${ref.t('common.error')}: $e'),
+                    ),
               ),
             ),
-            const SizedBox(width: 32),
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    ref.t('dashboard.todayOverview'),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white38,
+            const SizedBox(width: 24),
+            SizedBox(
+              width: 320,
+              child: _DashboardCard(
+                title: ref.t('main.todayOverview'),
+                child: ref
+                    .watch(todaysOrdersProvider)
+                    .when(
+                      data: (todayOrders) {
+                        final totalRevenue = todayOrders.fold(
+                          0.0,
+                          (sum, order) => sum + order.totalAmount,
+                        );
+                        return Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _StatCard(
+                              title: ref.t('main.ordersCompleted'),
+                              value: '${todayOrders.length}',
+                              icon: Icons.check_circle_outline,
+                            ),
+                            const SizedBox(height: 12),
+                            _StatCard(
+                              title: ref.t('main.totalRevenue'),
+                              value:
+                                  '${totalRevenue.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                              icon: Icons.payments_outlined,
+                              color: const Color(0xFFD4AF37),
+                            ),
+                          ],
+                        );
+                      },
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Text('${ref.t('common.error')}: $e'),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  ordersAsync.when(
-                    data: (orders) {
-                      final today = DateTime.now();
-                      final todayOrders = orders
-                          .where(
-                            (o) =>
-                                o.createdAt.day == today.day &&
-                                o.createdAt.month == today.month &&
-                                o.createdAt.year == today.year &&
-                                o.status == OrderStatus.completed,
-                          )
-                          .toList();
-
-                      final totalRevenue = todayOrders.fold(
-                        0.0,
-                        (sum, o) => sum + o.grandTotal,
-                      );
-
-                      return Column(
-                        children: [
-                          _StatCard(
-                            title: ref.t('dashboard.ordersCompleted'),
-                            value: '${todayOrders.length}',
-                            icon: Icons.check_circle_outline,
-                          ),
-                          const SizedBox(height: 16),
-                          _StatCard(
-                            title: ref.t('dashboard.totalRevenue'),
-                            value: '${totalRevenue.toStringAsFixed(2)} ETB',
-                            icon: Icons.payments_outlined,
-                            color: const Color(0xFFD4AF37),
-                          ),
-                        ],
-                      );
-                    },
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => Text('${ref.t('errors.error')}: $e'),
-                  ),
-                ],
               ),
             ),
           ],
         ),
+      ],
+    );
+  }
+}
+
+class _ActiveTableTile extends StatelessWidget {
+  final OrderModel order;
+  final VoidCallback onTap;
+  final String currency;
+
+  const _ActiveTableTile({
+    required this.order,
+    required this.onTap,
+    this.currency = 'ETB',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 180,
+      margin: const EdgeInsets.only(right: 16),
+      child: GlassContainer(
+        opacity: 0.1,
+        borderRadius: 16,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD4AF37).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '#${order.id}',
+                        style: const TextStyle(
+                          color: Color(0xFFD4AF37),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.receipt_long,
+                      size: 16,
+                      color: Colors.white24,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  order.tableName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  order.waiterName ?? '',
+                  style: const TextStyle(fontSize: 13, color: Colors.white54),
+                ),
+                const Spacer(),
+                Text(
+                  '${order.totalAmount.toStringAsFixed(2)} $currency',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFFD4AF37),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardCard extends StatelessWidget {
+  final String title;
+  final Widget child;
+
+  const _DashboardCard({required this.title, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 2,
+            color: Colors.white54,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(height: 200, child: child),
       ],
     );
   }
@@ -625,59 +605,52 @@ class _StatCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color? color;
+
   const _StatCard({
     required this.title,
     required this.value,
     required this.icon,
     this.color,
   });
+
   @override
   Widget build(BuildContext context) {
     return GlassContainer(
-      padding: const EdgeInsets.all(20),
-      opacity: 0.1,
+      opacity: 0.05,
+      borderRadius: 16,
+      padding: const EdgeInsets.all(12),
       child: Row(
         children: [
-          Icon(icon, size: 32, color: color ?? Colors.white38),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: (color ?? Colors.white).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color ?? Colors.white70, size: 20),
+          ),
           const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(fontSize: 12, color: Colors.white54),
-              ),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: color ?? Colors.white,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 14, color: Colors.white54),
                 ),
-              ),
-            ],
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                    color: color ?? Colors.white,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
-    );
-  }
-}
-
-// ── Professional Table Selector Dialog ────────────────────────────────────
-
-void _startNewOrderFlowFromDashboard(
-  BuildContext context,
-  WidgetRef ref,
-) async {
-  final selectedTable = await showDialog<TableModel>(
-    context: context,
-    barrierColor: Colors.black87,
-    builder: (ctx) => const _TableSelectorDialog(),
-  );
-
-  if (selectedTable != null && context.mounted) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => OrderScreen(table: selectedTable)),
     );
   }
 }
@@ -691,9 +664,9 @@ class _TableSelectorDialog extends ConsumerStatefulWidget {
 }
 
 class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
-  final _searchCtrl = TextEditingController();
   int? _selectedZoneId;
   String _search = '';
+  final TextEditingController _searchCtrl = TextEditingController();
 
   @override
   void dispose() {
@@ -705,34 +678,18 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
   Widget build(BuildContext context) {
     final tablesAsync = ref.watch(tablesProvider);
     final zonesAsync = ref.watch(tableZonesProvider);
-    final screenSize = MediaQuery.of(context).size;
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(24),
-      child: Container(
-        width: screenSize.width * 0.88,
-        height: screenSize.height * 0.88,
-        decoration: BoxDecoration(
-          color: const Color(0xFF0F1117),
-          borderRadius: BorderRadius.zero,
-          border: Border.all(color: Colors.white.withOpacity(0.07)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.6),
-              blurRadius: 60,
-              spreadRadius: 10,
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.zero,
+      child: GlassContainer(
+        opacity: 0.15,
+        borderRadius: 24,
+        child: Container(
+          width: 900,
+          height: 600,
           child: Row(
             children: [
-              // ── Zone Sidebar ─────────────────────────────────────────
               _buildZoneSidebar(zonesAsync),
-
-              // ── Main Content ─────────────────────────────────────────
               Expanded(
                 child: Column(
                   children: [
@@ -749,8 +706,6 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
       ),
     );
   }
-
-  // ── Zone Sidebar ───────────────────────────────────────────────────────
 
   Widget _buildZoneSidebar(AsyncValue zonesAsync) {
     return Container(
@@ -779,7 +734,7 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      ref.t('dashboard.zones'),
+                      ref.t('zones.title'),
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -817,28 +772,18 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
               orElse: () => const SizedBox(),
             ),
           ),
-          // Close button
           Container(
             padding: const EdgeInsets.all(16),
             child: TextButton.icon(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white38,
-                minimumSize: const Size(double.infinity, 44),
-              ),
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.close, size: 16),
-              label: Text(
-                ref.t('dashboard.cancel'),
-                style: const TextStyle(fontSize: 13),
-              ),
+              label: Text(ref.t('common.cancel')),
             ),
           ),
         ],
       ),
     );
   }
-
-  // ── Header with live stats ─────────────────────────────────────────────
 
   Widget _buildHeader(AsyncValue tablesAsync) {
     return Container(
@@ -852,7 +797,7 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                ref.t('dashboard.selectTable'),
+                ref.t('tableSelector.title'),
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
@@ -860,7 +805,6 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 2),
               Text(
                 _selectedZoneId == null
                     ? ref.t('zones.allTables')
@@ -869,47 +813,10 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
               ),
             ],
           ),
-          const Spacer(),
-          // Live stats
-          tablesAsync.maybeWhen(
-            data: (tables) {
-              final all = tables as List;
-              final available = all
-                  .where((t) => t.status == TableStatus.available)
-                  .length;
-              final occupied = all
-                  .where((t) => t.status == TableStatus.occupied)
-                  .length;
-              return Row(
-                children: [
-                  _StatBadge(
-                    label: ref.t('dashboard.available'),
-                    count: available,
-                    color: const Color(0xFF22C55E),
-                  ),
-                  const SizedBox(width: 12),
-                  _StatBadge(
-                    label: ref.t('dashboard.occupied'),
-                    count: occupied,
-                    color: const Color(0xFFEF4444),
-                  ),
-                  const SizedBox(width: 12),
-                  _StatBadge(
-                    label: ref.t('dashboard.total'),
-                    count: all.length,
-                    color: const Color(0xFFD4AF37),
-                  ),
-                ],
-              );
-            },
-            orElse: () => const SizedBox(),
-          ),
         ],
       ),
     );
   }
-
-  // ── Search bar ─────────────────────────────────────────────────────────
 
   Widget _buildSearchBar() {
     return Padding(
@@ -929,103 +836,53 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
             Expanded(
               child: TextField(
                 controller: _searchCtrl,
-                autofocus: false,
                 style: const TextStyle(color: Colors.white, fontSize: 14),
-                decoration: const InputDecoration(
-                  hintText: 'Search table name...',
-                  hintStyle: TextStyle(color: Color(0xFF8B90A0), fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: ref.t('tableSelector.searchHint'),
                   border: InputBorder.none,
-                  isDense: true,
                 ),
                 onChanged: (v) => setState(() => _search = v.toLowerCase()),
               ),
             ),
-            if (_search.isNotEmpty)
-              IconButton(
-                icon: const Icon(
-                  Icons.close,
-                  size: 16,
-                  color: Color(0xFF8B90A0),
-                ),
-                onPressed: () {
-                  _searchCtrl.clear();
-                  setState(() => _search = '');
-                },
-              ),
           ],
         ),
       ),
     );
   }
 
-  // ── Table grid ─────────────────────────────────────────────────────────
-
   Widget _buildTableGrid(AsyncValue tablesAsync) {
     return tablesAsync.when(
       data: (tables) {
-        var filtered = tables as List<TableModel>;
-        if (_selectedZoneId != null) {
+        var filtered = (tables as List<TableModel>);
+        if (_selectedZoneId != null)
           filtered = filtered
               .where((t) => t.zoneId == _selectedZoneId)
               .toList();
-        }
-        if (_search.isNotEmpty) {
+        if (_search.isNotEmpty)
           filtered = filtered
               .where((t) => t.name.toLowerCase().contains(_search))
               .toList();
-        }
-
-        if (filtered.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.table_bar_outlined,
-                  size: 64,
-                  color: Colors.white.withOpacity(0.1),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  ref.t('dashboard.noTablesFound'),
-                  style: const TextStyle(color: Colors.white24),
-                ),
-              ],
-            ),
-          );
-        }
 
         return GridView.builder(
-          padding: const EdgeInsets.fromLTRB(28, 16, 28, 28),
+          padding: const EdgeInsets.all(28),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 5,
-            childAspectRatio: 1.1,
             crossAxisSpacing: 14,
             mainAxisSpacing: 14,
           ),
           itemCount: filtered.length,
-          itemBuilder: (_, i) {
-            final tableOccupied = filtered[i].status == TableStatus.occupied;
-            return _ProfessionalTableCard(
-              table: filtered[i],
-              statusLabel: tableOccupied
-                  ? ref.t('tableSelector.busy')
-                  : ref.t('tableSelector.free'),
-              noZoneLabel: ref.t('tableSelector.noZone'),
-              onTap: () => Navigator.pop(context, filtered[i]),
-            );
-          },
+          itemBuilder: (_, i) => _ProfessionalTableCard(
+            table: filtered[i],
+            statusLabel: filtered[i].status == TableStatus.occupied
+                ? ref.t('tableSelector.busy')
+                : ref.t('tableSelector.free'),
+            noZoneLabel: ref.t('tableSelector.noZone'),
+            onTap: () => Navigator.pop(context, filtered[i]),
+          ),
         );
       },
-      loading: () => const Center(
-        child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
-      ),
-      error: (e, _) => Center(
-        child: Text(
-          '${ref.t('errors.error')}: $e',
-          style: const TextStyle(color: Colors.redAccent),
-        ),
-      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('$e')),
     );
   }
 }
@@ -1352,4 +1209,13 @@ class _SidebarItem extends StatelessWidget {
       ),
     );
   }
+}
+
+IconData _getCategoryIcon(String name) {
+  final n = name.toLowerCase();
+  if (n.contains('drink') || n.contains('beverage')) return Icons.local_cafe;
+  if (n.contains('food')) return Icons.restaurant;
+  if (n.contains('fasting')) return Icons.eco;
+  if (n.contains('non')) return Icons.kebab_dining;
+  return Icons.fastfood;
 }

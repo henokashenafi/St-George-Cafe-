@@ -7,11 +7,11 @@ import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/providers/pos_providers.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
-import 'package:st_george_pos/models/waiter.dart';
 import 'package:st_george_pos/services/bill_service.dart';
-import 'package:st_george_pos/services/order_workflow_service.dart';
 import 'package:st_george_pos/providers/order_workflow_provider.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
+import 'package:st_george_pos/models/category.dart';
+import 'package:st_george_pos/services/enhanced_print_service.dart';
 
 class OrderScreen extends ConsumerStatefulWidget {
   final TableModel? table;
@@ -22,7 +22,6 @@ class OrderScreen extends ConsumerStatefulWidget {
 }
 
 class _OrderScreenState extends ConsumerState<OrderScreen> {
-  int? selectedCategoryId;
   List<OrderItem> localItems = [];
   String searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
@@ -36,7 +35,9 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     Future.microtask(() {
       if (selectedTable != null) {
         // Initialize workflow for selected table
-        ref.read(orderWorkflowProvider.notifier).initializeForTable(selectedTable!.id!);
+        ref
+            .read(orderWorkflowProvider.notifier)
+            .initializeForTable(selectedTable!.id!);
         ref
             .read(activeOrderServiceProvider)
             .refreshTableData(selectedTable!.id!);
@@ -148,45 +149,46 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   ) async {
     if (localItems.isEmpty) return;
 
-    if (selectedTable == null) {
-      await _showTableSelectionDialog(context);
-      if (selectedTable == null) return;
-    }
+    if (selectedTable == null) return;
 
     final workflowState = ref.read(orderWorkflowProvider);
-    
-    // Check if workflow is properly initialized
-    if (workflowState.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(workflowState.error!)),
-      );
-      return;
+
+    // Warn if no waiter but don't block
+    if (workflowState.assignedWaiter == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ref.t('order.noWaiterAssigned'))),
+        );
+      }
     }
 
     OrderModel? order = existingOrder;
     if (order == null) {
       try {
         final currentUser = ref.read(authProvider)!;
-        
+
         // Create new order session using workflow service
-        await ref.read(orderWorkflowProvider.notifier).createNewOrderSession(
-          cashierId: currentUser.id!,
-          cashierName: currentUser.username,
-        );
-        
+        await ref
+            .read(orderWorkflowProvider.notifier)
+            .createNewOrderSession(
+              cashierId: currentUser.id!,
+              cashierName: currentUser.username,
+            );
+
         order = ref.read(orderWorkflowProvider).currentOrder;
-        
+
         if (order == null) {
           throw Exception('Failed to create order session');
         }
-        
+
         // Save to database
-        order = await ref.read(activeOrderServiceProvider).createNewOrder(order);
-        
+        order = await ref
+            .read(activeOrderServiceProvider)
+            .createNewOrder(order);
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating order: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
         return;
       }
     }
@@ -220,90 +222,676 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     OrderModel order,
     Map<String, String> settings,
   ) async {
-    final serviceChargePercent =
-        double.tryParse(settings['service_charge_percent'] ?? '5') ?? 5;
-    final discountEnabled = (settings['discount_enabled'] ?? 'true') == 'true';
+    try {
+      // Show print options dialog
+      final printOption = await _showPrintOptionsDialog();
+      if (printOption == null) return;
 
-    // If there are unsent local items, warn
-    if (localItems.isNotEmpty) {
-      final proceed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          title: Text(ref.t('order.unsentItems')),
-          content: Text(ref.t('order.unsentItemsMessage')),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(ref.t('order.goBack')),
+      switch (printOption) {
+        case 'orderList':
+          await EnhancedPrintService.printOrderList(
+            order: order,
+            settings: settings,
+            t: ref.t,
+          );
+          break;
+        case 'finalReceipt':
+          // Use current session for receipt
+          await EnhancedPrintService.printFinalReceipt(
+            combinedOrder: order,
+            sessions: [order],
+            settings: settings,
+            t: ref.t,
+          );
+
+          // Complete the order if finalizing
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: const Color(0xFF1A1A1A),
+              title: Text(ref.t('order.confirmComplete')),
+              content: Text(ref.t('order.confirmCompleteMessage')),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text(ref.t('order.later')),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF006B3C),
+                  ),
+                  child: Text(ref.t('order.yesFinalize')),
+                ),
+              ],
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(ref.t('order.discardAndBill')),
+          );
+
+          if (confirmed == true) {
+            final serviceChargePercent =
+                double.tryParse(settings['service_charge_percent'] ?? '5') ?? 5;
+            final subtotal = order.totalAmount;
+            final sc = subtotal * (serviceChargePercent / 100);
+
+            await ref
+                .read(posRepositoryProvider)
+                .completeOrder(
+                  order.id!,
+                  order.tableId,
+                  serviceCharge: sc,
+                  discountAmount: _discountAmount,
+                );
+
+            ref.refresh(tablesProvider);
+            if (selectedTable != null) {
+              ref
+                  .read(activeOrderServiceProvider)
+                  .refreshTableData(selectedTable!.id!);
+            }
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(ref.t('order.completedAndFreed'))),
+            );
+          }
+          break;
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${ref.t('common.error')}: $e')));
+    }
+  }
+
+  Future<String?> _showPrintOptionsDialog() async {
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: Text(ref.t('print.selectPrintOption')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(ref.t('print.printOrderList')),
+              subtitle: Text(ref.t('print.printOrderListDesc')),
+              leading: const Icon(Icons.list_alt, color: Color(0xFFD4AF37)),
+              onTap: () => Navigator.pop(ctx, 'orderList'),
+            ),
+            ListTile(
+              title: Text(ref.t('print.printFinalReceipt')),
+              subtitle: Text(ref.t('print.printFinalReceiptDesc')),
+              leading: const Icon(Icons.receipt, color: Color(0xFFD4AF37)),
+              onTap: () => Navigator.pop(ctx, 'finalReceipt'),
             ),
           ],
         ),
-      );
-      if (proceed != true) return;
-      setState(() => localItems = []);
-    }
-
-    if (order.items.isEmpty) return;
-
-    final subtotal = order.totalAmount;
-    final serviceCharge = subtotal * (serviceChargePercent / 100);
-    double discount = _discountAmount;
-
-    // Show bill confirmation dialog with discount input
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => _BillConfirmDialog(
-        order: order,
-        subtotal: subtotal,
-        serviceCharge: serviceCharge,
-        serviceChargePercent: serviceChargePercent,
-        discountEnabled: discountEnabled,
-        initialDiscount: discount,
-        onDiscountChanged: (v) => discount = v,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ref.t('common.cancel')),
+          ),
+        ],
       ),
     );
-
-    if (confirmed == true) {
-      final settings = await ref.read(cafeSettingsProvider.future);
-      await BillService.generateAndDownloadBill(
-        order: order.copyWith(
-          discountAmount: discount,
-        ), // Ensure order has the discount
-        items: order.items,
-        settings: settings,
-        cashierName: order.cashierName,
-        serviceChargePercent: serviceChargePercent,
-        t: ref.t,
-      );
-      await ref
-          .read(posRepositoryProvider)
-          .completeOrder(
-            order.id!,
-            order.tableId,
-            serviceCharge: serviceCharge,
-            discountAmount: discount,
-          );
-      ref.refresh(tablesProvider);
-      if (mounted) Navigator.pop(context);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final selectedCategoryId = ref.watch(selectedCategoryProvider);
     final activeOrderAsync = ref.watch(activeOrderProvider(selectedTable?.id));
     final categoriesAsync = ref.watch(categoriesProvider);
     final productsAsync = ref.watch(productsProvider(selectedCategoryId));
     final settingsAsync = ref.watch(appSettingsProvider);
 
+    if (widget.table != null) {
+      return _buildScaffold(
+        context,
+        activeOrderAsync,
+        categoriesAsync,
+        productsAsync,
+        settingsAsync,
+        selectedCategoryId,
+      );
+    }
+
+    return _buildInline(
+      context,
+      activeOrderAsync,
+      categoriesAsync,
+      productsAsync,
+      settingsAsync,
+      selectedCategoryId,
+    );
+  }
+
+  Widget _buildInline(
+    BuildContext context,
+    AsyncValue<OrderModel?> activeOrderAsync,
+    AsyncValue<List<Category>> categoriesAsync,
+    AsyncValue<List<Product>> productsAsync,
+    AsyncValue<Map<String, String>> settingsAsync,
+    int? selectedCategoryId,
+  ) {
+    return Row(
+      children: [
+        // ── Menu panel ────────────────────────────────────────────────
+        Expanded(
+          flex: 3,
+          child: Column(
+            children: [
+              GlassContainer(
+                opacity: 0.05,
+                borderRadius: 30,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: ref.t('common.search'),
+                    border: InputBorder.none,
+                    icon: const Icon(Icons.search, color: Colors.white54),
+                  ),
+                  onChanged: (v) => setState(() => searchQuery = v),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Category chips
+              SizedBox(
+                height: 44,
+                child: categoriesAsync.when(
+                  data: (cats) => ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: cats.length + 1,
+                    itemBuilder: (_, i) {
+                      if (i == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(ref.t('common.all')),
+                            selected: selectedCategoryId == null,
+                            selectedColor: const Color(0xFFD4AF37),
+                            onSelected: (_) => ref
+                                .read(selectedCategoryProvider.notifier)
+                                .set(null),
+                          ),
+                        );
+                      }
+                      final cat = cats[i - 1];
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(cat.name),
+                          selected: selectedCategoryId == cat.id,
+                          selectedColor: const Color(0xFFD4AF37),
+                          onSelected: (s) => ref
+                              .read(selectedCategoryProvider.notifier)
+                              .set(s ? cat.id : null),
+                        ),
+                      );
+                    },
+                  ),
+                  loading: () => const SizedBox(),
+                  error: (e, _) => Text('$e'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: productsAsync.when(
+                  data: (products) {
+                    final filtered = (products as List)
+                        .where(
+                          (p) => p.name.toLowerCase().contains(
+                            searchQuery.toLowerCase(),
+                          ),
+                        )
+                        .toList();
+                    if (filtered.isEmpty) {
+                      return Center(
+                        child: Opacity(
+                          opacity: 0.3,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.search_off, size: 48),
+                              const SizedBox(height: 8),
+                              Text(ref.t('common.noResults')),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    return GridView.builder(
+                      padding: EdgeInsets.zero,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 6,
+                            childAspectRatio: 0.85,
+                            crossAxisSpacing: 6,
+                            mainAxisSpacing: 6,
+                          ),
+                      itemCount: filtered.length,
+                      itemBuilder: (_, i) => _ProductCard(
+                        product: filtered[i],
+                        onTap: () => _addItem(filtered[i]),
+                      ),
+                    );
+                  },
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Text('$e'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        // ── Cart panel ────────────────────────────────────────────────
+        SizedBox(
+          width: 400,
+          child: GlassContainer(
+            opacity: 0.15,
+            borderRadius: 24,
+            child: Column(
+              children: [
+                // Table selector
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ref.t('order.selectTable'),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.5,
+                          color: Colors.white38,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      ref
+                          .watch(tablesProvider)
+                          .when(
+                            data: (allTables) => _TableDropdown(
+                              allTables: allTables,
+                              selectedTable: selectedTable,
+                              onSelected: (table) {
+                                setState(() => selectedTable = table);
+                                ref
+                                    .read(orderWorkflowProvider.notifier)
+                                    .initializeForTable(table.id!);
+                                ref
+                                    .read(activeOrderServiceProvider)
+                                    .refreshTableData(table.id!);
+                              },
+                            ),
+                            loading: () => const LinearProgressIndicator(),
+                            error: (e, _) => Text('$e'),
+                          ),
+                    ],
+                  ),
+                ),
+                // Waiter + zone chip
+                Consumer(
+                  builder: (context, ref, _) {
+                    final ws = ref.watch(orderWorkflowProvider);
+                    if (ws.isLoading) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: LinearProgressIndicator(),
+                      );
+                    }
+                    if (selectedTable == null) {
+                      return const SizedBox.shrink();
+                    }
+                    final hasWaiter = ws.assignedWaiter != null;
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: hasWaiter
+                              ? Colors.white.withOpacity(0.04)
+                              : Colors.orange.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: hasWaiter
+                                ? Colors.white.withOpacity(0.08)
+                                : Colors.orange.withOpacity(0.4),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.person,
+                              color: hasWaiter
+                                  ? const Color(0xFFD4AF37)
+                                  : Colors.orange,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: hasWaiter
+                                  ? Text(
+                                      ws.assignedWaiter!.name,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                      ),
+                                    )
+                                  : Text(
+                                      ref.t('order.noWaiterAssigned'),
+                                      style: const TextStyle(
+                                        color: Colors.orange,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                            ),
+                            if (selectedTable?.zoneName != null)
+                              Text(
+                                selectedTable!.zoneName!,
+                                style: const TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 11,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(color: Colors.white10, height: 1),
+                // Items
+                Expanded(
+                  child: activeOrderAsync.when(
+                    data: (order) {
+                      final savedItems = order?.items ?? [];
+                      return ListView(
+                        padding: const EdgeInsets.all(12),
+                        children: [
+                          if (savedItems.isNotEmpty) ...[
+                            Text(
+                              ref.t('order.savedItems'),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.5,
+                                color: Colors.white38,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            ...savedItems.map(
+                              (item) => _CartItemTile(
+                                item: item,
+                                isSaved: true,
+                                onVoid: () async {
+                                  await ref
+                                      .read(posRepositoryProvider)
+                                      .voidOrderItem(item.id!, order!.id!);
+                                  if (selectedTable != null) {
+                                    await ref
+                                        .read(activeOrderServiceProvider)
+                                        .refreshTableData(selectedTable!.id!);
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          if (localItems.isNotEmpty) ...[
+                            Text(
+                              ref.t('order.newItems'),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.5,
+                                color: Color(0xFFD4AF37),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            ...localItems.asMap().entries.map(
+                              (e) => _CartItemTile(
+                                item: e.value,
+                                isSaved: false,
+                                onAdd: () => _updateQuantity(e.key, 1),
+                                onRemove: () => _updateQuantity(e.key, -1),
+                                onDelete: () => _removeItem(e.key),
+                                onNote: () => _addNoteToItem(e.key),
+                              ),
+                            ),
+                          ],
+                          if (savedItems.isEmpty && localItems.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 60),
+                              child: Center(
+                                child: Opacity(
+                                  opacity: 0.3,
+                                  child: Column(
+                                    children: [
+                                      const Icon(
+                                        Icons.shopping_basket_outlined,
+                                        size: 48,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(ref.t('order.cartEmpty')),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => Text('$e'),
+                  ),
+                ),
+                // Summary + actions
+                settingsAsync.when(
+                  data: (settings) {
+                    final scPercent =
+                        double.tryParse(
+                          (settings
+                                  as Map<
+                                    String,
+                                    String
+                                  >)['service_charge_percent'] ??
+                              '5',
+                        ) ??
+                        5;
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.3),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(24),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          activeOrderAsync.maybeWhen(
+                            data: (order) {
+                              final subtotal =
+                                  (order?.totalAmount ?? 0) + _localTotal;
+                              final sc = subtotal * (scPercent / 100);
+                              final total = subtotal + sc - _discountAmount;
+                              return Column(
+                                children: [
+                                  _SummaryRow(
+                                    ref.t('order.subtotal'),
+                                    '${subtotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                  ),
+                                  _SummaryRow(
+                                    ref.t(
+                                      'order.service',
+                                      replacements: {
+                                        'percent': scPercent.toStringAsFixed(0),
+                                      },
+                                    ),
+                                    '${sc.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                  ),
+                                  if (_discountAmount > 0)
+                                    _SummaryRow(
+                                      ref.t('order.discount'),
+                                      '- ${_discountAmount.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                      color: Colors.greenAccent,
+                                    ),
+                                  const Divider(
+                                    color: Colors.white10,
+                                    height: 16,
+                                  ),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        ref.t('order.total'),
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${total.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                        style: const TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w900,
+                                          color: Color(0xFFD4AF37),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              );
+                            },
+                            orElse: () => const SizedBox(),
+                          ),
+                          const SizedBox(height: 12),
+                          if (localItems.isNotEmpty) ...[
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange.withOpacity(
+                                    0.85,
+                                  ),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                ),
+                                onPressed: () async {
+                                  if (selectedTable == null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          ref.t('order.selectTableFirst'),
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  await _sendToKitchen(
+                                    activeOrderAsync.value,
+                                    settings as Map<String, String>,
+                                  );
+                                  ref
+                                      .read(selectedCategoryProvider.notifier)
+                                      .set(null);
+                                },
+                                child: Text(
+                                  ref.t('order.addToOrder'),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF006B3C),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                  ),
+                                  onPressed: activeOrderAsync.value == null
+                                      ? null
+                                      : () => _printBill(
+                                          activeOrderAsync.value!,
+                                          settings as Map<String, String>,
+                                        ),
+                                  child: Text(
+                                    ref.t('order.printBill'),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.redAccent
+                                        .withOpacity(0.8),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    if (widget.table != null) {
+                                      Navigator.pop(context);
+                                    } else {
+                                      ref
+                                          .read(dashboardViewProvider.notifier)
+                                          .state = DashboardView
+                                          .home;
+                                    }
+                                  },
+                                  child: Text(
+                                    ref.t('common.close'),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  loading: () => const SizedBox(height: 80),
+                  error: (e, _) => Text('$e'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildScaffold(
+    BuildContext context,
+    AsyncValue<OrderModel?> activeOrderAsync,
+    AsyncValue<List<Category>> categoriesAsync,
+    AsyncValue<List<Product>> productsAsync,
+    AsyncValue<Map<String, String>> settingsAsync,
+    int? selectedCategoryId,
+  ) {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -361,8 +949,9 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                   label: Text(ref.t('common.all')),
                                   selected: selectedCategoryId == null,
                                   selectedColor: const Color(0xFFD4AF37),
-                                  onSelected: (_) =>
-                                      setState(() => selectedCategoryId = null),
+                                  onSelected: (_) => ref
+                                      .read(selectedCategoryProvider.notifier)
+                                      .set(null),
                                 ),
                               );
                             }
@@ -373,9 +962,9 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                 label: Text(cat.name),
                                 selected: selectedCategoryId == cat.id,
                                 selectedColor: const Color(0xFFD4AF37),
-                                onSelected: (s) => setState(
-                                  () => selectedCategoryId = s ? cat.id : null,
-                                ),
+                                onSelected: (s) => ref
+                                    .read(selectedCategoryProvider.notifier)
+                                    .set(s ? cat.id : null),
                               ),
                             );
                           },
@@ -399,71 +988,16 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                             padding: EdgeInsets.zero,
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 3,
-                                  childAspectRatio: 0.9,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
+                                  crossAxisCount: 6,
+                                  childAspectRatio: 0.85,
+                                  crossAxisSpacing: 6,
+                                  mainAxisSpacing: 6,
                                 ),
                             itemCount: filtered.length,
-                            itemBuilder: (_, i) {
-                              final p = filtered[i];
-                              return GlassContainer(
-                                opacity: 0.1,
-                                child: InkWell(
-                                  onTap: () => _addItem(p),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Expanded(
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(
-                                              0.05,
-                                            ),
-                                            borderRadius:
-                                                const BorderRadius.vertical(
-                                                  top: Radius.circular(16),
-                                                ),
-                                          ),
-                                          child: const Icon(
-                                            Icons.fastfood,
-                                            size: 44,
-                                            color: Color(0xFFD4AF37),
-                                          ),
-                                        ),
-                                      ),
-                                      Padding(
-                                        padding: const EdgeInsets.all(10),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              p.name,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            Text(
-                                              '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                              style: const TextStyle(
-                                                color: Color(0xFFD4AF37),
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
+                            itemBuilder: (_, i) => _ProductCard(
+                              product: filtered[i],
+                              onTap: () => _addItem(filtered[i]),
+                            ),
                           );
                         },
                         loading: () =>
@@ -475,10 +1009,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                 ),
               ),
             ),
+            const SizedBox(width: 16),
             // ── Cart panel ──────────────────────────────────────────────
-            Container(
-              width: 460,
-              margin: const EdgeInsets.fromLTRB(0, 100, 16, 16),
+            SizedBox(
+              width: 400,
               child: GlassContainer(
                 opacity: 0.15,
                 borderRadius: 24,
@@ -486,157 +1020,40 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                   children: [
                     // Header
                     Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Row(
+                      padding: const EdgeInsets.fromLTRB(20, 100, 20, 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.shopping_cart,
-                            color: Color(0xFFD4AF37),
-                          ),
-                          const SizedBox(width: 10),
                           Text(
-                            ref.t('order.currentOrder'),
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          const Spacer(),
-                          if (selectedTable != null)
-                            Text(
-                              selectedTable!.name,
-                              style: const TextStyle(
-                                color: Color(0xFFD4AF37),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          else
-                            TextButton.icon(
-                              onPressed: () =>
-                                  _showTableSelectionDialog(context),
-                              icon: const Icon(
-                                Icons.table_restaurant,
-                                size: 16,
-                                color: Color(0xFFD4AF37),
-                              ),
-                              label: const Text(
-                                'SELECT TABLE',
-                                style: TextStyle(
-                                  color: Color(0xFFD4AF37),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    // Waiter selector
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 4,
-                      ),
-                      child: waitersAsync.when(
-                        data: (waiters) => DropdownButtonHideUnderline(
-                          child: DropdownButton<Waiter>(
-                            hint: Text(
-                              ref.t('order.selectWaiter'),
-                              style: TextStyle(color: Colors.white54),
-                            ),
-                            value: selectedWaiter,
-                            dropdownColor: const Color(0xFF121212),
-                            style: const TextStyle(color: Colors.white),
-                            isExpanded: true,
-                            icon: const Icon(
-                              Icons.person,
+                            ref.t('order.selectTable'),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
                               color: Colors.white38,
-                              size: 20,
+                              letterSpacing: 1.5,
                             ),
-                            items: waiters
-                                .map(
-                                  (w) => DropdownMenuItem(
-                                    value: w,
-                                    child: Text(w.name),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (w) =>
-                                setState(() => selectedWaiter = w),
                           ),
-                        ),
-                        loading: () => const LinearProgressIndicator(),
-                        error: (_, __) => Text(
-                          '${ref.t('common.error')}: ${ref.t('order.loadingWaiters')}',
-                        ),
-                      ),
-                    ),
-                    // Assigned waiter display (automatic based on zone)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 4,
-                      ),
-                      child: Consumer(
-                        builder: (context, ref, child) {
-                          final workflowState = ref.watch(orderWorkflowProvider);
-                          final assignedWaiter = workflowState.assignedWaiter;
-                          
-                          if (workflowState.isLoading) {
-                            return const LinearProgressIndicator();
-                          }
-                          
-                          if (workflowState.error != null) {
-                            return Text(
-                              '${ref.t('common.error')}: ${workflowState.error}',
-                              style: const TextStyle(color: Colors.red),
-                            );
-                          }
-                          
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.white.withOpacity(0.1)),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.person,
-                                  color: Color(0xFFD4AF37),
-                                  size: 20,
+                          const SizedBox(height: 10),
+                          ref
+                              .watch(tablesProvider)
+                              .when(
+                                data: (allTables) => _TableDropdown(
+                                  allTables: allTables,
+                                  selectedTable: selectedTable,
+                                  onSelected: (table) {
+                                    setState(() => selectedTable = table);
+                                    ref
+                                        .read(orderWorkflowProvider.notifier)
+                                        .initializeForTable(table.id!);
+                                    ref
+                                        .read(activeOrderServiceProvider)
+                                        .refreshTableData(table.id!);
+                                  },
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    assignedWaiter?.name ?? ref.t('order.selectWaiter'),
-                                    style: TextStyle(
-                                      color: assignedWaiter != null ? Colors.white : Colors.white54,
-                                      fontWeight: assignedWaiter != null ? FontWeight.w500 : null,
-                                    ),
-                                  ),
-                                ),
-                                if (assignedWaiter != null)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Color(0xFFD4AF37).withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      'AUTO',
-                                      style: TextStyle(
-                                        color: Color(0xFFD4AF37),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          );
-                        },
+                                loading: () => const LinearProgressIndicator(),
+                                error: (e, _) => Text('$e'),
+                              ),
+                        ],
                       ),
                     ),
                     const Divider(color: Colors.white10, height: 1),
@@ -646,18 +1063,19 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                         data: (order) {
                           final savedItems = order?.items ?? [];
                           return ListView(
-                            padding: const EdgeInsets.all(14),
+                            padding: const EdgeInsets.all(20),
                             children: [
                               if (savedItems.isNotEmpty) ...[
                                 Text(
-                                  ref.t('order.sentToKitchen'),
-                                  style: TextStyle(
+                                  ref.t('order.savedItems'),
+                                  style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white38,
+                                    letterSpacing: 1,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 10),
                                 ...savedItems.map(
                                   (item) => _CartItemTile(
                                     item: item,
@@ -676,18 +1094,19 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                     },
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 25),
                               ],
                               if (localItems.isNotEmpty) ...[
                                 Text(
                                   ref.t('order.newItems'),
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFFD4AF37),
+                                    letterSpacing: 1,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 10),
                                 ...localItems.asMap().entries.map(
                                   (e) => _CartItemTile(
                                     item: e.value,
@@ -704,15 +1123,20 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                   padding: const EdgeInsets.only(top: 80),
                                   child: Center(
                                     child: Opacity(
-                                      opacity: 0.3,
+                                      opacity: 0.2,
                                       child: Column(
                                         children: [
                                           const Icon(
                                             Icons.shopping_basket_outlined,
-                                            size: 56,
+                                            size: 64,
                                           ),
-                                          const SizedBox(height: 12),
-                                          Text(ref.t('order.cartEmpty')),
+                                          const SizedBox(height: 15),
+                                          Text(
+                                            ref.t('order.cartEmpty'),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -729,17 +1153,22 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                     // Summary & actions
                     settingsAsync.when(
                       data: (settings) {
-                        final scPercent =
+                        final serviceChargePercent =
                             double.tryParse(
-                              settings['service_charge_percent'] ?? '5',
+                              (settings
+                                      as Map<
+                                        String,
+                                        String
+                                      >)['service_charge_percent'] ??
+                                  '5',
                             ) ??
                             5;
                         return Container(
-                          padding: const EdgeInsets.all(20),
+                          padding: const EdgeInsets.all(25),
                           decoration: BoxDecoration(
                             color: Colors.black.withOpacity(0.3),
                             borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(24),
+                              top: Radius.circular(30),
                             ),
                           ),
                           child: Column(
@@ -748,8 +1177,13 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                 data: (order) {
                                   final subtotal =
                                       (order?.totalAmount ?? 0) + _localTotal;
-                                  final sc = subtotal * (scPercent / 100);
-                                  final total = subtotal + sc - _discountAmount;
+                                  final serviceCharge =
+                                      subtotal * (serviceChargePercent / 100);
+                                  final total =
+                                      subtotal +
+                                      serviceCharge -
+                                      _discountAmount;
+
                                   return Column(
                                     children: [
                                       _SummaryRow(
@@ -760,11 +1194,11 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                         ref.t(
                                           'order.service',
                                           replacements: {
-                                            'percent': scPercent
+                                            'percent': serviceChargePercent
                                                 .toStringAsFixed(0),
                                           },
                                         ),
-                                        '${sc.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                        '${serviceCharge.toStringAsFixed(2)} ${ref.t('common.currency')}',
                                       ),
                                       if (_discountAmount > 0)
                                         _SummaryRow(
@@ -774,7 +1208,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                         ),
                                       const Divider(
                                         color: Colors.white10,
-                                        height: 16,
+                                        height: 30,
                                       ),
                                       Row(
                                         mainAxisAlignment:
@@ -783,14 +1217,14 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                           Text(
                                             ref.t('order.total'),
                                             style: const TextStyle(
-                                              fontSize: 16,
+                                              fontSize: 18,
                                               fontWeight: FontWeight.w900,
                                             ),
                                           ),
                                           Text(
                                             '${total.toStringAsFixed(2)} ${ref.t('common.currency')}',
                                             style: const TextStyle(
-                                              fontSize: 24,
+                                              fontSize: 28,
                                               fontWeight: FontWeight.w900,
                                               color: Color(0xFFD4AF37),
                                             ),
@@ -803,34 +1237,53 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                 orElse: () => const SizedBox(),
                               ),
                               const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.orange
-                                            .withOpacity(0.85),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 18,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.zero,
-                                        ),
+                              if (localItems.isNotEmpty) ...[
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.orange
+                                          .withOpacity(0.85),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
                                       ),
-                                      onPressed: () => _sendToKitchen(
+                                    ),
+                                    onPressed: () async {
+                                      if (selectedTable == null) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              ref.t('order.selectTableFirst'),
+                                            ),
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                      await _sendToKitchen(
                                         activeOrderAsync.value,
-                                        settings,
-                                      ),
-                                      child: Text(
-                                        ref.t('order.sendToKitchen'),
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                        settings as Map<String, String>,
+                                      );
+                                      ref
+                                          .read(
+                                            selectedCategoryProvider.notifier,
+                                          )
+                                          .set(null);
+                                    },
+                                    child: Text(
+                                      ref.t('order.addToOrder'),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                              Row(
+                                children: [
                                   Expanded(
                                     child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
@@ -839,21 +1292,38 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                         ),
                                         foregroundColor: Colors.white,
                                         padding: const EdgeInsets.symmetric(
-                                          vertical: 18,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.zero,
+                                          vertical: 16,
                                         ),
                                       ),
                                       onPressed: activeOrderAsync.value == null
                                           ? null
                                           : () => _printBill(
                                               activeOrderAsync.value!,
-                                              settings,
+                                              settings as Map<String, String>,
                                             ),
                                       child: Text(
                                         ref.t('order.printBill'),
-                                        style: TextStyle(
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.redAccent
+                                            .withOpacity(0.8),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
+                                      ),
+                                      onPressed: () => Navigator.pop(context),
+                                      child: Text(
+                                        ref.t('common.close'),
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
@@ -865,8 +1335,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                           ),
                         );
                       },
-                      loading: () => const SizedBox(height: 80),
-                      error: (_, __) => const SizedBox(),
+                      loading: () => const SizedBox(height: 100),
+                      error: (e, _) => Text('$e'),
                     ),
                   ],
                 ),
@@ -877,43 +1347,262 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
       ),
     );
   }
+}
 
-  Future<void> _showTableSelectionDialog(BuildContext context) async {
-    final tables = await ref.read(posRepositoryProvider).getTables();
-    final availableTables = tables
-        .where((t) => t.status == TableStatus.available)
-        .toList();
+// ── Searchable table dropdown ─────────────────────────────────────────────
 
-    if (!mounted) return;
+class _TableDropdown extends ConsumerStatefulWidget {
+  final List<TableModel> allTables;
+  final TableModel? selectedTable;
+  final ValueChanged<TableModel> onSelected;
 
-    final result = await showDialog<TableModel>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('Select Table'),
-        content: SizedBox(
-          width: 400,
-          height: 300,
-          child: availableTables.isEmpty
-              ? const Center(child: Text('No available tables'))
-              : ListView.builder(
-                  itemCount: availableTables.length,
-                  itemBuilder: (ctx, i) => ListTile(
-                    title: Text(availableTables[i].name),
-                    subtitle: Text(availableTables[i].zoneName ?? 'No Zone'),
-                    onTap: () => Navigator.pop(ctx, availableTables[i]),
+  const _TableDropdown({
+    required this.allTables,
+    required this.selectedTable,
+    required this.onSelected,
+  });
+
+  @override
+  ConsumerState<_TableDropdown> createState() => _TableDropdownState();
+}
+
+class _TableDropdownState extends ConsumerState<_TableDropdown> {
+  final _searchCtrl = TextEditingController();
+  final _layerLink = LayerLink();
+  OverlayEntry? _overlay;
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _removeOverlay();
+    super.dispose();
+  }
+
+  void _removeOverlay() {
+    _overlay?.remove();
+    _overlay = null;
+  }
+
+  void _showOverlay(BuildContext context) {
+    _removeOverlay();
+    final filtered = _filtered();
+
+    _overlay = OverlayEntry(
+      builder: (_) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: _removeOverlay,
+        child: Stack(
+          children: [
+            CompositedTransformFollower(
+              link: _layerLink,
+              showWhenUnlinked: false,
+              offset: const Offset(0, 48),
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  width: 420,
+                  constraints: const BoxConstraints(maxHeight: 280),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1A1A),
+                    border: Border.all(color: Colors.white12),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black54, blurRadius: 16),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: TextField(
+                          controller: _searchCtrl,
+                          autofocus: true,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: ref.t('tableSelector.searchHint'),
+                            hintStyle: const TextStyle(color: Colors.white38),
+                            prefixIcon: const Icon(
+                              Icons.search,
+                              color: Colors.white38,
+                              size: 18,
+                            ),
+                            isDense: true,
+                            filled: true,
+                            fillColor: Colors.white.withOpacity(0.06),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(6),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          onChanged: (v) {
+                            setState(() => _query = v);
+                            _overlay?.markNeedsBuild();
+                          },
+                        ),
+                      ),
+                      Flexible(
+                        child: StatefulBuilder(
+                          builder: (ctx, setS) {
+                            final items = widget.allTables.where((t) {
+                              final query = _searchCtrl.text.toLowerCase();
+                              final nameMatch = t.name.toLowerCase().contains(
+                                query,
+                              );
+                              final zoneMatch = (t.zoneName ?? '')
+                                  .toLowerCase()
+                                  .contains(query);
+                              final waiterMatch = (t.waiterName ?? '')
+                                  .toLowerCase()
+                                  .contains(query);
+                              return nameMatch || zoneMatch || waiterMatch;
+                            }).toList();
+                            if (items.isEmpty) {
+                              return Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Text(
+                                  ref.t('tableSelector.noTablesFound'),
+                                  style: const TextStyle(color: Colors.white38),
+                                ),
+                              );
+                            }
+                            return ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: items.length,
+                              itemBuilder: (_, i) {
+                                final t = items[i];
+                                final isOccupied =
+                                    t.status == TableStatus.occupied;
+                                final statusKey =
+                                    'tableSelector.${t.status.name}';
+                                final statusLabel = ref.t(statusKey);
+                                return ListTile(
+                                  dense: true,
+                                  leading: Icon(
+                                    Icons.table_bar,
+                                    size: 18,
+                                    color: isOccupied
+                                        ? const Color(0xFFD4AF37)
+                                        : Colors.white38,
+                                  ),
+                                  title: Text(
+                                    t.name,
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                  subtitle: Text(
+                                    t.zoneName != null
+                                        ? '${t.zoneName} · $statusLabel'
+                                        : statusLabel,
+                                    style: const TextStyle(
+                                      color: Colors.white38,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                  trailing: isOccupied
+                                      ? Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(
+                                              0xFF006B3C,
+                                            ).withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            ref
+                                                .t('tableSelector.occupied')
+                                                .toUpperCase(),
+                                            style: const TextStyle(
+                                              color: Color(0xFF006B3C),
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        )
+                                      : null,
+                                  onTap: () {
+                                    _removeOverlay();
+                                    widget.onSelected(t);
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+              ),
+            ),
+          ],
         ),
       ),
     );
 
-    if (result != null) {
-      setState(() {
-        selectedTable = result;
-      });
-      ref.read(activeOrderServiceProvider).refreshTableData(result.id!);
-    }
+    Overlay.of(context).insert(_overlay!);
+  }
+
+  List<TableModel> _filtered() => widget.allTables
+      .where((t) => t.name.toLowerCase().contains(_query.toLowerCase()))
+      .toList();
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: GestureDetector(
+        onTap: () => _showOverlay(context),
+        child: Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: widget.selectedTable != null
+                  ? const Color(0xFFD4AF37).withOpacity(0.5)
+                  : Colors.white12,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.table_bar,
+                size: 18,
+                color: widget.selectedTable != null
+                    ? const Color(0xFFD4AF37)
+                    : Colors.white38,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  widget.selectedTable?.name ?? ref.t('order.selectTable'),
+                  style: TextStyle(
+                    color: widget.selectedTable != null
+                        ? Colors.white
+                        : Colors.white38,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              if (widget.selectedTable?.zoneName != null)
+                Text(
+                  widget.selectedTable!.zoneName!,
+                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                ),
+              const SizedBox(width: 8),
+              const Icon(Icons.arrow_drop_down, color: Colors.white38),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -932,9 +1621,12 @@ class _SummaryRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(color: color ?? Colors.white54, fontSize: 13),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(color: color ?? Colors.white54, fontSize: 13),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           Text(
             value,
@@ -1150,6 +1842,8 @@ class _CartItemTile extends ConsumerWidget {
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       '${item.unitPrice.toStringAsFixed(2)} × ${item.quantity}',
@@ -1165,6 +1859,8 @@ class _CartItemTile extends ConsumerWidget {
                           fontSize: 11,
                           color: Colors.white38,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                   ],
                 ),
@@ -1198,6 +1894,69 @@ class _CartItemTile extends ConsumerWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProductCard extends ConsumerWidget {
+  final Product product;
+  final VoidCallback onTap;
+  const _ProductCard({required this.product, required this.onTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.zero,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E1E),
+          borderRadius: BorderRadius.zero,
+          border: Border.all(color: Colors.white10),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD4AF37).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.fastfood_outlined,
+                color: Color(0xFFD4AF37),
+                size: 18,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                product.name,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${product.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFD4AF37),
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+        ),
       ),
     );
   }

@@ -1,3 +1,5 @@
+import 'table_model.dart';
+
 class Zone {
   final int? id;
   final String name;
@@ -20,8 +22,9 @@ class Zone {
       waiterId: map['waiter_id'],
       waiterName: map['waiter_name'],
       tables: (map['tables'] as List<dynamic>?)
-          ?.map((table) => TableModel.fromMap(table))
-          .toList() ?? [],
+              ?.map((table) => TableModel.fromMap(table as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -61,15 +64,9 @@ class Zone {
   }
 
   @override
-  int get hashCode {
-    return id.hashCode ^ name.hashCode ^ waiterId.hashCode;
-  }
+  int get hashCode => id.hashCode ^ name.hashCode ^ waiterId.hashCode;
 
   @override
-  String toString() {
-    return 'Zone(id: $id, name: $name, waiterId: $waiterId, tables: ${tables.length})';
-  }
+  String toString() =>
+      'Zone(id: $id, name: $name, waiterId: $waiterId, tables: ${tables.length})';
 }
-
-// Import TableModel at the bottom to avoid circular imports
-import 'table_model.dart';

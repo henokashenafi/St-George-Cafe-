@@ -1,7 +1,7 @@
 {
   "app": {
-    "title": "ቅዱስ ጊዮርጊስ ካፌ",
-    "pos": "መሸጫ"
+    "title": "ሴንት ጆርጅ ካፌ ፖዝ",
+    "pos": "የሽውያጭ ነጥብ"
   },
   "auth": {
     "login": "መግቢያ",
@@ -259,13 +259,13 @@
   "common": {
     "currency": "ብር",
     "all": "ሁሉም",
-    "search": "እቃዎችን ይፈልጉ...",
-    "loading": "በመጫን ላይ...",
+    "search": "ፈልግ",
+    "loading": "በመስቀል...",
     "fieldRequired": "መሙላት ያስፈልጋል",
     "error": "ስህተት",
-    "confirm": "ያረጋግጡ",
+    "confirm": "አረጋግጥ",
     "yes": "አዎ",
-    "no": "አይ",
+    "no": "አይደለም",
     "refresh": "አድስ",
     "ok": "እሺ",
     "close": "ዝጋ",
@@ -276,7 +276,7 @@
     "update": "አዘምን",
     "delete": "ሰርዝ",
     "save": "አስቀምጥ",
-    "cancel": "ይቅር",
+    "cancel": "ሰርዝ",
     "deleteConfirmTitle": "ሰርዝ",
     "discountLabel": "ቅነሳ (ብር)",
     "tableDoesNotHaveWaiter": "ይህ ጠረጴዛ የተመደበ አስተናጋጅ የለውም። እባክዎ በጠረጴዛ አስተዳዳሪው ያዋቅሩት።",

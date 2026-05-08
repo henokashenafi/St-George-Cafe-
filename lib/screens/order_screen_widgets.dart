@@ -220,9 +220,9 @@ class _BillConfirmDialogState extends ConsumerState<BillConfirmDialog> {
       backgroundColor: kSurface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Row(
-        children: const [
-          Icon(Icons.receipt_long, color: kGold),
-          SizedBox(width: 10),
+        children: [
+          const Icon(Icons.receipt_long, color: kGold),
+          const SizedBox(width: 10),
           Text(ref.t('orderConfirm.title'),
               style: const TextStyle(fontWeight: FontWeight.bold)),
         ],

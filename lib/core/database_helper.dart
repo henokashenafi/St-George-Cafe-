@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -42,7 +43,7 @@ class DatabaseHelper {
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 4,
+        version: 6,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -81,17 +82,39 @@ class DatabaseHelper {
           FOREIGN KEY (waiter_id) REFERENCES waiters (id)
         )
       ''');
-      await db.execute('ALTER TABLE tables ADD COLUMN zone_id INTEGER REFERENCES table_zones(id)');
+      await db.execute(
+        'ALTER TABLE tables ADD COLUMN zone_id INTEGER REFERENCES table_zones(id)',
+      );
       await _seedUsers(db);
       await _seedSettings(db);
     }
     if (oldVersion < 3) {
-      await db.execute('ALTER TABLE orders ADD COLUMN cashier_id INTEGER REFERENCES users(id)');
-      await db.execute('ALTER TABLE orders ADD COLUMN service_charge REAL DEFAULT 0.0');
-      await db.execute('ALTER TABLE orders ADD COLUMN discount_amount REAL DEFAULT 0.0');
+      await db.execute(
+        'ALTER TABLE orders ADD COLUMN cashier_id INTEGER REFERENCES users(id)',
+      );
+      await db.execute(
+        'ALTER TABLE orders ADD COLUMN service_charge REAL DEFAULT 0.0',
+      );
+      await db.execute(
+        'ALTER TABLE orders ADD COLUMN discount_amount REAL DEFAULT 0.0',
+      );
     }
     if (oldVersion < 4) {
-      await db.execute('ALTER TABLE order_items ADD COLUMN kitchen_round INTEGER DEFAULT 0');
+      await db.execute(
+        'ALTER TABLE order_items ADD COLUMN kitchen_round INTEGER DEFAULT 0',
+      );
+    }
+    if (oldVersion < 5) {
+      await db.delete('tables');
+      await db.delete('table_zones');
+      await db.delete('waiters');
+      await _seedWaitersZonesTables(db);
+    }
+    if (oldVersion < 6) {
+      await db.delete('tables');
+      await db.delete('table_zones');
+      await db.delete('waiters');
+      await _seedWaitersZonesTables(db);
     }
   }
 
@@ -217,14 +240,20 @@ class DatabaseHelper {
   }
 
   Future _seedSettings(Database db) async {
-    await db.insert('app_settings', {'key': 'service_charge_percent', 'value': '5.0'});
-    await db.insert('app_settings', {'key': 'discount_enabled', 'value': 'true'});
+    await db.insert('app_settings', {
+      'key': 'service_charge_percent',
+      'value': '5.0',
+    });
+    await db.insert('app_settings', {
+      'key': 'discount_enabled',
+      'value': 'true',
+    });
   }
 
   Future _seedData(Database db) async {
     await _seedUsers(db);
     await _seedSettings(db);
-    
+
     // Seed Categories
     final catIds = <String, int>{};
     for (var cat in ['Coffee', 'Tea', 'Pastries', 'Soft Drinks']) {
@@ -252,13 +281,48 @@ class DatabaseHelper {
         'price': p['price'],
       });
     }
+  }
 
-    // Seed Waiters
-    await db.insert('waiters', {'name': 'Default Waiter', 'code': 'W001'});
-    
-    // Seed Tables
+  Future<void> _seedWaitersZonesTables(Database db) async {
+    final waiterIds = <int>[];
+    final waiters = [
+      'Abebe Kebede',
+      'Almaz Wondimu',
+      'Tadesse Hailu',
+      'Mekdes Alemu',
+      'Biruk Tadese',
+    ];
+    for (var i = 0; i < waiters.length; i++) {
+      final id = await db.insert('waiters', {
+        'name': waiters[i],
+        'code': 'W00${i + 1}',
+      });
+      waiterIds.add(id);
+    }
+
+    final zoneNames = [
+      'Main Hall',
+      'Terrace',
+      'VIP Lounge',
+      'Garden',
+      'Balcony',
+    ];
+    final zoneIds = <int>[];
+    for (var i = 0; i < zoneNames.length; i++) {
+      final id = await db.insert('table_zones', {
+        'name': zoneNames[i],
+        'waiter_id': waiterIds[i],
+      });
+      zoneIds.add(id);
+    }
+
     for (var i = 1; i <= 10; i++) {
-      await db.insert('tables', {'name': 'Table $i', 'status': 'available'});
+      final zoneIndex = (i - 1) ~/ 2;
+      await db.insert('tables', {
+        'name': 'Table $i',
+        'status': 'available',
+        'zone_id': zoneIds[zoneIndex],
+      });
     }
   }
 }

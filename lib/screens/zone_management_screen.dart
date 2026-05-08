@@ -11,7 +11,8 @@ class ZoneManagementScreen extends ConsumerStatefulWidget {
   const ZoneManagementScreen({super.key});
 
   @override
-  ConsumerState<ZoneManagementScreen> createState() => _ZoneManagementScreenState();
+  ConsumerState<ZoneManagementScreen> createState() =>
+      _ZoneManagementScreenState();
 }
 
 class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
@@ -33,19 +34,19 @@ class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
     try {
       final tablesAsync = await ref.read(tablesProvider.future);
       final waitersAsync = await ref.read(waitersProvider.future);
-      
+
       allTables = tablesAsync;
       allWaiters = waitersAsync;
-      
+
       // Initialize with default zones if none exist
       zones = ZoneService.getDefaultZones(allTables, allWaiters);
       _updateUnassignedTables();
       _validateConfiguration();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading data: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading data: $e')));
       }
     } finally {
       setState(() => isLoading = false);
@@ -53,8 +54,12 @@ class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
   }
 
   void _updateUnassignedTables() {
-    final assignedTableIds = zones.expand((zone) => zone.tables.map((t) => t.id!)).toSet();
-    unassignedTables = allTables.where((table) => !assignedTableIds.contains(table.id!)).toList();
+    final assignedTableIds = zones
+        .expand((zone) => zone.tables.map((t) => t.id!))
+        .toSet();
+    unassignedTables = allTables
+        .where((table) => !assignedTableIds.contains(table.id!))
+        .toList();
   }
 
   void _validateConfiguration() {
@@ -62,9 +67,12 @@ class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
   }
 
   void _showAssignWaiterDialog(Zone zone) {
-    final availableWaiters = allWaiters.where((waiter) => 
-      !zones.any((z) => z.waiterId == waiter.id && z.id != zone.id)
-    ).toList();
+    final availableWaiters = allWaiters
+        .where(
+          (waiter) =>
+              !zones.any((z) => z.waiterId == waiter.id && z.id != zone.id),
+        )
+        .toList();
 
     showDialog(
       context: context,
@@ -78,14 +86,20 @@ class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
             const SizedBox(height: 16),
             DropdownButton<Waiter>(
               hint: Text(ref.t('zoneManagement.waiter')),
-              value: availableWaiters.where((w) => w.id == zone.waiterId).firstOrNull,
+              value: availableWaiters
+                  .where((w) => w.id == zone.waiterId)
+                  .firstOrNull,
               dropdownColor: const Color(0xFF121212),
               style: const TextStyle(color: Colors.white),
               isExpanded: true,
-              items: availableWaiters.map((waiter) => DropdownMenuItem(
-                value: waiter,
-                child: Text('${waiter.name} (${waiter.code})'),
-              )).toList(),
+              items: availableWaiters
+                  .map(
+                    (waiter) => DropdownMenuItem(
+                      value: waiter,
+                      child: Text('${waiter.name} (${waiter.code})'),
+                    ),
+                  )
+                  .toList(),
               onChanged: (waiter) {
                 if (waiter != null) {
                   setState(() {
@@ -110,7 +124,7 @@ class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
 
   void _showAssignTablesDialog(Zone zone) {
     final availableTables = unassignedTables.toList();
-    
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -122,7 +136,9 @@ class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
           child: Column(
             children: [
               Text('${ref.t('zoneManagement.zone')}: ${zone.name}'),
-              Text('${ref.t('zoneManagement.tables')}: ${zone.tables.length}/5'),
+              Text(
+                '${ref.t('zoneManagement.tables')}: ${zone.tables.length}/5',
+              ),
               const SizedBox(height: 16),
               Expanded(
                 child: ListView.builder(
@@ -137,21 +153,35 @@ class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
                         setState(() {
                           if (value == true) {
                             if (zone.tables.length < 5) {
-                              zones = ZoneService.assignTableToZone(table, zone, zones);
+                              zones = ZoneService.assignTableToZone(
+                                table,
+                                zone,
+                                zones,
+                              );
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(
-                                  ref.t('zoneManagement.tableLimitExceeded', 
-                                    replacements: {'zoneName': zone.name, 'tableCount': '${zone.tables.length}'}
-                                  )
-                                )),
+                                SnackBar(
+                                  content: Text(
+                                    ref.t(
+                                      'zoneManagement.tableLimitExceeded',
+                                      replacements: {
+                                        'zoneName': zone.name,
+                                        'tableCount': '${zone.tables.length}',
+                                      },
+                                    ),
+                                  ),
+                                ),
                               );
                             }
                           } else {
                             final updatedZone = zone.copyWith(
-                              tables: zone.tables.where((t) => t.id != table.id).toList(),
+                              tables: zone.tables
+                                  .where((t) => t.id != table.id)
+                                  .toList(),
                             );
-                            zones = zones.map((z) => z.id == zone.id ? updatedZone : z).toList();
+                            zones = zones
+                                .map((z) => z.id == zone.id ? updatedZone : z)
+                                .toList();
                           }
                           _updateUnassignedTables();
                           _validateConfiguration();
@@ -204,11 +234,55 @@ class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
     );
   }
 
-  void _saveConfiguration() {
-    // TODO: Implement actual saving to database
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ref.t('zoneManagement.saveConfiguration'))),
-    );
+  Future<void> _saveConfiguration() async {
+    setState(() => isLoading = true);
+    try {
+      final repo = ref.read(posRepositoryProvider);
+
+      for (final zone in zones) {
+        if (zone.id != null) {
+          await repo.updateTableZone(
+            zone.id!,
+            zone.name,
+            waiterId: zone.waiterId,
+          );
+        } else {
+          final newId = await repo.addTableZone(
+            zone.name,
+            waiterId: zone.waiterId,
+          );
+          for (final table in zone.tables) {
+            await repo.updateTable(table.id!, table.name, zoneId: newId);
+          }
+          continue;
+        }
+
+        for (final table in zone.tables) {
+          await repo.updateTable(table.id!, table.name, zoneId: zone.id);
+        }
+      }
+
+      for (final table in unassignedTables) {
+        await repo.updateTable(table.id!, table.name, zoneId: null);
+      }
+
+      ref.invalidate(tablesProvider);
+      ref.invalidate(tableZonesProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ref.t('zoneManagement.saveConfiguration'))),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${ref.t('common.error')}: $e')));
+      }
+    } finally {
+      setState(() => isLoading = false);
+    }
   }
 
   Widget _buildZoneCard(Zone zone) {
@@ -235,12 +309,18 @@ class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
                   children: [
                     IconButton(
                       onPressed: () => _showAssignWaiterDialog(zone),
-                      icon: const Icon(Icons.person_add, color: Color(0xFFD4AF37)),
+                      icon: const Icon(
+                        Icons.person_add,
+                        color: Color(0xFFD4AF37),
+                      ),
                       tooltip: ref.t('zoneManagement.assignWaiter'),
                     ),
                     IconButton(
                       onPressed: () => _showAssignTablesDialog(zone),
-                      icon: const Icon(Icons.table_restaurant, color: Color(0xFFD4AF37)),
+                      icon: const Icon(
+                        Icons.table_restaurant,
+                        color: Color(0xFFD4AF37),
+                      ),
                       tooltip: ref.t('zoneManagement.assignTables'),
                     ),
                   ],
@@ -269,13 +349,17 @@ class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
-                children: zone.tables.map((table) => Chip(
-                  label: Text(table.name),
-                  backgroundColor: table.status == TableStatus.occupied 
-                    ? Colors.red.withOpacity(0.2)
-                    : Colors.green.withOpacity(0.2),
-                  labelStyle: const TextStyle(fontSize: 12),
-                )).toList(),
+                children: zone.tables
+                    .map(
+                      (table) => Chip(
+                        label: Text(table.name),
+                        backgroundColor: table.status == TableStatus.occupied
+                            ? Colors.red.withOpacity(0.2)
+                            : Colors.green.withOpacity(0.2),
+                        labelStyle: const TextStyle(fontSize: 12),
+                      ),
+                    )
+                    .toList(),
               ),
             ],
           ],
@@ -353,10 +437,7 @@ class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.white54,
-          ),
+          style: const TextStyle(fontSize: 12, color: Colors.white54),
         ),
         Text(
           value,
@@ -373,9 +454,7 @@ class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -420,13 +499,15 @@ class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      ...validationErrors.map((error) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          error,
-                          style: const TextStyle(color: Colors.redAccent),
+                      ...validationErrors.map(
+                        (error) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            error,
+                            style: const TextStyle(color: Colors.redAccent),
+                          ),
                         ),
-                      )),
+                      ),
                     ],
                   ),
                 ),
@@ -460,11 +541,15 @@ class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
                   child: Wrap(
                     spacing: 8,
                     runSpacing: 4,
-                    children: unassignedTables.map((table) => Chip(
-                      label: Text(table.name),
-                      backgroundColor: Colors.orange.withOpacity(0.2),
-                      labelStyle: const TextStyle(fontSize: 12),
-                    )).toList(),
+                    children: unassignedTables
+                        .map(
+                          (table) => Chip(
+                            label: Text(table.name),
+                            backgroundColor: Colors.orange.withOpacity(0.2),
+                            labelStyle: const TextStyle(fontSize: 12),
+                          ),
+                        )
+                        .toList(),
                   ),
                 ),
               ),

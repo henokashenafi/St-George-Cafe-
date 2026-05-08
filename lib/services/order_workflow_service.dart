@@ -1,5 +1,4 @@
 import 'package:st_george_pos/models/zone_model.dart';
-import 'package:st_george_pos/models/table_model.dart';
 import 'package:st_george_pos/models/waiter.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/models/order_item.dart';

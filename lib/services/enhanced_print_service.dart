@@ -3,8 +3,6 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/models/order_item.dart';
-import 'package:st_george_pos/models/settings.dart';
-import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:intl/intl.dart';
 
 class EnhancedPrintService {
@@ -29,7 +27,7 @@ class EnhancedPrintService {
           crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
             // Header
-            _buildKitchenHeader(t, now, isCombined),
+            _buildKitchenHeader(settings, t, now, isCombined),
             pw.SizedBox(height: 10),
             
             // Order Info
@@ -135,7 +133,7 @@ class EnhancedPrintService {
     );
   }
 
-  static pw.Widget _buildKitchenHeader(String Function(String) t, DateTime now, bool isCombined) {
+  static pw.Widget _buildKitchenHeader(Map<String, String> settings, String Function(String) t, DateTime now, bool isCombined) {
     return pw.Column(
       children: [
         pw.Text(
@@ -180,7 +178,7 @@ class EnhancedPrintService {
             children: [
               pw.Text(
                 '${t('print.table')}: ${order.tableName}',
-                style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
               ),
               pw.Text(
                 '${t('print.waiter')}: ${order.waiterName}',
@@ -192,7 +190,7 @@ class EnhancedPrintService {
             pw.SizedBox(height: 3),
             pw.Text(
               '${t('print.session')}: ${order.sessionId}',
-              style: const pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
+              style: pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
             ),
           ],
         ],
@@ -206,7 +204,7 @@ class EnhancedPrintService {
       children: [
         pw.Text(
           t('print.items'),
-          style: const pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+          style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
         ),
         pw.SizedBox(height: 5),
         ...items.map((item) => pw.Container(
@@ -221,12 +219,12 @@ class EnhancedPrintService {
                   children: [
                     pw.Text(
                       '${item.quantity}x ${item.productName}',
-                      style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                      style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
                     ),
                     if (item.notes != null && item.notes!.isNotEmpty)
                       pw.Text(
                         '  Note: ${item.notes}',
-                        style: const pw.TextStyle(fontSize: 8, fontStyle: pw.FontStyle.italic),
+                        style: pw.TextStyle(fontSize: 8, fontStyle: pw.FontStyle.italic),
                       ),
                   ],
                 ),
@@ -253,7 +251,7 @@ class EnhancedPrintService {
         pw.Divider(thickness: 1),
         pw.Text(
           t('print.kitchenCopy'),
-          style: const pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
+          style: pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
           textAlign: pw.TextAlign.center,
         ),
         pw.SizedBox(height: 5),
@@ -327,7 +325,7 @@ class EnhancedPrintService {
             children: [
               pw.Text(
                 '${t('print.table')}: ${combinedOrder.tableName}',
-                style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
               ),
               pw.Text(
                 '${t('print.waiter')}: ${combinedOrder.waiterName}',
@@ -353,7 +351,7 @@ class EnhancedPrintService {
             pw.SizedBox(height: 3),
             pw.Text(
               '${t('print.sessionDetails')}: ${sessions.map((s) => DateFormat('HH:mm').format(s.createdAt)).join(', ')}',
-              style: const pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
+              style: pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
             ),
           ],
         ],
@@ -367,7 +365,7 @@ class EnhancedPrintService {
       children: [
         pw.Text(
           t('print.items'),
-          style: const pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+          style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
         ),
         pw.SizedBox(height: 5),
         ...items.map((item) => pw.Container(
@@ -387,7 +385,7 @@ class EnhancedPrintService {
                     if (item.notes != null && item.notes!.isNotEmpty)
                       pw.Text(
                         '  Note: ${item.notes}',
-                        style: const pw.TextStyle(fontSize: 8, fontStyle: pw.FontStyle.italic),
+                        style: pw.TextStyle(fontSize: 8, fontStyle: pw.FontStyle.italic),
                       ),
                   ],
                 ),
@@ -407,7 +405,7 @@ class EnhancedPrintService {
                 alignment: pw.Alignment.centerRight,
                 child: pw.Text(
                   item.subtotal.toStringAsFixed(2),
-                  style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                  style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
                 ),
               ),
             ],
@@ -483,18 +481,18 @@ class EnhancedPrintService {
             children: [
               pw.Text(
                 t('print.total'),
-                style: const pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
               ),
               pw.Text(
                 grandTotal.toStringAsFixed(2),
-                style: const pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
               ),
             ],
           ),
           pw.SizedBox(height: 5),
           pw.Text(
             _numberToWords(grandTotal, t),
-            style: const pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
+            style: pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
             textAlign: pw.TextAlign.center,
           ),
         ],
@@ -508,7 +506,7 @@ class EnhancedPrintService {
         pw.Divider(thickness: 1),
         pw.Text(
           t('print.thankYou'),
-          style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+          style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
           textAlign: pw.TextAlign.center,
         ),
         pw.SizedBox(height: 3),
