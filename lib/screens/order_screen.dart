@@ -9,6 +9,8 @@ import 'package:st_george_pos/providers/pos_providers.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/models/waiter.dart';
 import 'package:st_george_pos/services/bill_service.dart';
+import 'package:st_george_pos/services/order_workflow_service.dart';
+import 'package:st_george_pos/providers/order_workflow_provider.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
 
 class OrderScreen extends ConsumerStatefulWidget {
@@ -24,7 +26,6 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   List<OrderItem> localItems = [];
   String searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
-  Waiter? selectedWaiter;
   double _discountAmount = 0;
   TableModel? selectedTable;
 
@@ -34,6 +35,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     selectedTable = widget.table;
     Future.microtask(() {
       if (selectedTable != null) {
+        // Initialize workflow for selected table
+        ref.read(orderWorkflowProvider.notifier).initializeForTable(selectedTable!.id!);
         ref
             .read(activeOrderServiceProvider)
             .refreshTableData(selectedTable!.id!);
@@ -150,29 +153,42 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
       if (selectedTable == null) return;
     }
 
+    final workflowState = ref.read(orderWorkflowProvider);
+    
+    // Check if workflow is properly initialized
+    if (workflowState.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(workflowState.error!)),
+      );
+      return;
+    }
+
     OrderModel? order = existingOrder;
     if (order == null) {
-      if (selectedWaiter == null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(ref.t('order.selectWaiter'))));
+      try {
+        final currentUser = ref.read(authProvider)!;
+        
+        // Create new order session using workflow service
+        await ref.read(orderWorkflowProvider.notifier).createNewOrderSession(
+          cashierId: currentUser.id!,
+          cashierName: currentUser.username,
+        );
+        
+        order = ref.read(orderWorkflowProvider).currentOrder;
+        
+        if (order == null) {
+          throw Exception('Failed to create order session');
+        }
+        
+        // Save to database
+        order = await ref.read(activeOrderServiceProvider).createNewOrder(order);
+        
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating order: $e')),
+        );
         return;
       }
-      final currentUser = ref.read(authProvider)!;
-      order = await ref
-          .read(activeOrderServiceProvider)
-          .createNewOrder(
-            OrderModel(
-              tableId: selectedTable!.id!,
-              waiterId: selectedWaiter!.id!,
-              cashierId: currentUser.id,
-              tableName: selectedTable!.name,
-              waiterName: selectedWaiter!.name,
-              cashierName: currentUser.username,
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            ),
-          );
     }
     if (order != null) {
       final itemsToPrint = localItems
@@ -286,7 +302,6 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     final activeOrderAsync = ref.watch(activeOrderProvider(selectedTable?.id));
     final categoriesAsync = ref.watch(categoriesProvider);
     final productsAsync = ref.watch(productsProvider(selectedCategoryId));
-    final waitersAsync = ref.watch(waitersProvider);
     final settingsAsync = ref.watch(appSettingsProvider);
 
     return Scaffold(
@@ -554,6 +569,74 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                         error: (_, __) => Text(
                           '${ref.t('common.error')}: ${ref.t('order.loadingWaiters')}',
                         ),
+                      ),
+                    ),
+                    // Assigned waiter display (automatic based on zone)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 4,
+                      ),
+                      child: Consumer(
+                        builder: (context, ref, child) {
+                          final workflowState = ref.watch(orderWorkflowProvider);
+                          final assignedWaiter = workflowState.assignedWaiter;
+                          
+                          if (workflowState.isLoading) {
+                            return const LinearProgressIndicator();
+                          }
+                          
+                          if (workflowState.error != null) {
+                            return Text(
+                              '${ref.t('common.error')}: ${workflowState.error}',
+                              style: const TextStyle(color: Colors.red),
+                            );
+                          }
+                          
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.white.withOpacity(0.1)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.person,
+                                  color: Color(0xFFD4AF37),
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    assignedWaiter?.name ?? ref.t('order.selectWaiter'),
+                                    style: TextStyle(
+                                      color: assignedWaiter != null ? Colors.white : Colors.white54,
+                                      fontWeight: assignedWaiter != null ? FontWeight.w500 : null,
+                                    ),
+                                  ),
+                                ),
+                                if (assignedWaiter != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Color(0xFFD4AF37).withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'AUTO',
+                                      style: TextStyle(
+                                        color: Color(0xFFD4AF37),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ),
                     const Divider(color: Colors.white10, height: 1),
