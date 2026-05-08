@@ -8,7 +8,8 @@ import 'package:st_george_pos/models/table_model.dart';
 import 'package:st_george_pos/providers/pos_providers.dart';
 import 'package:st_george_pos/screens/login_screen.dart';
 import 'package:st_george_pos/screens/management_screens.dart';
-import 'package:st_george_pos/screens/order_screen.dart';
+import 'package:st_george_pos/screens/table_management_screen.dart';
+import 'package:st_george_pos/screens/zone_management_screen.dart';
 import 'package:st_george_pos/screens/settings_screen.dart' hide SettingsScreen;
 import 'package:st_george_pos/screens/table_management_screen.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
@@ -229,6 +230,16 @@ class DashboardScreen extends ConsumerWidget {
                             ref.read(dashboardViewProvider.notifier).state =
                                 DashboardView.waiters,
                       ),
+                      if (isDirector) _SidebarItem(
+                        icon: Icons.dashboard_outlined,
+                        label: ref.t('navigation.zones'),
+                        isActive:
+                            ref.watch(dashboardViewProvider) ==
+                            DashboardView.zones,
+                        onTap: () =>
+                            ref.read(dashboardViewProvider.notifier).state =
+                                DashboardView.zones,
+                      ),
                     ],
                     _SidebarItem(
                       icon: Icons.bar_chart,
@@ -329,6 +340,8 @@ class DashboardScreen extends ConsumerWidget {
           return const UserManagementScreen(key: ValueKey('users'));
         case DashboardView.settings:
           return const SettingsScreen(key: ValueKey('settings'));
+        case DashboardView.zones:
+          return const ZoneManagementScreen(key: ValueKey('zones'));
         default:
           return const DashboardHomeScreen(key: ValueKey('home'));
       }
@@ -349,6 +362,8 @@ class DashboardScreen extends ConsumerWidget {
         return const ReportsScreen(key: ValueKey('reports'));
       case DashboardView.settings:
         return const TableManagementScreen(key: ValueKey('settings'));
+      case DashboardView.zones:
+        return const ZoneManagementScreen(key: ValueKey('zones'));
       default:
         return const DashboardHomeScreen(key: ValueKey('home'));
     }

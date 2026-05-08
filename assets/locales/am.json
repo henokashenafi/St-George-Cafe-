@@ -22,7 +22,8 @@
     "logout": "መውጫ",
     "dashboard": "ዳሽቦርድ",
     "history": "ታሪክ",
-    "held": "ተይዘዋል"
+    "held": "ተይዘዋል",
+    "zones": "ዞኖች"
   },
   "order": {
     "title": "{table} — ትዕዛዝ",
@@ -88,9 +89,33 @@
     "occupied": "ተይዟል",
     "total": "ጠቅላላ",
     "busy": "ተይዟል",
-    "free": "ነፃ",
+    "free": "ነጻ",
     "noZone": "ክፍለ-አከባቢ የለም",
-    "cancel": "ይቅር"
+    "cancel": "ይቅር",
+    "searchPlaceholder": "ጠረጴዛ ይፈልግ..."
+  },
+  "zoneManagement": {
+    "title": "ዞን አስተዳዳሪ",
+    "zone": "ዞን",
+    "waiter": "አስተናጋጅ",
+    "tables": "ጠረጴዛዎች",
+    "assignWaiter": "አስተናጋጅ ያዋጡ",
+    "assignTables": "ጠረጴዛዎች ያዋጡ",
+    "unassignedTables": "ያልተመደቡ ጠረጴዛዎች",
+    "zoneStatistics": "የዞን ስታቲስቲክስ",
+    "totalZones": "ጠቅላላ ዞኖች",
+    "totalTables": "ጠቅላላ ጠረጴዛዎች",
+    "zonesWithWaiters": "አስተናጋጅ ያላቸው ዞኖች",
+    "zonesWithoutWaiters": "አስተናጋጅ የሌላቸው ዞኖች",
+    "averageTablesPerZone": "አማካይ ጠረጴዛዎች በዞን",
+    "validationErrors": "የማረጋገጥ ስህተቶች",
+    "configurationValid": "ኮንፊግሬሽን ትክክለኛው ነው",
+    "saveConfiguration": "ኮንፊግሬሽን ያስቀምጡ",
+    "resetToDefault": "ወደ ነባር ይመለሱ",
+    "confirmReset": "እርግጠኛ ነህ ወደ ነባር ኮንፊግሬሽን መመለስ ይፈልጋል?",
+    "tableLimitExceeded": "ዞን {zoneName} {tableCount} ጠረጴዛዎች አለው (ከፍተኛ: 5)",
+    "waiterAssignedToMultipleZones": "አስተናጋጅ {waiterName} በተለያዩ ዞኖች ውስጥ ተመድቧል",
+    "unassignedTablesFound": "ያልተመደቡ ጠረጴዛዎች ተገኙዋል: {tableNames}"
   },
   "management": {
     "categories": "ምድቦች",
