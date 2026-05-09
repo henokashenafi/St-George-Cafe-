@@ -212,27 +212,33 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
       final price = double.tryParse(priceCtrl.text);
       if (nameCtrl.text.trim().isEmpty || price == null) return;
       final repo = ref.read(posRepositoryProvider);
-      if (existing == null) {
-        await repo.addProduct(
-          Product(
-            categoryId: selectedCategoryId!,
-            name: nameCtrl.text.trim(),
-            price: price,
-          ),
-        );
-      } else {
-        await repo.updateProduct(
-          Product(
-            id: existing.id,
-            categoryId: existing.categoryId,
-            name: nameCtrl.text.trim(),
-            price: price,
-          ),
-        );
+      try {
+        if (existing == null) {
+          await repo.addProduct(
+            Product(
+              categoryId: selectedCategoryId!,
+              name: nameCtrl.text.trim(),
+              price: price,
+            ),
+          );
+        } else {
+          await repo.updateProduct(
+            Product(
+              id: existing.id,
+              categoryId: existing.categoryId,
+              name: nameCtrl.text.trim(),
+              price: price,
+            ),
+          );
+        }
+        ref.invalidate(productsProvider(selectedCategoryId));
+        ref.invalidate(productsProvider(null));
+        if (ctx.mounted) Navigator.pop(ctx);
+      } catch (e) {
+        if (ctx.mounted) {
+          ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('$e')));
+        }
       }
-      ref.invalidate(productsProvider(selectedCategoryId));
-      ref.invalidate(productsProvider(null));
-      Navigator.pop(ctx);
     }
 
     showDialog(
@@ -617,17 +623,8 @@ class HeldOrdersScreen extends ConsumerWidget {
                       ),
                       child: ListTile(
                         onTap: () {
-                          // Jump to the table order screen
-                          final table = TableModel(
-                            id: o.tableId,
-                            name: o.tableName,
-                            status: TableStatus.occupied,
-                          );
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => OrderScreen(table: table),
-                            ),
-                          );
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.newOrder;
                         },
                         title: Text(
                           ref.t(
@@ -686,8 +683,11 @@ class ReportsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(languageProvider);
-    final orders = ref.watch(ordersProvider);
+    final ordersAsync = ref.watch(ordersProvider);
+    final analytics = ref.watch(reportAnalyticsProvider);
     final filter = ref.watch(reportDateFilterProvider);
+    final waitersAsync = ref.watch(waitersProvider);
+    final selectedWaiterId = ref.watch(reportWaiterFilterProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -705,6 +705,56 @@ class ReportsScreen extends ConsumerWidget {
                   letterSpacing: 1.5,
                 ),
               ),
+              const SizedBox(width: 16),
+              // Waiter filter dropdown
+              waitersAsync.when(
+                data: (waiters) => Container(
+                  constraints: const BoxConstraints(maxWidth: 200),
+                  height: 40,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int?>(
+                      value: selectedWaiterId,
+                      isExpanded: true,
+                      dropdownColor: const Color(0xFF1A1A1A),
+                      hint: Text(
+                        ref.t('management.allWaiters'),
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 13,
+                        ),
+                      ),
+                      items: [
+                        DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text(
+                            ref.t('management.allWaiters'),
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                        ...waiters.map(
+                          (w) => DropdownMenuItem<int?>(
+                            value: w.id,
+                            child: Text(
+                              w.name,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: (v) =>
+                          ref.read(reportWaiterFilterProvider.notifier).set(v),
+                    ),
+                  ),
+                ),
+                loading: () => const SizedBox(),
+                error: (_, __) => const SizedBox(),
+              ),
               const Spacer(),
               _DateFilterChips(
                 filter: filter,
@@ -715,44 +765,33 @@ class ReportsScreen extends ConsumerWidget {
           ),
         ),
         Expanded(
-          child: orders.when(
+          child: ordersAsync.when(
             data: (orderList) {
               final completed = orderList
                   .where((o) => o.status == OrderStatus.completed)
+                  .where((o) =>
+                      selectedWaiterId == null || o.waiterId == selectedWaiterId)
                   .toList();
-              final subtotalSum = completed.fold(
-                0.0,
-                (s, o) => s + o.totalAmount,
-              );
-              final serviceSum = completed.fold(
-                0.0,
-                (s, o) => s + o.serviceCharge,
-              );
-              final discountSum = completed.fold(
-                0.0,
-                (s, o) => s + o.discountAmount,
-              );
+
+              if (completed.isEmpty) {
+                return Center(
+                  child: Opacity(
+                    opacity: 0.4,
+                    child: Text(ref.t('management.noOrdersInRange')),
+                  ),
+                );
+              }
+
+              final subtotalSum = completed.fold(0.0, (s, o) => s + o.totalAmount);
+              final serviceSum =
+                  completed.fold(0.0, (s, o) => s + o.serviceCharge);
+              final discountSum =
+                  completed.fold(0.0, (s, o) => s + o.discountAmount);
               final grandSum = completed.fold(0.0, (s, o) => s + o.grandTotal);
-              final itemsSum = completed.fold(
+              final itemsSoldTotal = completed.fold(
                 0,
                 (s, o) => s + o.items.fold(0, (ss, i) => ss + i.quantity),
               );
-
-              // Per-waiter
-              final waiterMap = <String, double>{};
-              for (final o in completed) {
-                waiterMap[o.waiterName] =
-                    (waiterMap[o.waiterName] ?? 0) + o.grandTotal;
-              }
-
-              // Per-cashier
-              final cashierMap = <String, double>{};
-              for (final o in completed) {
-                final name = o.cashierName.isNotEmpty
-                    ? o.cashierName
-                    : ref.t('management.unknown');
-                cashierMap[name] = (cashierMap[name] ?? 0) + o.grandTotal;
-              }
 
               return SingleChildScrollView(
                 child: Column(
@@ -799,99 +838,251 @@ class ReportsScreen extends ConsumerWidget {
                         ),
                         _ReportCard(
                           title: ref.t('management.itemsSold'),
-                          value: '$itemsSum',
+                          value: '$itemsSoldTotal',
                           icon: Icons.fastfood_outlined,
                         ),
                       ],
                     ),
                     const SizedBox(height: 28),
-                    // Per-waiter
-                    if (waiterMap.isNotEmpty) ...[
-                      Text(
-                        ref.t('management.byWaiter'),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+
+                    if (analytics != null) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Top Selling Products
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _SectionHeader(
+                                  title: ref.t('management.topProducts'),
+                                  icon: Icons.star_outline,
+                                ),
+                                const SizedBox(height: 10),
+                                GlassContainer(
+                                  opacity: 0.05,
+                                  child: Column(
+                                    children: (analytics.topProducts.entries
+                                            .toList()
+                                          ..sort((a, b) => b.value.qty
+                                              .compareTo(a.value.qty)))
+                                        .take(10)
+                                        .map((e) => ListTile(
+                                              dense: true,
+                                              title: Text(
+                                                e.key,
+                                                style: const TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.bold),
+                                              ),
+                                              subtitle: Text(
+                                                '${ref.t('management.revenue')}: ${e.value.revenue.toStringAsFixed(2)}',
+                                                style: const TextStyle(
+                                                    fontSize: 10,
+                                                    color: Colors.white38),
+                                              ),
+                                              trailing: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color:
+                                                      const Color(0xFFD4AF37)
+                                                          .withOpacity(0.1),
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  '${e.value.qty} ${ref.t('management.qtySold')}',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFFD4AF37),
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ))
+                                        .toList(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                          // Daily Sales Breakdown
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _SectionHeader(
+                                  title: ref.t('management.dailySales'),
+                                  icon: Icons.calendar_today_outlined,
+                                ),
+                                const SizedBox(height: 10),
+                                GlassContainer(
+                                  opacity: 0.05,
+                                  child: Column(
+                                    children: (analytics.dailySales.entries
+                                            .toList()
+                                          ..sort((a, b) =>
+                                              b.key.compareTo(a.key)))
+                                        .take(10)
+                                        .map((e) => ListTile(
+                                              dense: true,
+                                              title: Text(e.key),
+                                              trailing: Text(
+                                                '${e.value.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                                style: const TextStyle(
+                                                  color: Color(0xFFD4AF37),
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ))
+                                        .toList(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 28),
+                      // Waiter Performance
+                      _SectionHeader(
+                        title: ref.t('management.performance'),
+                        icon: Icons.person_outline,
                       ),
                       const SizedBox(height: 10),
                       GlassContainer(
                         opacity: 0.05,
                         child: Column(
-                          children: waiterMap.entries
-                              .map(
-                                (e) => ListTile(
-                                  leading: Container(
-                                    width: 32,
-                                    height: 32,
-                                    color: const Color(0xFF006B3C),
-                                    child: const Icon(
-                                      Icons.person,
-                                      color: Colors.white,
-                                      size: 18,
+                          children: analytics.waiterPerformance.entries
+                              .map((e) => ListTile(
+                                    leading: const CircleAvatar(
+                                      backgroundColor: Color(0xFF006B3C),
+                                      child: Icon(Icons.person,
+                                          size: 18, color: Colors.white),
                                     ),
-                                  ),
-                                  title: Text(e.key),
-                                  trailing: Text(
-                                    '${e.value.toStringAsFixed(2)} ETB',
-                                    style: const TextStyle(
-                                      color: Color(0xFFD4AF37),
-                                      fontWeight: FontWeight.bold,
+                                    title: Text(e.key),
+                                    subtitle: Text(
+                                      '${e.value.orders} ${ref.t('management.orderCount')}',
+                                      style: const TextStyle(fontSize: 11),
                                     ),
-                                  ),
-                                ),
-                              )
+                                    trailing: Text(
+                                      '${e.value.revenue.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                      style: const TextStyle(
+                                        color: Color(0xFFD4AF37),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                  ))
                               .toList(),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 28),
                     ],
-                    // Per-cashier
-                    if (cashierMap.isNotEmpty) ...[
-                      Text(
-                        ref.t('management.byCashier'),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      GlassContainer(
-                        opacity: 0.05,
-                        child: Column(
-                          children: cashierMap.entries
-                              .map(
-                                (e) => ListTile(
-                                  leading: Container(
-                                    width: 32,
-                                    height: 32,
-                                    color: const Color(0xFFD4AF37),
-                                    child: const Icon(
-                                      Icons.point_of_sale,
-                                      color: Colors.black,
-                                      size: 18,
-                                    ),
-                                  ),
-                                  title: Text(e.key),
-                                  trailing: Text(
-                                    '${e.value.toStringAsFixed(2)} ETB',
-                                    style: const TextStyle(
-                                      color: Color(0xFFD4AF37),
+
+                    // Sales Record (Transactions)
+                    _SectionHeader(
+                      title: ref.t('management.salesRecord'),
+                      icon: Icons.list_alt_outlined,
+                    ),
+                    const SizedBox(height: 10),
+                    GlassContainer(
+                      opacity: 0.05,
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: completed.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(color: Colors.white10, height: 1),
+                        itemBuilder: (_, i) {
+                          final o = completed[i];
+                          return ExpansionTile(
+                            leading: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '#${o.id}',
+                                  style: const TextStyle(
+                                      fontSize: 10,
                                       fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                                      color: Colors.white54),
                                 ),
-                              )
-                              .toList(),
-                        ),
+                              ),
+                            ),
+                            title: Text(
+                              o.tableName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            subtitle: Text(
+                              '${o.waiterName} • ${DateFormat('HH:mm').format(o.createdAt)}',
+                              style: const TextStyle(
+                                  fontSize: 11, color: Colors.white38),
+                            ),
+                            trailing: Text(
+                              '${o.grandTotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                              style: const TextStyle(
+                                color: Color(0xFFD4AF37),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            children: o.items
+                                .map((item) => ListTile(
+                                      dense: true,
+                                      title: Text(item.productName),
+                                      trailing: Text(
+                                        '${item.quantity} × ${item.unitPrice.toStringAsFixed(2)}',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ))
+                                .toList(),
+                          );
+                        },
                       ),
-                    ],
+                    ),
+                    const SizedBox(height: 40),
                   ],
                 ),
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Text('${ref.t('common.error')}: $e'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  const _SectionHeader({required this.title, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFFD4AF37)),
+        const SizedBox(width: 8),
+        Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.2,
+            color: Colors.white70,
           ),
         ),
       ],
@@ -915,10 +1106,16 @@ class _DateFilterChips extends ConsumerWidget {
     final weekStart = todayStart.subtract(Duration(days: now.weekday - 1));
     final monthStart = DateTime(now.year, now.month, 1);
 
-    bool isToday = filter.from == todayStart && filter.to == todayEnd;
-    bool isWeek = filter.from == weekStart && filter.to == todayEnd;
-    bool isMonth = filter.from == monthStart && filter.to == todayEnd;
-    bool isAll = filter.from == null && filter.to == null;
+    final isToday = filter.from == todayStart && filter.to == todayEnd;
+    final isWeek = filter.from == weekStart && filter.to == todayEnd;
+    final isMonth = filter.from == monthStart && filter.to == todayEnd;
+    final isAll = filter.from == null && filter.to == null;
+    final isCustom =
+        !isToday &&
+        !isWeek &&
+        !isMonth &&
+        !isAll &&
+        (filter.from != null || filter.to != null);
 
     return Row(
       children: [
@@ -944,6 +1141,44 @@ class _DateFilterChips extends ConsumerWidget {
           ref.t('filters.allTime'),
           isAll,
           () => onChanged(const DateFilter()),
+        ),
+        const SizedBox(width: 8),
+        _chip(
+          isCustom && filter.from != null && filter.to != null
+              ? '${DateFormat('MMM d').format(filter.from!)} - ${DateFormat('MMM d').format(filter.to!.subtract(const Duration(days: 1)))}'
+              : ref.t('filters.custom'),
+          isCustom,
+          () async {
+            final picked = await showDateRangePicker(
+              context: context,
+              firstDate: DateTime(2020),
+              lastDate: DateTime.now().add(const Duration(days: 1)),
+              initialDateRange: filter.from != null && filter.to != null
+                  ? DateTimeRange(
+                      start: filter.from!,
+                      end: filter.to!.subtract(const Duration(days: 1)))
+                  : null,
+              builder: (ctx, child) => Theme(
+                data: Theme.of(ctx).copyWith(
+                  colorScheme: const ColorScheme.dark(
+                    primary: Color(0xFFD4AF37),
+                    surface: Color(0xFF1A1A1A),
+                    onSurface: Colors.white,
+                  ),
+                  dialogBackgroundColor: const Color(0xFF121212),
+                ),
+                child: child!,
+              ),
+            );
+            if (picked != null) {
+              onChanged(
+                DateFilter(
+                  from: picked.start,
+                  to: picked.end.add(const Duration(days: 1)),
+                ),
+              );
+            }
+          },
         ),
       ],
     );
@@ -978,7 +1213,7 @@ class _Header extends ConsumerWidget {
             letterSpacing: 1.5,
           ),
         ),
-        if (onAdd != null)
+        if (onAdd != null && ref.watch(authProvider)?.role == UserRole.cashier)
           ElevatedButton.icon(
             icon: const Icon(Icons.add),
             label: Text(ref.t('management.addNew')),
@@ -986,6 +1221,7 @@ class _Header extends ConsumerWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFD4AF37),
               foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             ),
           ),
       ],
@@ -1228,8 +1464,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     String label,
     TextEditingController controller, {
     bool isNumber = false,
-    String requiredFieldMessage = 'Field required',
+    String? requiredFieldMessage,
   }) {
+    final validationMsg = requiredFieldMessage ?? ref.t('common.fieldRequired');
     return Padding(
       padding: const EdgeInsets.only(bottom: 20.0),
       child: TextFormField(
@@ -1250,7 +1487,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
         validator: (value) =>
-            value == null || value.isEmpty ? requiredFieldMessage : null,
+            value == null || value.isEmpty ? validationMsg : null,
       ),
     );
   }

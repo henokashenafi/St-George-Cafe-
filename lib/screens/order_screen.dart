@@ -178,7 +178,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         order = ref.read(orderWorkflowProvider).currentOrder;
 
         if (order == null) {
-          throw Exception('Failed to create order session');
+          throw Exception(ref.t('errors.orderCreationFailed'));
         }
 
         // Save to database
@@ -342,17 +342,6 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     final categoriesAsync = ref.watch(categoriesProvider);
     final productsAsync = ref.watch(productsProvider(selectedCategoryId));
     final settingsAsync = ref.watch(appSettingsProvider);
-
-    if (widget.table != null) {
-      return _buildScaffold(
-        context,
-        activeOrderAsync,
-        categoriesAsync,
-        productsAsync,
-        settingsAsync,
-        selectedCategoryId,
-      );
-    }
 
     return _buildInline(
       context,
@@ -850,14 +839,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                     ),
                                   ),
                                   onPressed: () {
-                                    if (widget.table != null) {
-                                      Navigator.pop(context);
-                                    } else {
-                                      ref
-                                          .read(dashboardViewProvider.notifier)
-                                          .state = DashboardView
-                                          .home;
-                                    }
+                                    ref
+                                        .read(dashboardViewProvider.notifier)
+                                        .state = DashboardView
+                                        .home;
                                   },
                                   child: Text(
                                     ref.t('common.close'),
@@ -881,470 +866,6 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildScaffold(
-    BuildContext context,
-    AsyncValue<OrderModel?> activeOrderAsync,
-    AsyncValue<List<Category>> categoriesAsync,
-    AsyncValue<List<Product>> productsAsync,
-    AsyncValue<Map<String, String>> settingsAsync,
-    int? selectedCategoryId,
-  ) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: Text(
-          '${selectedTable?.name ?? 'NEW'} — ORDER',
-          style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),
-        ),
-        backgroundColor: Colors.black.withOpacity(0.3),
-        elevation: 0,
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF121212), Color(0xFF003D22), Color(0xFF121212)],
-            stops: [0.0, 0.5, 1.0],
-          ),
-        ),
-        child: Row(
-          children: [
-            // ── Menu panel ──────────────────────────────────────────────
-            Expanded(
-              flex: 3,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 100, 16, 16),
-                child: Column(
-                  children: [
-                    GlassContainer(
-                      opacity: 0.05,
-                      borderRadius: 30,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: ref.t('common.search'),
-                          border: InputBorder.none,
-                          icon: const Icon(Icons.search, color: Colors.white54),
-                        ),
-                        onChanged: (v) => setState(() => searchQuery = v),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 44,
-                      child: categoriesAsync.when(
-                        data: (cats) => ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: cats.length + 1,
-                          itemBuilder: (_, i) {
-                            if (i == 0) {
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: ChoiceChip(
-                                  label: Text(ref.t('common.all')),
-                                  selected: selectedCategoryId == null,
-                                  selectedColor: const Color(0xFFD4AF37),
-                                  onSelected: (_) => ref
-                                      .read(selectedCategoryProvider.notifier)
-                                      .set(null),
-                                ),
-                              );
-                            }
-                            final cat = cats[i - 1];
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                label: Text(cat.name),
-                                selected: selectedCategoryId == cat.id,
-                                selectedColor: const Color(0xFFD4AF37),
-                                onSelected: (s) => ref
-                                    .read(selectedCategoryProvider.notifier)
-                                    .set(s ? cat.id : null),
-                              ),
-                            );
-                          },
-                        ),
-                        loading: () => const SizedBox(),
-                        error: (e, _) => Text('$e'),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: productsAsync.when(
-                        data: (products) {
-                          final filtered = products
-                              .where(
-                                (p) => p.name.toLowerCase().contains(
-                                  searchQuery.toLowerCase(),
-                                ),
-                              )
-                              .toList();
-                          return GridView.builder(
-                            padding: EdgeInsets.zero,
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 6,
-                                  childAspectRatio: 0.85,
-                                  crossAxisSpacing: 6,
-                                  mainAxisSpacing: 6,
-                                ),
-                            itemCount: filtered.length,
-                            itemBuilder: (_, i) => _ProductCard(
-                              product: filtered[i],
-                              onTap: () => _addItem(filtered[i]),
-                            ),
-                          );
-                        },
-                        loading: () =>
-                            const Center(child: CircularProgressIndicator()),
-                        error: (e, _) => Text('$e'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            // ── Cart panel ──────────────────────────────────────────────
-            SizedBox(
-              width: 400,
-              child: GlassContainer(
-                opacity: 0.15,
-                borderRadius: 24,
-                child: Column(
-                  children: [
-                    // Header
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 100, 20, 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            ref.t('order.selectTable'),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white38,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          ref
-                              .watch(tablesProvider)
-                              .when(
-                                data: (allTables) => _TableDropdown(
-                                  allTables: allTables,
-                                  selectedTable: selectedTable,
-                                  onSelected: (table) {
-                                    setState(() => selectedTable = table);
-                                    ref
-                                        .read(orderWorkflowProvider.notifier)
-                                        .initializeForTable(table.id!);
-                                    ref
-                                        .read(activeOrderServiceProvider)
-                                        .refreshTableData(table.id!);
-                                  },
-                                ),
-                                loading: () => const LinearProgressIndicator(),
-                                error: (e, _) => Text('$e'),
-                              ),
-                        ],
-                      ),
-                    ),
-                    const Divider(color: Colors.white10, height: 1),
-                    // Items list
-                    Expanded(
-                      child: activeOrderAsync.when(
-                        data: (order) {
-                          final savedItems = order?.items ?? [];
-                          return ListView(
-                            padding: const EdgeInsets.all(20),
-                            children: [
-                              if (savedItems.isNotEmpty) ...[
-                                Text(
-                                  ref.t('order.savedItems'),
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white38,
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                ...savedItems.map(
-                                  (item) => _CartItemTile(
-                                    item: item,
-                                    isSaved: true,
-                                    onVoid: () async {
-                                      await ref
-                                          .read(posRepositoryProvider)
-                                          .voidOrderItem(item.id!, order!.id!);
-                                      if (selectedTable != null) {
-                                        await ref
-                                            .read(activeOrderServiceProvider)
-                                            .refreshTableData(
-                                              selectedTable!.id!,
-                                            );
-                                      }
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(height: 25),
-                              ],
-                              if (localItems.isNotEmpty) ...[
-                                Text(
-                                  ref.t('order.newItems'),
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFFD4AF37),
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                ...localItems.asMap().entries.map(
-                                  (e) => _CartItemTile(
-                                    item: e.value,
-                                    isSaved: false,
-                                    onAdd: () => _updateQuantity(e.key, 1),
-                                    onRemove: () => _updateQuantity(e.key, -1),
-                                    onDelete: () => _removeItem(e.key),
-                                    onNote: () => _addNoteToItem(e.key),
-                                  ),
-                                ),
-                              ],
-                              if (savedItems.isEmpty && localItems.isEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 80),
-                                  child: Center(
-                                    child: Opacity(
-                                      opacity: 0.2,
-                                      child: Column(
-                                        children: [
-                                          const Icon(
-                                            Icons.shopping_basket_outlined,
-                                            size: 64,
-                                          ),
-                                          const SizedBox(height: 15),
-                                          Text(
-                                            ref.t('order.cartEmpty'),
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          );
-                        },
-                        loading: () =>
-                            const Center(child: CircularProgressIndicator()),
-                        error: (e, _) => Text('$e'),
-                      ),
-                    ),
-                    // Summary & actions
-                    settingsAsync.when(
-                      data: (settings) {
-                        final serviceChargePercent =
-                            double.tryParse(
-                              (settings
-                                      as Map<
-                                        String,
-                                        String
-                                      >)['service_charge_percent'] ??
-                                  '5',
-                            ) ??
-                            5;
-                        return Container(
-                          padding: const EdgeInsets.all(25),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.3),
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(30),
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              activeOrderAsync.maybeWhen(
-                                data: (order) {
-                                  final subtotal =
-                                      (order?.totalAmount ?? 0) + _localTotal;
-                                  final serviceCharge =
-                                      subtotal * (serviceChargePercent / 100);
-                                  final total =
-                                      subtotal +
-                                      serviceCharge -
-                                      _discountAmount;
-
-                                  return Column(
-                                    children: [
-                                      _SummaryRow(
-                                        ref.t('order.subtotal'),
-                                        '${subtotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                      ),
-                                      _SummaryRow(
-                                        ref.t(
-                                          'order.service',
-                                          replacements: {
-                                            'percent': serviceChargePercent
-                                                .toStringAsFixed(0),
-                                          },
-                                        ),
-                                        '${serviceCharge.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                      ),
-                                      if (_discountAmount > 0)
-                                        _SummaryRow(
-                                          ref.t('order.discount'),
-                                          '- ${_discountAmount.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                          color: Colors.greenAccent,
-                                        ),
-                                      const Divider(
-                                        color: Colors.white10,
-                                        height: 30,
-                                      ),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            ref.t('order.total'),
-                                            style: const TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w900,
-                                            ),
-                                          ),
-                                          Text(
-                                            '${total.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                            style: const TextStyle(
-                                              fontSize: 28,
-                                              fontWeight: FontWeight.w900,
-                                              color: Color(0xFFD4AF37),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  );
-                                },
-                                orElse: () => const SizedBox(),
-                              ),
-                              const SizedBox(height: 16),
-                              if (localItems.isNotEmpty) ...[
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.orange
-                                          .withOpacity(0.85),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 14,
-                                      ),
-                                    ),
-                                    onPressed: () async {
-                                      if (selectedTable == null) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              ref.t('order.selectTableFirst'),
-                                            ),
-                                          ),
-                                        );
-                                        return;
-                                      }
-                                      await _sendToKitchen(
-                                        activeOrderAsync.value,
-                                        settings as Map<String, String>,
-                                      );
-                                      ref
-                                          .read(
-                                            selectedCategoryProvider.notifier,
-                                          )
-                                          .set(null);
-                                    },
-                                    child: Text(
-                                      ref.t('order.addToOrder'),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                              ],
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(
-                                          0xFF006B3C,
-                                        ),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 16,
-                                        ),
-                                      ),
-                                      onPressed: activeOrderAsync.value == null
-                                          ? null
-                                          : () => _printBill(
-                                              activeOrderAsync.value!,
-                                              settings as Map<String, String>,
-                                            ),
-                                      child: Text(
-                                        ref.t('order.printBill'),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.redAccent
-                                            .withOpacity(0.8),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 16,
-                                        ),
-                                      ),
-                                      onPressed: () => Navigator.pop(context),
-                                      child: Text(
-                                        ref.t('common.close'),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                      loading: () => const SizedBox(height: 100),
-                      error: (e, _) => Text('$e'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -1720,7 +1241,7 @@ class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
                 ],
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  labelText: ref.t('common.discountLabel'),
+                  labelText: ref.t('order.discountLabel'),
                   labelStyle: const TextStyle(color: Colors.white54),
                   prefixIcon: const Icon(
                     Icons.discount_outlined,
@@ -1874,10 +1395,30 @@ class _CartItemTile extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               if (!isSaved) ...[
-                _IconBtn(Icons.note_alt_outlined, onNote, Colors.white38),
-                _IconBtn(Icons.remove_circle_outline, onRemove, Colors.white54),
-                _IconBtn(Icons.add_circle_outline, onAdd, Colors.white54),
-                _IconBtn(Icons.delete_outline, onDelete, Colors.redAccent),
+                _IconBtn(
+                  Icons.note_alt_outlined,
+                  onNote,
+                  Colors.white38,
+                  tooltip: ref.t('order.addNote'),
+                ),
+                _IconBtn(
+                  Icons.remove_circle_outline,
+                  onRemove,
+                  Colors.white54,
+                  tooltip: ref.t('order.decreaseQty'),
+                ),
+                _IconBtn(
+                  Icons.add_circle_outline,
+                  onAdd,
+                  Colors.white54,
+                  tooltip: ref.t('order.increaseQty'),
+                ),
+                _IconBtn(
+                  Icons.delete_outline,
+                  onDelete,
+                  Colors.redAccent,
+                  tooltip: ref.t('order.removeItem'),
+                ),
               ] else ...[
                 _IconBtn(
                   Icons.remove_circle_outline,

@@ -52,11 +52,20 @@
     "loadingWaiters": "Loading waiters",
     "voidItem": "Void item",
     "orderTitle": "Order",
+    "discountLabel": "Discount ({currency})",
     "confirmComplete": "Complete Order?",
     "confirmCompleteMessage": "Would you like to finalize this order and free the table?",
     "later": "LATER",
     "yesFinalize": "YES, FINALIZE",
-    "completedAndFreed": "Order completed and table freed"
+    "completedAndFreed": "Order completed and table freed",
+    "addToOrder": "Add to Order",
+    "savedItems": "Saved Items",
+    "selectTableFirst": "Select a table first",
+    "noWaiterAssigned": "No waiter assigned",
+    "addNote": "Add Note",
+    "decreaseQty": "Decrease Quantity",
+    "increaseQty": "Increase Quantity",
+    "removeItem": "Remove Item"
   },
   "orderConfirm": {
     "title": "Confirm & Print Bill",
@@ -80,7 +89,13 @@
     "todayOverview": "TODAY'S OVERVIEW",
     "ordersCompleted": "Orders Completed",
     "totalRevenue": "Total Revenue",
-    "error": "Error"
+    "error": "Error",
+    "noActiveTablesDesc": "Tap New Order to start serving customers",
+    "tablesOverview": "TABLES OVERVIEW",
+    "overviewTables": "Tables: {total}",
+    "overviewAvailable": "Available: {count}",
+    "overviewOccupied": "Occupied: {count}",
+    "overviewWaiters": "Waiters: {count}"
   },
   "zones": {
     "title": "ZONES",
@@ -130,14 +145,14 @@
     "waiter": "Waiter",
     "session": "Session",
     "sessions": "Sessions",
-    "items": "ITEMS",
+    "items": "{count} item(s)",
     "sessionDetails": "Sessions",
     "subtotal": "Subtotal",
     "serviceCharge": "Service Charge",
     "discount": "Discount",
-    "total": "TOTAL",
+    "total": "Total",
     "kitchenCopy": "KITCHEN COPY",
-    "thankYou": "THANK YOU!",
+    "thankYou": "Thank you for visiting!",
     "visitAgain": "Please visit again",
     "printOrderList": "Print Order List",
     "printFinalReceipt": "Print Final Receipt",
@@ -147,7 +162,16 @@
     "printFinalReceiptDesc": "Print final receipt combining all sessions",
     "printCombinedDesc": "Print combined order list for all sessions",
     "quantity": "Qty",
-    "price": "Price"
+    "price": "Price",
+    "kitchenOrder": "KITCHEN ORDER",
+    "time": "Time",
+    "item": "Item",
+    "qty": "Qty",
+    "grandTotal": "GRAND TOTAL",
+    "stGeorgeCafe": "ST GEORGE CAFE",
+    "address": "Addis Ababa, Ethiopia",
+    "orderNumber": "Order",
+    "roundNumber": "Round #{n}"
   },
   "management": {
     "categories": "Categories",
@@ -186,15 +210,26 @@
     "serviceCharge": "Service Charge",
     "discountsGiven": "Discounts Given",
     "grandTotal": "Grand Total",
+    "statusLabel": "Status: {status}",
     "orderCount": "Orders",
     "itemsSold": "Items Sold",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "add": "Add",
+    "allWaiters": "All Waiters",
+    "transactions": "Transactions",
+    "topProducts": "Top Selling Products",
+    "revenue": "Revenue",
+    "qtySold": "Qty Sold",
+    "performance": "Performance",
+    "dailySales": "Daily Sales",
+    "salesRecord": "Sales Record"
   },
   "filters": {
     "today": "Today",
     "thisWeek": "This Week",
     "thisMonth": "This Month",
-    "allTime": "All Time"
+    "allTime": "All Time",
+    "custom": "Custom Range"
   },
   "settings": {
     "cafeInformation": "Cafe Information",
@@ -224,7 +259,9 @@
     "active": "ACTIVE",
     "inactive": "INACTIVE",
     "newPasswordHint": "New Password",
-    "serviceChargeHint": "e.g. 5.0"
+    "serviceChargeHint": "e.g. 5.0",
+    "save": "Save",
+    "users": "Users"
   },
   "roles": {
     "cashier": "Cashier",
@@ -256,6 +293,10 @@
     "deleteZone": "Delete Zone",
     "deleteZoneConfirm": "Remove \"{name}\"? Tables will be unassigned.",
     "searchTable": "Search table by name...",
+    "waiter": "Waiter",
+    "statusAvailable": "Available",
+    "statusOccupied": "Occupied",
+    "statusReserved": "Reserved",
     "numbers": {
       "zero": "Zero",
       "one": "One",
@@ -321,22 +362,6 @@
     "tel": "Tel",
     "description": "Description"
   },
-  "print": {
-    "kitchenOrder": "KITCHEN ORDER",
-    "table": "Table",
-    "waiter": "Waiter",
-    "time": "Time",
-    "item": "Item",
-    "qty": "Qty",
-    "total": "Total",
-    "grandTotal": "GRAND TOTAL",
-    "thankYou": "Thank you for visiting!",
-    "stGeorgeCafe": "ST GEORGE CAFE",
-    "address": "Addis Ababa, Ethiopia",
-    "orderNumber": "Order",
-    "roundNumber": "Round #{n}",
-    "items": "{count} item(s)"
-  },
   "cafe": {
     "name": "ST GEORGE CAFE",
     "address": "Addis Ababa, Ethiopia",
@@ -371,6 +396,24 @@
     "saveChanges": "SAVE CHANGES"
   },
   "errors": {
-    "error": "Error"
+    "error": "Error",
+    "errorLoading": "Error loading data",
+    "orderCreationFailed": "Failed to create order session"
+  },
+  "common": {
+    "add": "Add",
+    "all": "All",
+    "cancel": "Cancel",
+    "close": "Close",
+    "confirm": "Confirm",
+    "currency": "ETB",
+    "delete": "Delete",
+    "edit": "Edit",
+    "error": "Error",
+    "fieldRequired": "Field required",
+    "noResults": "No results",
+    "notes": "Notes",
+    "save": "Save",
+    "search": "Search"
   }
 }

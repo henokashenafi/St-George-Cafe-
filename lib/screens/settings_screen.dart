@@ -195,18 +195,19 @@ class UserManagementScreen extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             _SectionHeader(title: ref.t('settings.users')),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.person_add_outlined),
-              label: Text(ref.t('settings.addUser')),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD4AF37),
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+            if (ref.watch(authProvider)?.role == UserRole.cashier)
+              ElevatedButton.icon(
+                icon: const Icon(Icons.person_add_outlined),
+                label: Text(ref.t('settings.addUser')),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD4AF37),
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
+                onPressed: () => _showUserDialog(context, ref, null),
               ),
-              onPressed: () => _showUserDialog(context, ref, null),
-            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -251,53 +252,80 @@ class UserManagementScreen extends ConsumerWidget {
                         fontSize: 12,
                       ),
                     ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: u.isActive
-                                ? const Color(0xFF006B3C).withOpacity(0.2)
-                                : Colors.white10,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            u.isActive
-                                ? ref.t('settings.active')
-                                : ref.t('settings.inactive'),
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                    trailing: ref.watch(authProvider)?.role == UserRole.cashier
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: u.isActive
+                                      ? const Color(0xFF006B3C).withOpacity(0.2)
+                                      : Colors.white10,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  u.isActive
+                                      ? ref.t('settings.active')
+                                      : ref.t('settings.inactive'),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: u.isActive
+                                        ? const Color(0xFF006B3C)
+                                        : Colors.white38,
+                                    letterSpacing: 1,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.edit_outlined,
+                                  size: 18,
+                                  color: Colors.white54,
+                                ),
+                                onPressed: () =>
+                                    _showUserDialog(context, ref, u),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  size: 18,
+                                  color: Colors.redAccent,
+                                ),
+                                onPressed: () => _confirmDelete(context, ref, u),
+                              ),
+                            ],
+                          )
+                        : Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
                               color: u.isActive
-                                  ? const Color(0xFF006B3C)
-                                  : Colors.white38,
-                              letterSpacing: 1,
+                                  ? const Color(0xFF006B3C).withOpacity(0.2)
+                                  : Colors.white10,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              u.isActive
+                                  ? ref.t('settings.active')
+                                  : ref.t('settings.inactive'),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: u.isActive
+                                    ? const Color(0xFF006B3C)
+                                    : Colors.white38,
+                                letterSpacing: 1,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.edit_outlined,
-                            size: 18,
-                            color: Colors.white54,
-                          ),
-                          onPressed: () => _showUserDialog(context, ref, u),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            size: 18,
-                            color: Colors.redAccent,
-                          ),
-                          onPressed: () => _confirmDelete(context, ref, u),
-                        ),
-                      ],
-                    ),
                   );
                 },
               ),

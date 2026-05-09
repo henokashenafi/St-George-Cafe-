@@ -124,7 +124,7 @@ class PrintService {
 
     bytes += generator.hr();
 
-    final curr = currency ?? 'ETB';
+    final curr = currency ?? (t != null ? t('common.currency') : 'ETB');
     bytes += generator.row([
       PosColumn(
         text: t('print.grandTotal'),

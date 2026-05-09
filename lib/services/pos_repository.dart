@@ -506,7 +506,26 @@ class PosRepository {
     return maps.map((m) => Product.fromMap(m)).toList();
   }
 
+  Future<bool> isProductNameTaken(String name, {int? excludeId}) async {
+    if (kIsWeb) {
+      final match = _webStorage['products']!.where(
+        (p) => p['name'] == name && (excludeId == null || p['id'] != excludeId),
+      );
+      return match.isNotEmpty;
+    }
+    final db = await _dbHelper.database;
+    final query = excludeId != null
+        ? 'SELECT COUNT(*) FROM products WHERE name = ? AND id != ?'
+        : 'SELECT COUNT(*) FROM products WHERE name = ?';
+    final args = excludeId != null ? [name, excludeId] : [name];
+    final result = await db.rawQuery(query, args);
+    return (result.first.values.first as int) > 0;
+  }
+
   Future<int> addProduct(Product product) async {
+    if (await isProductNameTaken(product.name)) {
+      throw Exception('Product name "${product.name}" already exists');
+    }
     if (kIsWeb) {
       final id =
           (_webStorage['products']!.isEmpty
@@ -828,6 +847,9 @@ class PosRepository {
   }
 
   Future<void> updateProduct(Product product) async {
+    if (await isProductNameTaken(product.name, excludeId: product.id)) {
+      throw Exception('Product name "${product.name}" already exists');
+    }
     if (kIsWeb) {
       final index = _webStorage['products']!.indexWhere(
         (p) => p['id'] == product.id,

@@ -44,9 +44,9 @@ class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
       _validateConfiguration();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error loading data: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${ref.t('errors.errorLoading')}: $e')),
+        );
       }
     } finally {
       setState(() => isLoading = false);
@@ -147,7 +147,12 @@ class _ZoneManagementScreenState extends ConsumerState<ZoneManagementScreen> {
                     final table = availableTables[index];
                     return CheckboxListTile(
                       title: Text(table.name),
-                      subtitle: Text('Status: ${table.status.name}'),
+                      subtitle: Text(
+                        ref.t(
+                          'management.statusLabel',
+                          replacements: {'status': table.status.name},
+                        ),
+                      ),
                       value: zone.tables.any((t) => t.id == table.id),
                       onChanged: (value) {
                         setState(() {

@@ -51,7 +51,11 @@
     "confirmAndPrint": "አረጋግጥ & አትም",
     "loadingWaiters": "አስተናጋጆች በመጫን ላይ",
     "voidItem": "ዕቃ ሰርዝ",
-    "orderTitle": "ትዕዛዝ"
+    "orderTitle": "ትዕዛዝ",
+    "addNote": "ማስታወሻ ጨምር",
+    "decreaseQty": "ብዛት ቀንስ",
+    "increaseQty": "ብዛት ጨምር",
+    "removeItem": "እቃ አስወግድ"
   },
   "orderConfirm": {
     "title": "ሂሳብ አረጋግጥ እና አትም",
@@ -184,7 +188,14 @@
     "grandTotal": "ጠቅላላ ድምር",
     "orderCount": "ትዕዛዛት",
     "itemsSold": "የተሸጡ እቃዎች",
-    "unknown": "ያልታወቀ"
+    "unknown": "ያልታወቀ",
+    "topProducts": "በብዛት የተሸጡ እቃዎች",
+    "revenue": "ገቢ",
+    "qtySold": "የተሸጠ ብዛት",
+    "performance": "አፈጻጸም",
+    "dailySales": "የቀን ሽያጭ",
+    "salesRecord": "የሽያጭ መዝገብ",
+    "transactions": "ትዕዛዛት"
   },
   "filters": {
     "today": "ዛሬ",
@@ -402,6 +413,8 @@
     "saveChanges": "ለውጦችን አስቀምጥ"
   },
   "errors": {
-    "error": "ስህተት"
+    "error": "ስህተት",
+    "errorLoading": "መረጃ መጫን አልተቻለም",
+    "orderCreationFailed": "የትዕዛዝ ክፍለ-ጊዜ መጀመር አልተቻለም"
   }
 }

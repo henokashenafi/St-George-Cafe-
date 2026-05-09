@@ -16,6 +16,7 @@ import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/services/pos_repository.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
+import 'package:st_george_pos/providers/order_workflow_provider.dart';
 import 'package:st_george_pos/widgets/language_switcher.dart';
 
 void main() async {
@@ -189,57 +190,57 @@ class DashboardScreen extends ConsumerWidget {
                           ref.read(dashboardViewProvider.notifier).state =
                               DashboardView.home,
                     ),
-                    _SidebarItem(
-                      icon: Icons.add_shopping_cart,
-                      label: ref.t('navigation.newOrder'),
-                      isActive:
-                          ref.watch(dashboardViewProvider) ==
-                          DashboardView.newOrder,
-                      onTap: () =>
-                          ref.read(dashboardViewProvider.notifier).state =
-                              DashboardView.newOrder,
-                    ),
-                    _SidebarItem(
-                      icon: Icons.history,
-                      label: ref.t('navigation.history'),
-                      isActive:
-                          ref.watch(dashboardViewProvider) ==
-                          DashboardView.orders,
-                      onTap: () =>
-                          ref.read(dashboardViewProvider.notifier).state =
-                              DashboardView.orders,
-                    ),
-                    _SidebarItem(
-                      icon: Icons.pause_circle_outline,
-                      label: ref.t('navigation.held'),
-                      isActive:
-                          ref.watch(dashboardViewProvider) ==
-                          DashboardView.heldOrders,
-                      onTap: () =>
-                          ref.read(dashboardViewProvider.notifier).state =
-                              DashboardView.heldOrders,
-                    ),
-                    _SidebarItem(
-                      icon: Icons.restaurant_menu,
-                      label: ref.t('navigation.menu'),
-                      isActive:
-                          ref.watch(dashboardViewProvider) ==
-                          DashboardView.menu,
-                      onTap: () =>
-                          ref.read(dashboardViewProvider.notifier).state =
-                              DashboardView.menu,
-                    ),
-                    _SidebarItem(
-                      icon: Icons.people,
-                      label: ref.t('navigation.waiters'),
-                      isActive:
-                          ref.watch(dashboardViewProvider) ==
-                          DashboardView.waiters,
-                      onTap: () =>
-                          ref.read(dashboardViewProvider.notifier).state =
-                              DashboardView.waiters,
-                    ),
-                    if (isDirector)
+                    if (!isDirector) ...[
+                      _SidebarItem(
+                        icon: Icons.add_shopping_cart,
+                        label: ref.t('navigation.newOrder'),
+                        isActive:
+                            ref.watch(dashboardViewProvider) ==
+                            DashboardView.newOrder,
+                        onTap: () =>
+                            ref.read(dashboardViewProvider.notifier).state =
+                                DashboardView.newOrder,
+                      ),
+                      _SidebarItem(
+                        icon: Icons.history,
+                        label: ref.t('navigation.history'),
+                        isActive:
+                            ref.watch(dashboardViewProvider) ==
+                            DashboardView.orders,
+                        onTap: () =>
+                            ref.read(dashboardViewProvider.notifier).state =
+                                DashboardView.orders,
+                      ),
+                      _SidebarItem(
+                        icon: Icons.pause_circle_outline,
+                        label: ref.t('navigation.held'),
+                        isActive:
+                            ref.watch(dashboardViewProvider) ==
+                            DashboardView.heldOrders,
+                        onTap: () =>
+                            ref.read(dashboardViewProvider.notifier).state =
+                                DashboardView.heldOrders,
+                      ),
+                      _SidebarItem(
+                        icon: Icons.restaurant_menu,
+                        label: ref.t('navigation.menu'),
+                        isActive:
+                            ref.watch(dashboardViewProvider) ==
+                            DashboardView.menu,
+                        onTap: () =>
+                            ref.read(dashboardViewProvider.notifier).state =
+                                DashboardView.menu,
+                      ),
+                      _SidebarItem(
+                        icon: Icons.people,
+                        label: ref.t('navigation.waiters'),
+                        isActive:
+                            ref.watch(dashboardViewProvider) ==
+                            DashboardView.waiters,
+                        onTap: () =>
+                            ref.read(dashboardViewProvider.notifier).state =
+                                DashboardView.waiters,
+                      ),
                       _SidebarItem(
                         icon: Icons.map_outlined,
                         label: ref.t('navigation.zones'),
@@ -250,6 +251,17 @@ class DashboardScreen extends ConsumerWidget {
                             ref.read(dashboardViewProvider.notifier).state =
                                 DashboardView.zones,
                       ),
+                      _SidebarItem(
+                        icon: Icons.settings,
+                        label: ref.t('navigation.settings'),
+                        isActive:
+                            ref.watch(dashboardViewProvider) ==
+                            DashboardView.settings,
+                        onTap: () =>
+                            ref.read(dashboardViewProvider.notifier).state =
+                                DashboardView.settings,
+                      ),
+                    ],
                     _SidebarItem(
                       icon: Icons.bar_chart,
                       label: ref.t('navigation.reports'),
@@ -272,16 +284,6 @@ class DashboardScreen extends ConsumerWidget {
                                 DashboardView.users,
                       ),
                     ],
-                    _SidebarItem(
-                      icon: Icons.tune,
-                      label: ref.t('navigation.settings'),
-                      isActive:
-                          ref.watch(dashboardViewProvider) ==
-                          DashboardView.settings,
-                      onTap: () =>
-                          ref.read(dashboardViewProvider.notifier).state =
-                              DashboardView.settings,
-                    ),
                     const SizedBox(height: 40),
                     _SidebarItem(
                       icon: Icons.logout,
@@ -318,39 +320,23 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  void _startNewOrderFlowFromDashboard(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    // Navigate to a table selection dialog or directly to the order screen
-    final selectedTable = await showDialog<TableModel>(
-      context: context,
-      builder: (ctx) => const _TableSelectorDialog(),
-    );
-
-    if (selectedTable != null) {
-      if (context.mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => OrderScreen(table: selectedTable)),
-        );
-      }
-    }
-  }
-
   Widget _buildCurrentView(DashboardView view, bool isDirector, WidgetRef ref) {
     switch (view) {
       case DashboardView.home:
         return const DashboardHomeScreen(key: ValueKey('home'));
       case DashboardView.newOrder:
+        if (isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
         return const OrderScreen(key: ValueKey('newOrder'));
       case DashboardView.orders:
         return const OrderHistoryScreen(key: ValueKey('orders'));
       case DashboardView.heldOrders:
+        if (isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
         return const HeldOrdersScreen(key: ValueKey('held_orders'));
       case DashboardView.menu:
+        if (isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
         return const MenuManagementScreen(key: ValueKey('menu'));
       case DashboardView.waiters:
+        if (isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
         return const WaiterManagementScreen(key: ValueKey('waiters'));
       case DashboardView.reports:
         return const ReportsScreen(key: ValueKey('reports'));
@@ -359,12 +345,10 @@ class DashboardScreen extends ConsumerWidget {
           return const DashboardHomeScreen(key: ValueKey('home'));
         return const UserManagementScreen(key: ValueKey('users'));
       case DashboardView.settings:
-        return isDirector
-            ? const SettingsScreen(key: ValueKey('settings'))
-            : const TableManagementScreen(key: ValueKey('settings'));
+        if (isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
+        return const TableManagementScreen(key: ValueKey('settings'));
       case DashboardView.zones:
-        if (!isDirector)
-          return const DashboardHomeScreen(key: ValueKey('home'));
+        if (isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
         return const ZoneManagementScreen(key: ValueKey('zones'));
       default:
         return const DashboardHomeScreen(key: ValueKey('home'));
@@ -378,7 +362,9 @@ class DashboardHomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tablesAsync = ref.watch(tablesProvider);
-    final ordersAsync = ref.watch(ordersProvider);
+    final analytics = ref.watch(reportAnalyticsProvider);
+    final user = ref.watch(authProvider)!;
+    final isDirector = user.role == UserRole.director;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -397,6 +383,7 @@ class DashboardHomeScreen extends ConsumerWidget {
         Row(
           children: [
             Expanded(
+              flex: 2,
               child: _DashboardCard(
                 title: ref.t('main.activeTables'),
                 child: ref
@@ -404,13 +391,24 @@ class DashboardHomeScreen extends ConsumerWidget {
                     .when(
                       data: (orders) {
                         if (orders.isEmpty) {
-                          return Opacity(
-                            opacity: 0.05,
-                            child: Center(
-                              child: Text(
-                                ref.t('main.noActiveTables'),
-                                style: const TextStyle(color: Colors.white24),
-                              ),
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.nightlife_outlined,
+                                  size: 40,
+                                  color: Colors.white24,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  ref.t('main.noActiveTables'),
+                                  style: const TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
                             ),
                           );
                         }
@@ -420,18 +418,17 @@ class DashboardHomeScreen extends ConsumerWidget {
                           itemBuilder: (ctx, i) => _ActiveTableTile(
                             order: orders[i],
                             currency: ref.t('common.currency'),
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => OrderScreen(
-                                  table: TableModel(
-                                    id: orders[i].tableId,
-                                    name: orders[i].tableName,
-                                    status: TableStatus.occupied,
-                                  ),
-                                ),
-                              ),
-                            ),
+                            onTap: () {
+                              if (isDirector) return;
+                              ref
+                                  .read(orderWorkflowProvider.notifier)
+                                  .initializeForTable(orders[i].tableId);
+                              ref
+                                  .read(activeOrderServiceProvider)
+                                  .refreshTableData(orders[i].tableId);
+                              ref.read(dashboardViewProvider.notifier).state =
+                                  DashboardView.newOrder;
+                            },
                           ),
                         );
                       },
@@ -442,8 +439,8 @@ class DashboardHomeScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 24),
-            SizedBox(
-              width: 320,
+            Expanded(
+              flex: 1,
               child: _DashboardCard(
                 title: ref.t('main.todayOverview'),
                 child: ref
@@ -452,7 +449,7 @@ class DashboardHomeScreen extends ConsumerWidget {
                       data: (todayOrders) {
                         final totalRevenue = todayOrders.fold(
                           0.0,
-                          (sum, order) => sum + order.totalAmount,
+                          (sum, order) => sum + order.grandTotal,
                         );
                         return Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -481,7 +478,231 @@ class DashboardHomeScreen extends ConsumerWidget {
             ),
           ],
         ),
+        const SizedBox(height: 30),
+        // Reports Quick Review
+        if (analytics != null) ...[
+          Text(
+            ref.t('management.quickReview').toUpperCase(),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+              color: Colors.white54,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: GlassContainer(
+                  opacity: 0.05,
+                  borderRadius: 16,
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.star,
+                              size: 16, color: Color(0xFFD4AF37)),
+                          const SizedBox(width: 8),
+                          Text(
+                            ref.t('management.topProducts'),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ...analytics.topProducts.entries.toList()
+                        ..sort((a, b) => b.value.qty.compareTo(a.value.qty))
+                        ..take(3)
+                        .map((e) => Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(e.key,
+                                      style: const TextStyle(
+                                          fontSize: 12, color: Colors.white70)),
+                                  Text('${e.value.qty}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12)),
+                                ],
+                              ),
+                            ))
+                        .toList(),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: GlassContainer(
+                  opacity: 0.05,
+                  borderRadius: 16,
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.person,
+                              size: 16, color: Color(0xFFD4AF37)),
+                          const SizedBox(width: 8),
+                          Text(
+                            ref.t('management.topWaiters'),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ...analytics.waiterPerformance.entries.toList()
+                        ..sort(
+                            (a, b) => b.value.revenue.compareTo(a.value.revenue))
+                        ..take(3)
+                        .map((e) => Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(e.key,
+                                      style: const TextStyle(
+                                          fontSize: 12, color: Colors.white70)),
+                                  Text(
+                                      '${e.value.revenue.toStringAsFixed(0)} ${ref.t('common.currency')}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12)),
+                                ],
+                              ),
+                            ))
+                        .toList(),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 30),
+        // Mini stats bar
+        ref.watch(tablesProvider).when(
+              data: (allTables) {
+                final available = allTables
+                    .where((t) => t.status == TableStatus.available)
+                    .length;
+                final occupied = allTables
+                    .where((t) => t.status == TableStatus.occupied)
+                    .length;
+                return ref.watch(waitersProvider).when(
+                      data: (allWaiters) {
+                        final totalTables = allTables.length;
+                        final waitersOnDuty = allWaiters.length;
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _MiniStatCard(
+                                icon: Icons.table_restaurant,
+                                value: '$totalTables',
+                                label: ref.t(
+                                  'main.overviewTables',
+                                  replacements: {'total': '$totalTables'},
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              _MiniStatCard(
+                                icon: Icons.check_circle_outline,
+                                value: '$available',
+                                label: ref.t(
+                                  'main.overviewAvailable',
+                                  replacements: {'count': '$available'},
+                                ),
+                                color: const Color(0xFF4CAF50),
+                              ),
+                              const SizedBox(width: 16),
+                              _MiniStatCard(
+                                icon: Icons.room_service,
+                                value: '$occupied',
+                                label: ref.t(
+                                  'main.overviewOccupied',
+                                  replacements: {'count': '$occupied'},
+                                ),
+                                color: const Color(0xFFD4AF37),
+                              ),
+                              const SizedBox(width: 16),
+                              _MiniStatCard(
+                                icon: Icons.person,
+                                value: '$waitersOnDuty',
+                                label: ref.t(
+                                  'main.overviewWaiters',
+                                  replacements: {'count': '$waitersOnDuty'},
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      loading: () => const SizedBox(),
+                      error: (e, _) => const SizedBox(),
+                    );
+              },
+              loading: () => const SizedBox(),
+              error: (e, _) => const SizedBox(),
+            ),
       ],
+    );
+  }
+}
+
+class _MiniStatCard extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color? color;
+
+  const _MiniStatCard({
+    required this.icon,
+    required this.value,
+    required this.label,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassContainer(
+      opacity: 0.05,
+      borderRadius: 12,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 22, color: color ?? Colors.white54),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: color ?? Colors.white,
+                ),
+              ),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 11, color: Colors.white38),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -594,7 +815,7 @@ class _DashboardCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        Container(height: 200, child: child),
+        SizedBox(height: 220, child: child),
       ],
     );
   }

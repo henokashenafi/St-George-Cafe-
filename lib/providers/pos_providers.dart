@@ -10,12 +10,23 @@ import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/services/pos_repository.dart';
 import 'package:st_george_pos/models/settings.dart';
 
-enum DashboardView { home, tables, orders, heldOrders, menu, waiters, reports, settings, users, zones, newOrder }
+enum DashboardView {
+  home,
+  tables,
+  orders,
+  heldOrders,
+  menu,
+  waiters,
+  reports,
+  settings,
+  users,
+  zones,
+  newOrder,
+}
 
 // ── Repository & Services ─────────────────────────────────────────────────
 
 final posRepositoryProvider = Provider((ref) => PosRepository());
-
 
 // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -59,7 +70,9 @@ class DashboardViewNotifier extends Notifier<DashboardView> {
 }
 
 final dashboardViewProvider =
-    NotifierProvider<DashboardViewNotifier, DashboardView>(DashboardViewNotifier.new);
+    NotifierProvider<DashboardViewNotifier, DashboardView>(
+      DashboardViewNotifier.new,
+    );
 
 // ── Zone filter on table grid ─────────────────────────────────────────────
 
@@ -69,8 +82,9 @@ class ZoneFilterNotifier extends Notifier<int?> {
   void set(int? id) => state = id;
 }
 
-final selectedZoneFilterProvider =
-    NotifierProvider<ZoneFilterNotifier, int?>(ZoneFilterNotifier.new);
+final selectedZoneFilterProvider = NotifierProvider<ZoneFilterNotifier, int?>(
+  ZoneFilterNotifier.new,
+);
 
 // ── Data Providers ────────────────────────────────────────────────────────
 
@@ -79,7 +93,10 @@ final categoriesProvider = FutureProvider<List<Category>>((ref) async {
   return await repo.getCategories();
 });
 
-final productsProvider = FutureProvider.family<List<Product>, int?>((ref, categoryId) async {
+final productsProvider = FutureProvider.family<List<Product>, int?>((
+  ref,
+  categoryId,
+) async {
   final repo = ref.watch(posRepositoryProvider);
   return await repo.getProducts(categoryId: categoryId);
 });
@@ -91,14 +108,18 @@ class SelectedCategoryNotifier extends Notifier<int?> {
 }
 
 final selectedCategoryProvider =
-    NotifierProvider<SelectedCategoryNotifier, int?>(SelectedCategoryNotifier.new);
+    NotifierProvider<SelectedCategoryNotifier, int?>(
+      SelectedCategoryNotifier.new,
+    );
 
 final tableZonesProvider = FutureProvider<List<TableZone>>((ref) async {
   final repo = ref.watch(posRepositoryProvider);
   return await repo.getTableZones();
 });
 
-final tablesProvider = FutureProvider.autoDispose<List<TableModel>>((ref) async {
+final tablesProvider = FutureProvider.autoDispose<List<TableModel>>((
+  ref,
+) async {
   final repo = ref.watch(posRepositoryProvider);
   final zoneFilter = ref.watch(selectedZoneFilterProvider);
   return await repo.getTables(zoneId: zoneFilter);
@@ -109,19 +130,25 @@ final waitersProvider = FutureProvider.autoDispose<List<Waiter>>((ref) async {
   return await repo.getWaiters();
 });
 
-final ordersProvider = FutureProvider.autoDispose<List<OrderModel>>((ref) async {
+final ordersProvider = FutureProvider.autoDispose<List<OrderModel>>((
+  ref,
+) async {
   final repo = ref.watch(posRepositoryProvider);
   final filter = ref.watch(reportDateFilterProvider);
   return await repo.getAllOrders(from: filter.from, to: filter.to);
 });
 
-final activeOrdersProvider = FutureProvider.autoDispose<List<OrderModel>>((ref) async {
+final activeOrdersProvider = FutureProvider.autoDispose<List<OrderModel>>((
+  ref,
+) async {
   final repo = ref.watch(posRepositoryProvider);
   final allOrders = await repo.getAllOrders();
   return allOrders.where((o) => o.status == 'pending').toList();
 });
 
-final todaysOrdersProvider = FutureProvider.autoDispose<List<OrderModel>>((ref) async {
+final todaysOrdersProvider = FutureProvider.autoDispose<List<OrderModel>>((
+  ref,
+) async {
   final repo = ref.watch(posRepositoryProvider);
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
@@ -152,11 +179,23 @@ class DateFilterNotifier extends Notifier<DateFilter> {
 final reportDateFilterProvider =
     NotifierProvider<DateFilterNotifier, DateFilter>(DateFilterNotifier.new);
 
-final activeOrderProvider = FutureProvider.autoDispose.family<OrderModel?, int?>((ref, tableId) async {
-  if (tableId == null) return null;
-  final repo = ref.watch(posRepositoryProvider);
-  return await repo.getActiveOrderForTable(tableId);
-});
+class WaiterFilterNotifier extends Notifier<int?> {
+  @override
+  int? build() => null;
+
+  void set(int? waiterId) => state = waiterId;
+}
+
+final reportWaiterFilterProvider = NotifierProvider<WaiterFilterNotifier, int?>(
+  WaiterFilterNotifier.new,
+);
+
+final activeOrderProvider = FutureProvider.autoDispose
+    .family<OrderModel?, int?>((ref, tableId) async {
+      if (tableId == null) return null;
+      final repo = ref.watch(posRepositoryProvider);
+      return await repo.getActiveOrderForTable(tableId);
+    });
 
 final usersProvider = FutureProvider.autoDispose<List<AppUser>>((ref) async {
   final repo = ref.watch(posRepositoryProvider);
@@ -198,5 +237,67 @@ class ActiveOrderService {
   }
 }
 
-final activeOrderServiceProvider =
-    Provider.autoDispose((ref) => ActiveOrderService(ref));
+final activeOrderServiceProvider = Provider.autoDispose(
+  (ref) => ActiveOrderService(ref),
+);
+
+// ── Report Analytics ──────────────────────────────────────────────────────
+
+class ReportAnalytics {
+  final Map<String, ({int qty, double revenue})> topProducts;
+  final Map<String, double> dailySales;
+  final Map<String, ({double revenue, int orders})> waiterPerformance;
+
+  ReportAnalytics({
+    required this.topProducts,
+    required this.dailySales,
+    required this.waiterPerformance,
+  });
+}
+
+final reportAnalyticsProvider = Provider.autoDispose<ReportAnalytics?>((ref) {
+  final ordersAsync = ref.watch(ordersProvider);
+  return ordersAsync.when(
+    data: (list) {
+      final completed =
+          list.where((o) => o.status == OrderStatus.completed).toList();
+
+      final products = <String, ({int qty, double revenue})>{};
+      final daily = <String, double>{};
+      final waiters = <String, ({double revenue, int orders})>{};
+
+      for (final o in completed) {
+        // Daily
+        final dateKey =
+            '${o.createdAt.year}-${o.createdAt.month}-${o.createdAt.day}';
+        daily[dateKey] = (daily[dateKey] ?? 0) + o.grandTotal;
+
+        // Waiter
+        final wName = o.waiterName;
+        final wData = waiters[wName] ?? (revenue: 0.0, orders: 0);
+        waiters[wName] = (
+          revenue: wData.revenue + o.grandTotal,
+          orders: wData.orders + 1,
+        );
+
+        // Products
+        for (final item in o.items) {
+          final pName = item.productName;
+          final pData = products[pName] ?? (qty: 0, revenue: 0.0);
+          products[pName] = (
+            qty: pData.qty + item.quantity,
+            revenue: pData.revenue + item.subtotal,
+          );
+        }
+      }
+
+      return ReportAnalytics(
+        topProducts: products,
+        dailySales: daily,
+        waiterPerformance: waiters,
+      );
+    },
+    loading: () => null,
+    error: (_, __) => null,
+  );
+});
