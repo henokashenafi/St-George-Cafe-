@@ -53,7 +53,7 @@ class MockDataSeeder {
         for (int k = 0; k < itemCount; k++) {
           final prod = products[random.nextInt(products.length)];
           final qty = 1 + random.nextInt(3);
-          final price = prod['price'] as double;
+          final price = (prod['price'] as num).toDouble();
           final lineTotal = price * qty;
           subtotal += lineTotal;
 

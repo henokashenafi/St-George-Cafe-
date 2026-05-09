@@ -44,7 +44,7 @@ class DatabaseHelper {
     final db = await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 6,
+        version: 7,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -132,6 +132,16 @@ class DatabaseHelper {
       await db.delete('waiters');
       await _seedWaitersZonesTables(db);
     }
+    if (oldVersion < 7) {
+      try {
+        await db.execute('ALTER TABLE orders ADD COLUMN session_id TEXT');
+        await db.execute('ALTER TABLE orders ADD COLUMN is_held INTEGER DEFAULT 0');
+        await db.execute('ALTER TABLE orders ADD COLUMN parent_order_id INTEGER');
+        await db.execute('ALTER TABLE orders ADD COLUMN zone_id INTEGER');
+      } catch (e) {
+        print('Warning during upgrade: $e');
+      }
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -193,6 +203,10 @@ class DatabaseHelper {
         total_amount REAL DEFAULT 0.0,
         service_charge REAL DEFAULT 0.0,
         discount_amount REAL DEFAULT 0.0,
+        session_id TEXT,
+        is_held INTEGER DEFAULT 0,
+        parent_order_id INTEGER,
+        zone_id INTEGER,
         FOREIGN KEY (table_id) REFERENCES tables (id),
         FOREIGN KEY (waiter_id) REFERENCES waiters (id),
         FOREIGN KEY (cashier_id) REFERENCES users (id)

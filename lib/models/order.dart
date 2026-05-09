@@ -103,7 +103,7 @@ class OrderModel {
       discountAmount: (map['discount_amount'] as num? ?? 0).toDouble(),
       items: items,
       sessionId: map['session_id'] ?? '',
-      isHeld: map['is_held'] ?? false,
+      isHeld: map['is_held'] == 1 || map['is_held'] == true,
       parentOrderId: map['parent_order_id'],
       zoneId: map['zone_id'],
     );
@@ -122,7 +122,7 @@ class OrderModel {
       'service_charge': serviceCharge,
       'discount_amount': discountAmount,
       'session_id': sessionId,
-      'is_held': isHeld,
+      'is_held': isHeld ? 1 : 0,
       'parent_order_id': parentOrderId,
       'zone_id': zoneId,
     };

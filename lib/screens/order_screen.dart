@@ -218,121 +218,71 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     setState(() => localItems = []);
   }
 
-  Future<void> _printBill(
+  Future<void> _printReceipt(
     OrderModel order,
     Map<String, String> settings,
   ) async {
     try {
-      // Show print options dialog
-      final printOption = await _showPrintOptionsDialog();
-      if (printOption == null) return;
+      await EnhancedPrintService.printFinalReceipt(
+        combinedOrder: order,
+        sessions: [order],
+        settings: settings,
+        t: ref.t,
+      );
 
-      switch (printOption) {
-        case 'orderList':
-          await EnhancedPrintService.printOrderList(
-            order: order,
-            settings: settings,
-            t: ref.t,
-          );
-          break;
-        case 'finalReceipt':
-          // Use current session for receipt
-          await EnhancedPrintService.printFinalReceipt(
-            combinedOrder: order,
-            sessions: [order],
-            settings: settings,
-            t: ref.t,
-          );
-
-          // Complete the order if finalizing
-          final confirmed = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              backgroundColor: const Color(0xFF1A1A1A),
-              title: Text(ref.t('order.confirmComplete')),
-              content: Text(ref.t('order.confirmCompleteMessage')),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: Text(ref.t('order.later')),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF006B3C),
-                  ),
-                  child: Text(ref.t('order.yesFinalize')),
-                ),
-              ],
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: Text(ref.t('order.confirmComplete')),
+          content: Text(ref.t('order.confirmCompleteMessage')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(ref.t('order.later')),
             ),
-          );
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF006B3C),
+              ),
+              child: Text(ref.t('order.yesFinalize')),
+            ),
+          ],
+        ),
+      );
 
-          if (confirmed == true) {
-            final serviceChargePercent =
-                double.tryParse(settings['service_charge_percent'] ?? '5') ?? 5;
-            final subtotal = order.totalAmount;
-            final sc = subtotal * (serviceChargePercent / 100);
+      if (confirmed == true) {
+        final serviceChargePercent =
+            double.tryParse(settings['service_charge_percent'] ?? '5') ?? 5;
+        final subtotal = order.totalAmount;
+        final sc = subtotal * (serviceChargePercent / 100);
 
-            await ref
-                .read(posRepositoryProvider)
-                .completeOrder(
-                  order.id!,
-                  order.tableId,
-                  serviceCharge: sc,
-                  discountAmount: _discountAmount,
-                );
-
-            ref.refresh(tablesProvider);
-            if (selectedTable != null) {
-              ref
-                  .read(activeOrderServiceProvider)
-                  .refreshTableData(selectedTable!.id!);
-            }
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(ref.t('order.completedAndFreed'))),
+        await ref
+            .read(posRepositoryProvider)
+            .completeOrder(
+              order.id!,
+              order.tableId,
+              serviceCharge: sc,
+              discountAmount: _discountAmount,
             );
-          }
-          break;
+
+        ref.refresh(tablesProvider);
+        if (selectedTable != null) {
+          ref
+              .read(activeOrderServiceProvider)
+              .refreshTableData(selectedTable!.id!);
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ref.t('order.completedAndFreed'))),
+        );
       }
     } catch (e) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('${ref.t('common.error')}: $e')));
     }
-  }
-
-  Future<String?> _showPrintOptionsDialog() async {
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        title: Text(ref.t('print.selectPrintOption')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Text(ref.t('print.printOrderList')),
-              subtitle: Text(ref.t('print.printOrderListDesc')),
-              leading: const Icon(Icons.list_alt, color: Color(0xFFD4AF37)),
-              onTap: () => Navigator.pop(ctx, 'orderList'),
-            ),
-            ListTile(
-              title: Text(ref.t('print.printFinalReceipt')),
-              subtitle: Text(ref.t('print.printFinalReceiptDesc')),
-              leading: const Icon(Icons.receipt, color: Color(0xFFD4AF37)),
-              onTap: () => Navigator.pop(ctx, 'finalReceipt'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(ref.t('common.cancel')),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -759,7 +709,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                     SizedBox(
                                       width: double.infinity,
                                       child: OutlinedButton.icon(
-                                        icon: const Icon(Icons.discount_outlined, size: 16),
+                                        icon: const Icon(
+                                          Icons.discount_outlined,
+                                          size: 16,
+                                        ),
                                         label: Text(
                                           _discountAmount > 0
                                               ? '${ref.t('order.discount')}: ${_discountAmount.toStringAsFixed(2)}'
@@ -767,20 +720,31 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                           style: const TextStyle(fontSize: 12),
                                         ),
                                         style: OutlinedButton.styleFrom(
-                                          foregroundColor: const Color(0xFFD4AF37),
-                                          side: const BorderSide(color: Color(0xFFD4AF37)),
-                                          padding: const EdgeInsets.symmetric(vertical: 8),
+                                          foregroundColor: const Color(
+                                            0xFFD4AF37,
+                                          ),
+                                          side: const BorderSide(
+                                            color: Color(0xFFD4AF37),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 8,
+                                          ),
                                         ),
                                         onPressed: () async {
-                                          final result = await showDialog<double>(
-                                            context: context,
-                                            builder: (ctx) => _DiscountDialog(
-                                              initialDiscount: _discountAmount,
-                                              subtotal: subtotal,
-                                            ),
-                                          );
+                                          final result =
+                                              await showDialog<double>(
+                                                context: context,
+                                                builder: (ctx) =>
+                                                    _DiscountDialog(
+                                                      initialDiscount:
+                                                          _discountAmount,
+                                                      subtotal: subtotal,
+                                                    ),
+                                              );
                                           if (result != null) {
-                                            setState(() => _discountAmount = result);
+                                            setState(
+                                              () => _discountAmount = result,
+                                            );
                                           }
                                         },
                                       ),
@@ -836,7 +800,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                           Row(
                             children: [
                               Expanded(
-                                child: ElevatedButton(
+                                child: ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF006B3C),
                                     foregroundColor: Colors.white,
@@ -844,13 +808,14 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                       vertical: 16,
                                     ),
                                   ),
+                                  icon: const Icon(Icons.receipt, size: 18),
                                   onPressed: activeOrderAsync.value == null
                                       ? null
-                                      : () => _printBill(
+                                      : () => _printReceipt(
                                           activeOrderAsync.value!,
                                           settings as Map<String, String>,
                                         ),
-                                  child: Text(
+                                  label: Text(
                                     ref.t('order.printBill'),
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
@@ -1554,6 +1519,7 @@ class _IconBtn extends StatelessWidget {
     );
   }
 }
+
 class _DiscountDialog extends ConsumerStatefulWidget {
   final double initialDiscount;
   final double subtotal;
@@ -1596,12 +1562,17 @@ class _DiscountDialogState extends ConsumerState<_DiscountDialog> {
             controller: _ctrl,
             autofocus: true,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+            ],
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
               labelText: ref.t('order.discountLabel'),
               labelStyle: const TextStyle(color: Colors.white54),
-              prefixIcon: const Icon(Icons.discount_outlined, color: Colors.white38),
+              prefixIcon: const Icon(
+                Icons.discount_outlined,
+                color: Colors.white38,
+              ),
             ),
             onChanged: (v) => setState(() => _val = double.tryParse(v) ?? 0),
           ),

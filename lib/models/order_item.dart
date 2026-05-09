@@ -78,7 +78,6 @@ class OrderItem {
       'is_printed_to_kitchen': isPrintedToKitchen ? 1 : 0,
       'notes': notes,
       'kitchen_round': kitchenRound,
-      'category_name': categoryName,
     };
   }
 }

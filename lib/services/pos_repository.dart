@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:sqflite_common/sqlite_api.dart';
 import 'package:st_george_pos/core/database_helper.dart';
 import 'package:st_george_pos/models/app_user.dart';
@@ -54,6 +55,9 @@ class PosRepository {
       await _loadWebData();
       if (_webStorage['categories']!.isEmpty) {
         await _seedWebData();
+      } else if (_webStorage['orders']!.isEmpty) {
+        _seedMockOrdersWeb();
+        await _saveWebData();
       }
     } else {
       // Eagerly initialize DB to fail fast on startup
@@ -68,15 +72,34 @@ class PosRepository {
       {'id': 2, 'name': 'Tea'},
       {'id': 3, 'name': 'Pastries'},
       {'id': 4, 'name': 'Soft Drinks'},
+      {'id': 5, 'name': 'Breakfast'},
+      {'id': 6, 'name': 'Main Course'},
+      {'id': 7, 'name': 'Desserts'},
     ];
 
     // Products
     _webStorage['products'] = [
       {'id': 1, 'category_id': 1, 'name': 'Macchiato', 'price': 35.0},
       {'id': 2, 'category_id': 1, 'name': 'Black Coffee', 'price': 25.0},
-      {'id': 3, 'category_id': 2, 'name': 'Black Tea', 'price': 15.0},
-      {'id': 4, 'category_id': 3, 'name': 'Croissant', 'price': 55.0},
-      {'id': 5, 'category_id': 4, 'name': 'Coca Cola', 'price': 30.0},
+      {'id': 3, 'category_id': 1, 'name': 'Caffe Latte', 'price': 45.0},
+      {'id': 4, 'category_id': 2, 'name': 'Black Tea', 'price': 15.0},
+      {'id': 5, 'category_id': 2, 'name': 'Spiced Tea', 'price': 20.0},
+      {'id': 6, 'category_id': 1, 'name': 'Cappuccino', 'price': 50.0},
+      {'id': 7, 'category_id': 3, 'name': 'Croissant', 'price': 55.0},
+      {'id': 8, 'category_id': 3, 'name': 'Chocolate Cake', 'price': 75.0},
+      {'id': 9, 'category_id': 4, 'name': 'Coca Cola', 'price': 30.0},
+      {'id': 10, 'category_id': 4, 'name': 'Water 0.5L', 'price': 20.0},
+      {'id': 11, 'category_id': 4, 'name': 'Sprite', 'price': 30.0},
+      {'id': 12, 'category_id': 4, 'name': 'Fresh Orange Juice', 'price': 65.0},
+      {'id': 13, 'category_id': 5, 'name': 'Injera Firfir', 'price': 85.0},
+      {'id': 14, 'category_id': 5, 'name': 'Chechebsa', 'price': 95.0},
+      {'id': 15, 'category_id': 5, 'name': 'Ful Medames', 'price': 75.0},
+      {'id': 16, 'category_id': 6, 'name': 'Doro Wat', 'price': 350.0},
+      {'id': 17, 'category_id': 6, 'name': 'Beef Tibs', 'price': 280.0},
+      {'id': 18, 'category_id': 6, 'name': 'Kitfo', 'price': 420.0},
+      {'id': 19, 'category_id': 6, 'name': 'Pasta with Meat', 'price': 120.0},
+      {'id': 20, 'category_id': 7, 'name': 'Fruit Salad', 'price': 60.0},
+      {'id': 21, 'category_id': 7, 'name': 'Ice Cream', 'price': 45.0},
     ];
 
     // Waiters
@@ -111,7 +134,172 @@ class PosRepository {
       {'id': 10, 'name': 'Table 10', 'status': 'available', 'zone_id': 5},
     ];
 
+    _seedMockOrdersWeb();
     await _saveWebData();
+  }
+
+  void _seedMockOrdersWeb() {
+    final random = Random();
+    final now = DateTime.now();
+    final tables = _webStorage['tables']!;
+    final waiters = _webStorage['waiters']!;
+    final users = _webStorage['users']!;
+    final products = _webStorage['products']!;
+    final categories = _webStorage['categories']!;
+
+    // Build category_id -> category_name map
+    final catNames = <int, String>{};
+    for (final c in categories) {
+      catNames[c['id'] as int] = c['name'] as String;
+    }
+
+    _webStorage['orders'] = [];
+    _webStorage['order_items'] = [];
+    int orderId = 1;
+
+    for (int i = 0; i < 30; i++) {
+      final date = now.subtract(Duration(days: i));
+      final ordersCount = 5 + random.nextInt(10);
+
+      for (int j = 0; j < ordersCount; j++) {
+        final hour = 8 + random.nextInt(13);
+        final minute = random.nextInt(60);
+        final orderTime = DateTime(
+          date.year,
+          date.month,
+          date.day,
+          hour,
+          minute,
+        );
+
+        final table = tables[random.nextInt(tables.length)];
+        final waiter = waiters[random.nextInt(waiters.length)];
+        final cashier = users[random.nextInt(users.length)];
+
+        double subtotal = 0.0;
+        final itemCount = 2 + random.nextInt(5);
+        final items = <Map<String, dynamic>>[];
+
+        for (int k = 0; k < itemCount; k++) {
+          final prod = products[random.nextInt(products.length)];
+          final qty = 1 + random.nextInt(3);
+          final price = (prod['price'] as num).toDouble();
+          final lineTotal = price * qty;
+          subtotal += lineTotal;
+
+          items.add({
+            'product_id': prod['id'],
+            'quantity': qty,
+            'unit_price': price,
+            'subtotal': lineTotal,
+            'is_printed_to_kitchen': 1,
+            'product_name': prod['name'],
+            'category_name': catNames[prod['category_id'] as int] ?? 'Other',
+          });
+        }
+
+        final sc = subtotal * 0.05;
+        final discount = random.nextDouble() < 0.2 ? (subtotal * 0.1) : 0.0;
+
+        final order = {
+          'id': orderId,
+          'table_id': table['id'],
+          'waiter_id': waiter['id'],
+          'cashier_id': cashier['id'],
+          'table_name': table['name'],
+          'waiter_name': waiter['name'],
+          'cashier_name': cashier['username'],
+          'status': random.nextDouble() < 0.9 ? 'completed' : 'cancelled',
+          'created_at': orderTime.toIso8601String(),
+          'updated_at': orderTime
+              .add(const Duration(minutes: 30))
+              .toIso8601String(),
+          'total_amount': subtotal,
+          'service_charge': sc,
+          'discount_amount': discount,
+          'session_id': '',
+          'is_held': 0,
+          'parent_order_id': null,
+          'zone_id': table['zone_id'],
+        };
+
+        _webStorage['orders']!.add(order);
+
+        for (final item in items) {
+          item['order_id'] = orderId;
+          item['created_at'] = orderTime.toIso8601String();
+          _webStorage['order_items']!.add(item);
+        }
+
+        orderId++;
+      }
+    }
+
+    // Update some tables to occupied status to show active orders
+    // Pick 2 tables and make them occupied with pending orders
+    if (tables.length >= 2) {
+      for (int i = 0; i < 2; i++) {
+        final t = tables[random.nextInt(tables.length)];
+        t['status'] = 'occupied';
+        final w = waiters[random.nextInt(waiters.length)];
+        final tz = _webStorage['table_zones']!.firstWhere(
+          (z) => z['id'] == t['zone_id'],
+          orElse: () => {'id': null},
+        );
+
+        // Create a pending active order for this table
+        double subtotal = 0.0;
+        final itemCount = 2 + random.nextInt(3);
+        final activeItems = <Map<String, dynamic>>[];
+
+        for (int k = 0; k < itemCount; k++) {
+          final prod = products[random.nextInt(products.length)];
+          final qty = 1 + random.nextInt(2);
+          final price = (prod['price'] as num).toDouble();
+          final lineTotal = price * qty;
+          subtotal += lineTotal;
+          activeItems.add({
+            'product_id': prod['id'],
+            'quantity': qty,
+            'unit_price': price,
+            'subtotal': lineTotal,
+            'is_printed_to_kitchen': k == 0 ? 1 : 0,
+            'product_name': prod['name'],
+            'category_name': catNames[prod['category_id'] as int] ?? 'Other',
+          });
+        }
+
+        final activeOrder = {
+          'id': orderId,
+          'table_id': t['id'],
+          'waiter_id': w['id'],
+          'cashier_id': null,
+          'table_name': t['name'],
+          'waiter_name': w['name'],
+          'cashier_name': '',
+          'status': 'pending',
+          'created_at': now.toIso8601String(),
+          'updated_at': now.toIso8601String(),
+          'total_amount': subtotal,
+          'service_charge': 0.0,
+          'discount_amount': 0.0,
+          'session_id': '',
+          'is_held': 0,
+          'parent_order_id': null,
+          'zone_id': t['zone_id'],
+        };
+
+        _webStorage['orders']!.add(activeOrder);
+
+        for (final item in activeItems) {
+          item['order_id'] = orderId;
+          item['created_at'] = now.toIso8601String();
+          _webStorage['order_items']!.add(item);
+        }
+
+        orderId++;
+      }
+    }
   }
 
   Future<void> _saveWebData() async {
@@ -672,11 +860,20 @@ class PosRepository {
                 1;
       double totalToAdd = 0;
       for (var item in items) {
-        final p = _webStorage['products']!.firstWhere((p) => p['id'] == item.productId);
-        final c = _webStorage['categories']!.firstWhere((c) => c['id'] == p['category_id']);
+        final p = _webStorage['products']!.firstWhere(
+          (p) => p['id'] == item.productId,
+        );
+        final c = _webStorage['categories']!.firstWhere(
+          (c) => c['id'] == p['category_id'],
+        );
         final itemMap = item
-            .copyWith(orderId: orderId, kitchenRound: nextRound, categoryName: c['name'])
+            .copyWith(
+              orderId: orderId,
+              kitchenRound: nextRound,
+              categoryName: c['name'],
+            )
             .toMap();
+        itemMap['category_name'] = c['name'];
         itemMap['id'] =
             (_webStorage['order_items']!.isEmpty
                 ? 0
