@@ -318,6 +318,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         final subtotal = order.totalAmount;
         final sc = subtotal * (serviceChargePercent / 100);
 
+        final currentUser = ref.read(authProvider);
         await ref
             .read(posRepositoryProvider)
             .completeOrder(
@@ -325,6 +326,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
               order.tableId,
               serviceCharge: sc,
               discountAmount: _discountAmount,
+              completedBy: currentUser?.id,
             );
 
         ref.refresh(tablesProvider);

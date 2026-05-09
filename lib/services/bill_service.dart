@@ -36,10 +36,9 @@ class BillService {
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            // Header
             pw.Center(
               child: pw.Text(
-                'KITCHEN ORDER',
+                t('print.kitchenOrder'),
                 style: pw.TextStyle(
                   fontSize: 16,
                   fontWeight: pw.FontWeight.bold,
@@ -48,7 +47,7 @@ class BillService {
             ),
             pw.Center(
               child: pw.Text(
-                'Round: $roundNumber',
+                t('print.roundNumber', replacements: {'n': '$roundNumber'}),
                 style: pw.TextStyle(
                   fontSize: 14,
                   fontWeight: pw.FontWeight.bold,
@@ -58,14 +57,12 @@ class BillService {
             pw.SizedBox(height: 8),
             pw.Divider(thickness: 1),
 
-            // Info
-            _receiptRow('Table:', order.tableName),
-            _receiptRow('Order:', '#${order.id ?? "—"}'),
-            _receiptRow('Waiter:', order.waiterName),
-            _receiptRow('Time:', dateStr),
+            _receiptRow('${t('print.table')}:', order.tableName),
+            _receiptRow('${t('print.orderNumber')}:', '#${order.id ?? "—"}'),
+            _receiptRow('${t('print.waiter')}:', order.waiterName),
+            _receiptRow('${t('print.time')}:', dateStr),
             pw.Divider(thickness: 1),
 
-            // Items
             pw.SizedBox(height: 4),
             ...items.map(
               (item) => pw.Padding(
@@ -84,7 +81,7 @@ class BillService {
                       pw.Padding(
                         padding: const pw.EdgeInsets.only(left: 10, top: 1),
                         child: pw.Text(
-                          '>> ${item.notes}',
+                          '${t('print.note')}: ${item.notes}',
                           style: const pw.TextStyle(fontSize: 10),
                         ),
                       ),
@@ -96,7 +93,7 @@ class BillService {
             pw.Divider(thickness: 1),
             pw.Center(
               child: pw.Text(
-                'Items: ${items.length} | Round: $roundNumber',
+                '${t('print.items', replacements: {'count': '${items.length}'})} | ${t('print.roundNumber', replacements: {'n': '$roundNumber'})}',
                 style: const pw.TextStyle(fontSize: 9),
               ),
             ),

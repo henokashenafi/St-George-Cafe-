@@ -32,7 +32,8 @@
     "sentToKitchen": "ወደ ማእድ ቤት ተልኳል",
     "newItems": "አዲስ እቃዎች",
     "sendToKitchen": "ወደ ማእድ ቤት ላክ",
-    "printBill": "ሂሳብ አትም",
+    "printBill": "ደረሰኝ አትም",
+    "addToOrder": "የማዘዣ ሂሳብ አትም",
     "cartEmpty": "ቅርጫቱ ባዶ ነው",
     "selectTable": "ጠረጴዛ ይምረጡ",
     "selectWaiter": "አስተናጋጅ ይምረጡ",
@@ -68,7 +69,7 @@
     "discount": "ቅነሳ (ብር)",
     "totalToPay": "ለመክፈል ድምር",
     "cancel": "ይቅር",
-    "printBill": "ሂሳብ አትም"
+    "printBill": "ደረሰኝ አትም"
   },
   "main": {
     "title": "ዳሽቦርድ",
@@ -397,7 +398,8 @@
     "address": "አዲስ አበባ, ኢትዮጵያ",
     "orderNumber": "ትዕዛዝ",
     "roundNumber": "ዙር #{n}",
-    "items": "{count} እቃ(ዎች)"
+    "items": "{count} እቃ(ዎች)",
+    "note": "ማስታወሻ"
   },
   "cafe": {
     "name": "ቅዱስ ጊዮርጊስ ካፌ",

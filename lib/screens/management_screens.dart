@@ -615,27 +615,53 @@ class OrderHistoryScreen extends ConsumerWidget {
                             ),
                         ],
                       ),
-                      children: o.items
-                          .map(
-                            (item) => ListTile(
-                              dense: true,
-                              title: Text(item.productName),
-                              subtitle:
-                                  item.notes != null && item.notes!.isNotEmpty
-                                  ? Text(
-                                      item.notes!,
-                                      style: const TextStyle(
-                                        color: Colors.white38,
-                                        fontSize: 11,
-                                      ),
-                                    )
-                                  : null,
-                              trailing: Text(
-                                '${item.quantity} × ${item.unitPrice.toStringAsFixed(2)}',
+                      children: [
+                        ...o.items
+                            .map(
+                              (item) => ListTile(
+                                dense: true,
+                                title: Text(item.productName),
+                                subtitle:
+                                    item.notes != null && item.notes!.isNotEmpty
+                                    ? Text(
+                                        item.notes!,
+                                        style: const TextStyle(
+                                          color: Colors.white38,
+                                          fontSize: 11,
+                                        ),
+                                      )
+                                    : null,
+                                trailing: Text(
+                                  '${item.quantity} × ${item.unitPrice.toStringAsFixed(2)}',
+                                ),
                               ),
+                            )
+                            .toList(),
+                        if (o.discountAmount > 0)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${ref.t('print.discount')} (${o.cashierName})',
+                                  style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  '-${o.discountAmount.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                  style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
-                          )
-                          .toList(),
+                          ),
+                      ],
                     );
                   },
                 );

@@ -1009,6 +1009,7 @@ class PosRepository {
     int tableId, {
     double serviceCharge = 0,
     double discountAmount = 0,
+    int? completedBy,
   }) async {
     if (kIsWeb) {
       final oIndex = _webStorage['orders']!.indexWhere(
@@ -1018,6 +1019,8 @@ class PosRepository {
         _webStorage['orders']![oIndex]['status'] = 'completed';
         _webStorage['orders']![oIndex]['service_charge'] = serviceCharge;
         _webStorage['orders']![oIndex]['discount_amount'] = discountAmount;
+        if (completedBy != null)
+          _webStorage['orders']![oIndex]['completed_by'] = completedBy;
       }
       await updateTableStatus(tableId, TableStatus.available);
       await _saveWebData();
@@ -1025,14 +1028,16 @@ class PosRepository {
     }
     final db = await _dbHelper.database;
     await db.transaction((txn) async {
+      final updates = <String, dynamic>{
+        'status': 'completed',
+        'service_charge': serviceCharge,
+        'discount_amount': discountAmount,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+      if (completedBy != null) updates['completed_by'] = completedBy;
       await txn.update(
         'orders',
-        {
-          'status': 'completed',
-          'service_charge': serviceCharge,
-          'discount_amount': discountAmount,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
+        updates,
         where: 'id = ?',
         whereArgs: [orderId],
       );

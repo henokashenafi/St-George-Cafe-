@@ -32,7 +32,7 @@
     "sentToKitchen": "SENT TO KITCHEN",
     "newItems": "NEW ITEMS",
     "sendToKitchen": "Send to Kitchen",
-    "printBill": "Print Bill",
+    "printBill": "Print Receipt",
     "cartEmpty": "Cart is empty",
     "selectTable": "Select Table",
     "selectWaiter": "Select Waiter",
@@ -58,7 +58,7 @@
     "later": "LATER",
     "yesFinalize": "YES, FINALIZE",
     "completedAndFreed": "Order completed and table freed",
-    "addToOrder": "Add to Order",
+    "addToOrder": "Print Bill Order",
     "savedItems": "Saved Items",
     "selectTableFirst": "Select a table first",
     "noWaiterAssigned": "No waiter assigned",
@@ -78,7 +78,7 @@
     "discount": "Discount (ETB)",
     "totalToPay": "TOTAL TO PAY",
     "cancel": "Cancel",
-    "printBill": "Print Bill"
+    "printBill": "Print Receipt"
   },
   "main": {
     "title": "DASHBOARD",
@@ -172,7 +172,8 @@
     "stGeorgeCafe": "ST GEORGE CAFE",
     "address": "Addis Ababa, Ethiopia",
     "orderNumber": "Order",
-    "roundNumber": "Round #{n}"
+    "roundNumber": "Round #{n}",
+    "note": "Note"
   },
   "management": {
     "categories": "Categories",
