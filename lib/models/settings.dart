@@ -8,7 +8,7 @@ class CafeSettings {
 
   CafeSettings({
     this.name = 'ST GEORGE CAFE',
-    this.address = 'Addis Ababa, Ethiopia',
+    this.address = 'Bahir Dar, Ethiopia. behind ST George Church',
     this.phone = '+251 911 000000',
     this.vatNumber = '1234567890',
     this.vatRate = 5.0,
@@ -47,7 +47,7 @@ class CafeSettings {
   factory CafeSettings.fromMap(Map<String, dynamic> map) {
     return CafeSettings(
       name: map['name'] ?? 'ST GEORGE CAFE',
-      address: map['address'] ?? 'Addis Ababa, Ethiopia',
+      address: map['address'] ?? 'Bahir Dar, Ethiopia. behind ST George Church',
       phone: map['phone'] ?? '+251 911 000000',
       vatNumber: map['vatNumber'] ?? '1234567890',
       vatRate: (map['vatRate'] ?? 5.0).toDouble(),

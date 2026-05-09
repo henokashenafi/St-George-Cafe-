@@ -1311,7 +1311,10 @@ class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
                 ],
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  labelText: ref.t('order.discountLabel'),
+                  labelText: ref.t(
+                    'order.discountLabel',
+                    replacements: {'currency': ref.t('common.currency')},
+                  ),
                   labelStyle: const TextStyle(color: Colors.white54),
                   prefixIcon: const Icon(
                     Icons.discount_outlined,
@@ -1641,7 +1644,10 @@ class _DiscountDialogState extends ConsumerState<_DiscountDialog> {
             ],
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              labelText: ref.t('order.discountLabel'),
+              labelText: ref.t(
+                'order.discountLabel',
+                replacements: {'currency': ref.t('common.currency')},
+              ),
               labelStyle: const TextStyle(color: Colors.white54),
               prefixIcon: const Icon(
                 Icons.discount_outlined,

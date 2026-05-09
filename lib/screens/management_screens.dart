@@ -99,8 +99,10 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                       : () => _showProductDialog(context, null),
                 ),
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
                   child: TextField(
                     onChanged: (val) =>
                         ref.read(productSearchProvider.notifier).set(val),
@@ -108,8 +110,10 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                     decoration: InputDecoration(
                       hintText: ref.t('common.searchPlaceholder'),
                       hintStyle: const TextStyle(color: Colors.white24),
-                      prefixIcon:
-                          const Icon(Icons.search, color: Colors.white38),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: Colors.white38,
+                      ),
                       filled: true,
                       fillColor: Colors.white.withOpacity(0.05),
                       border: const OutlineInputBorder(
@@ -123,8 +127,9 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                 Expanded(
                   child: productsAsync.when(
                     data: (products) {
-                      final query =
-                          ref.watch(productSearchProvider).toLowerCase();
+                      final query = ref
+                          .watch(productSearchProvider)
+                          .toLowerCase();
                       final filtered = products
                           .where((p) => p.name.toLowerCase().contains(query))
                           .toList();
@@ -497,21 +502,26 @@ class OrderHistoryScreen extends ConsumerWidget {
                       child: TextField(
                         onChanged: (val) =>
                             ref.read(orderSearchProvider.notifier).set(val),
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 14),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
                         decoration: InputDecoration(
                           hintText: ref.t('common.searchPlaceholder'),
                           hintStyle: const TextStyle(color: Colors.white24),
-                          prefixIcon:
-                              const Icon(Icons.search, color: Colors.white38),
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            color: Colors.white38,
+                          ),
                           filled: true,
                           fillColor: Colors.white.withOpacity(0.05),
                           border: const OutlineInputBorder(
                             borderRadius: BorderRadius.zero,
                             borderSide: BorderSide.none,
                           ),
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 0),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 0,
+                          ),
                         ),
                       ),
                     ),
@@ -541,9 +551,11 @@ class OrderHistoryScreen extends ConsumerWidget {
                   return Center(
                     child: Opacity(
                       opacity: 0.4,
-                      child: Text(query.isEmpty
-                          ? ref.t('management.noOrdersInRange')
-                          : ref.t('common.noResultsFound')),
+                      child: Text(
+                        query.isEmpty
+                            ? ref.t('management.noOrdersInRange')
+                            : ref.t('common.noResultsFound'),
+                      ),
                     ),
                   );
                 }
@@ -552,86 +564,81 @@ class OrderHistoryScreen extends ConsumerWidget {
                   itemCount: filtered.length,
                   itemBuilder: (_, i) {
                     final o = filtered[i];
-                        final settings =
-                            ref.watch(appSettingsProvider).value ?? {};
-                        final scPercent =
-                            double.tryParse(
-                              settings['service_charge_percent'] ?? '5',
-                            ) ??
-                            5;
-                        return ExpansionTile(
-                          title: Text(
-                            ref.t(
-                              'management.order',
-                              replacements: {
-                                'id': '${o.id}',
-                                'table': o.tableName,
-                              },
+                    final settings = ref.watch(appSettingsProvider).value ?? {};
+                    final scPercent =
+                        double.tryParse(
+                          settings['service_charge_percent'] ?? '5',
+                        ) ??
+                        5;
+                    return ExpansionTile(
+                      title: Text(
+                        ref.t(
+                          'management.order',
+                          replacements: {'id': '${o.id}', 'table': o.tableName},
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${ref.t('bill.waiter')}: ${o.waiterName}  |  ${ref.t('bill.cashier')}: ${o.cashierName}  |  ${DateFormat('dd/MM HH:mm').format(o.createdAt)}',
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${o.grandTotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                            style: const TextStyle(
+                              color: Color(0xFFD4AF37),
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          subtitle: Text(
-                            '${ref.t('bill.waiter')}: ${o.waiterName}  |  ${ref.t('bill.cashier')}: ${o.cashierName}  |  ${DateFormat('dd/MM HH:mm').format(o.createdAt)}',
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '${o.grandTotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                style: const TextStyle(
-                                  color: Color(0xFFD4AF37),
-                                  fontWeight: FontWeight.bold,
-                                ),
+                          const SizedBox(width: 8),
+                          if (o.status == OrderStatus.completed)
+                            IconButton(
+                              icon: const Icon(
+                                Icons.print_outlined,
+                                size: 20,
+                                color: Colors.white54,
                               ),
-                              const SizedBox(width: 8),
-                              if (o.status == OrderStatus.completed)
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.print_outlined,
-                                    size: 20,
-                                    color: Colors.white54,
-                                  ),
-                                  tooltip: ref.t('management.reprintBill'),
-                                  onPressed: () async {
-                                    final settings = await ref.read(
-                                      cafeSettingsProvider.future,
-                                    );
-                                    BillService.generateAndDownloadBill(
-                                      order: o,
-                                      items: o.items,
-                                      settings: settings,
-                                      cashierName: o.cashierName,
-                                      serviceChargePercent: scPercent,
-                                      t: ref.t,
-                                    );
-                                  },
-                                ),
-                            ],
-                          ),
-                          children: o.items
-                              .map(
-                                (item) => ListTile(
-                                  dense: true,
-                                  title: Text(item.productName),
-                                  subtitle:
-                                      item.notes != null &&
-                                          item.notes!.isNotEmpty
-                                      ? Text(
-                                          item.notes!,
-                                          style: const TextStyle(
-                                            color: Colors.white38,
-                                            fontSize: 11,
-                                          ),
-                                        )
-                                      : null,
-                                  trailing: Text(
-                                    '${item.quantity} × ${item.unitPrice.toStringAsFixed(2)}',
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        );
-                      },
+                              tooltip: ref.t('management.reprintBill'),
+                              onPressed: () async {
+                                final settings = await ref.read(
+                                  cafeSettingsProvider.future,
+                                );
+                                BillService.generateAndDownloadBill(
+                                  order: o,
+                                  items: o.items,
+                                  settings: settings,
+                                  cashierName: o.cashierName,
+                                  serviceChargePercent: scPercent,
+                                  t: ref.t,
+                                );
+                              },
+                            ),
+                        ],
+                      ),
+                      children: o.items
+                          .map(
+                            (item) => ListTile(
+                              dense: true,
+                              title: Text(item.productName),
+                              subtitle:
+                                  item.notes != null && item.notes!.isNotEmpty
+                                  ? Text(
+                                      item.notes!,
+                                      style: const TextStyle(
+                                        color: Colors.white38,
+                                        fontSize: 11,
+                                      ),
+                                    )
+                                  : null,
+                              trailing: Text(
+                                '${item.quantity} × ${item.unitPrice.toStringAsFixed(2)}',
+                              ),
+                            ),
+                          )
+                          .toList(),
                     );
+                  },
+                );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Text('$e'),
@@ -854,8 +861,11 @@ class ReportsScreen extends ConsumerWidget {
 
               final completed = orderList
                   .where((o) => o.status == OrderStatus.completed)
-                  .where((o) =>
-                      selectedWaiterId == null || o.waiterId == selectedWaiterId)
+                  .where(
+                    (o) =>
+                        selectedWaiterId == null ||
+                        o.waiterId == selectedWaiterId,
+                  )
                   .toList();
 
               if (completed.isEmpty) {
@@ -867,11 +877,18 @@ class ReportsScreen extends ConsumerWidget {
                 );
               }
 
-              final subtotalSum = completed.fold(0.0, (s, o) => s + o.totalAmount);
-              final serviceSum =
-                  completed.fold(0.0, (s, o) => s + o.serviceCharge);
-              final discountSum =
-                  completed.fold(0.0, (s, o) => s + o.discountAmount);
+              final subtotalSum = completed.fold(
+                0.0,
+                (s, o) => s + o.totalAmount,
+              );
+              final serviceSum = completed.fold(
+                0.0,
+                (s, o) => s + o.serviceCharge,
+              );
+              final discountSum = completed.fold(
+                0.0,
+                (s, o) => s + o.discountAmount,
+              );
               final grandSum = completed.fold(0.0, (s, o) => s + o.grandTotal);
               final itemsSoldTotal = completed.fold(
                 0,
@@ -970,10 +987,14 @@ class ReportsScreen extends ConsumerWidget {
                         child: Column(
                           children: [
                             _SectionHeader(
-                                title: ref.t('management.categorySales'),
-                                icon: Icons.pie_chart_outline),
+                              title: ref.t('management.categorySales'),
+                              icon: Icons.pie_chart_outline,
+                            ),
                             const SizedBox(height: 10),
-                            _buildCategoryChart(context, analytics.categorySales),
+                            _buildCategoryChart(
+                              context,
+                              analytics.categorySales,
+                            ),
                           ],
                         ),
                       ),
@@ -982,8 +1003,9 @@ class ReportsScreen extends ConsumerWidget {
                         child: Column(
                           children: [
                             _SectionHeader(
-                                title: ref.t('management.hourlySales'),
-                                icon: Icons.show_chart),
+                              title: ref.t('management.hourlySales'),
+                              icon: Icons.show_chart,
+                            ),
                             const SizedBox(height: 10),
                             _buildHourlyChart(context, analytics.hourlySales),
                           ],
@@ -993,25 +1015,34 @@ class ReportsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 40),
                   _SectionHeader(
-                      title: ref.t('management.topProducts'),
-                      icon: Icons.star_outline),
+                    title: ref.t('management.topProducts'),
+                    icon: Icons.star_outline,
+                  ),
                   const SizedBox(height: 10),
                   _buildTopProductsTable(context, analytics.topProducts, ref),
                   const SizedBox(height: 40),
                   _SectionHeader(
-                      title: ref.t('management.performance'), icon: Icons.person_outline),
+                    title: ref.t('management.performance'),
+                    icon: Icons.person_outline,
+                  ),
                   const SizedBox(height: 10),
-                  _buildWaiterPerformanceTable(context, analytics.waiterPerformance, ref),
+                  _buildWaiterPerformanceTable(
+                    context,
+                    analytics.waiterPerformance,
+                    ref,
+                  ),
                   const SizedBox(height: 40),
                   _SectionHeader(
-                      title: ref.t('management.dailySales'),
-                      icon: Icons.calendar_today_outlined),
+                    title: ref.t('management.dailySales'),
+                    icon: Icons.calendar_today_outlined,
+                  ),
                   const SizedBox(height: 10),
                   _buildDailySalesTable(context, analytics.dailySales, ref),
                   const SizedBox(height: 40),
                   _SectionHeader(
-                      title: ref.t('management.salesRecord'),
-                      icon: Icons.list_alt_outlined),
+                    title: ref.t('management.salesRecord'),
+                    icon: Icons.list_alt_outlined,
+                  ),
                   const SizedBox(height: 10),
                   _buildSalesRecordList(context, completed, ref),
                 ],
@@ -1025,102 +1056,127 @@ class ReportsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTopProductsTable(BuildContext context,
-      Map<String, ({int qty, double revenue})> products, WidgetRef ref) {
+  Widget _buildTopProductsTable(
+    BuildContext context,
+    Map<String, ({int qty, double revenue})> products,
+    WidgetRef ref,
+  ) {
     return GlassContainer(
       opacity: 0.05,
       child: Column(
-        children: (products.entries.toList()
-              ..sort((a, b) => b.value.qty.compareTo(a.value.qty)))
-            .take(10)
-            .map((e) => ListTile(
-                  dense: true,
-                  title: Text(
-                    e.key,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    '${ref.t('management.revenue')}: ${e.value.revenue.toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 10, color: Colors.white38),
-                  ),
-                  trailing: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD4AF37).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4),
+        children:
+            (products.entries.toList()
+                  ..sort((a, b) => b.value.qty.compareTo(a.value.qty)))
+                .take(10)
+                .map(
+                  (e) => ListTile(
+                    dense: true,
+                    title: Text(
+                      e.key,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    child: Text(
-                      '${e.value.qty} ${ref.t('management.qtySold')}',
+                    subtitle: Text(
+                      '${ref.t('management.revenue')}: ${e.value.revenue.toStringAsFixed(2)}',
                       style: const TextStyle(
-                        color: Color(0xFFD4AF37),
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                        color: Colors.white38,
+                      ),
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD4AF37).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${e.value.qty} ${ref.t('management.qtySold')}',
+                        style: const TextStyle(
+                          color: Color(0xFFD4AF37),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
-                ))
-            .toList(),
+                )
+                .toList(),
       ),
     );
   }
 
   Widget _buildWaiterPerformanceTable(
-      BuildContext context, Map<String, ({int orders, double revenue})> performance, WidgetRef ref) {
+    BuildContext context,
+    Map<String, ({int orders, double revenue})> performance,
+    WidgetRef ref,
+  ) {
     return GlassContainer(
       opacity: 0.05,
       child: Column(
         children: performance.entries
-            .map((e) => ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFF006B3C),
-                    child: Icon(Icons.person, size: 18, color: Colors.white),
+            .map(
+              (e) => ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFF006B3C),
+                  child: Icon(Icons.person, size: 18, color: Colors.white),
+                ),
+                title: Text(e.key),
+                subtitle: Text(
+                  '${e.value.orders} ${ref.t('management.orderCount')}',
+                  style: const TextStyle(fontSize: 11),
+                ),
+                trailing: Text(
+                  '${e.value.revenue.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                  style: const TextStyle(
+                    color: Color(0xFFD4AF37),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
                   ),
-                  title: Text(e.key),
-                  subtitle: Text(
-                    '${e.value.orders} ${ref.t('management.orderCount')}',
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  trailing: Text(
-                    '${e.value.revenue.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                    style: const TextStyle(
-                      color: Color(0xFFD4AF37),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ))
+                ),
+              ),
+            )
             .toList(),
       ),
     );
   }
 
   Widget _buildDailySalesTable(
-      BuildContext context, Map<String, double> dailySales, WidgetRef ref) {
+    BuildContext context,
+    Map<String, double> dailySales,
+    WidgetRef ref,
+  ) {
     return GlassContainer(
       opacity: 0.05,
       child: Column(
-        children: (dailySales.entries.toList()
-              ..sort((a, b) => b.key.compareTo(a.key)))
-            .take(10)
-            .map((e) => ListTile(
-                  dense: true,
-                  title: Text(e.key),
-                  trailing: Text(
-                    '${e.value.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                    style: const TextStyle(
-                      color: Color(0xFFD4AF37),
-                      fontWeight: FontWeight.bold,
+        children:
+            (dailySales.entries.toList()
+                  ..sort((a, b) => b.key.compareTo(a.key)))
+                .take(10)
+                .map(
+                  (e) => ListTile(
+                    dense: true,
+                    title: Text(e.key),
+                    trailing: Text(
+                      '${e.value.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                      style: const TextStyle(
+                        color: Color(0xFFD4AF37),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ))
-            .toList(),
+                )
+                .toList(),
       ),
     );
   }
 
   Widget _buildSalesRecordList(
-      BuildContext context, List<OrderModel> orders, WidgetRef ref) {
+    BuildContext context,
+    List<OrderModel> orders,
+    WidgetRef ref,
+  ) {
     return GlassContainer(
       opacity: 0.05,
       child: ListView.separated(
@@ -1143,18 +1199,16 @@ class ReportsScreen extends ConsumerWidget {
                 child: Text(
                   '#${o.id}',
                   style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white54),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white54,
+                  ),
                 ),
               ),
             ),
             title: Text(
               o.tableName,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             subtitle: Text(
               '${o.waiterName} • ${DateFormat('HH:mm').format(o.createdAt)}',
@@ -1168,14 +1222,16 @@ class ReportsScreen extends ConsumerWidget {
               ),
             ),
             children: o.items
-                .map((item) => ListTile(
-                      dense: true,
-                      title: Text(item.productName),
-                      trailing: Text(
-                        '${item.quantity} × ${item.unitPrice.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ))
+                .map(
+                  (item) => ListTile(
+                    dense: true,
+                    title: Text(item.productName),
+                    trailing: Text(
+                      '${item.quantity} × ${item.unitPrice.toStringAsFixed(2)}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                )
                 .toList(),
           );
         },
@@ -1219,10 +1275,7 @@ class _StatSummaryCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -1241,6 +1294,7 @@ class _StatSummaryCard extends StatelessWidget {
     );
   }
 }
+
 class _SectionHeader extends StatelessWidget {
   final String title;
   final IconData icon;
@@ -1332,7 +1386,8 @@ class _DateFilterChips extends ConsumerWidget {
               initialDateRange: filter.from != null && filter.to != null
                   ? DateTimeRange(
                       start: filter.from!,
-                      end: filter.to!.subtract(const Duration(days: 1)))
+                      end: filter.to!.subtract(const Duration(days: 1)),
+                    )
                   : null,
               builder: (ctx, child) => Theme(
                 data: Theme.of(ctx).copyWith(
@@ -1673,7 +1728,9 @@ Widget _buildCategoryChart(BuildContext context, Map<String, double> data) {
   if (data.isEmpty)
     return const SizedBox(
       height: 200,
-      child: Center(child: Text('No data', style: TextStyle(color: Colors.white38))),
+      child: Center(
+        child: Text('No data', style: TextStyle(color: Colors.white38)),
+      ),
     );
 
   final colors = [
@@ -1688,28 +1745,66 @@ Widget _buildCategoryChart(BuildContext context, Map<String, double> data) {
   return GlassContainer(
     opacity: 0.05,
     child: Container(
-      height: 250,
-      padding: const EdgeInsets.all(24),
-      child: PieChart(
-        PieChartData(
-          sectionsSpace: 4,
-          centerSpaceRadius: 40,
-          sections: data.entries.toList().asMap().entries.map((e) {
-            final index = e.key;
-            final entry = e.value;
-            return PieChartSectionData(
-              color: colors[index % colors.length],
-              value: entry.value,
-              title: '${entry.key}\n${entry.value.toStringAsFixed(0)}',
-              radius: 60,
-              titleStyle: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+      height: 320,
+      padding: const EdgeInsets.fromLTRB(32, 24, 32, 8),
+      child: Column(
+        children: [
+          Expanded(
+            child: PieChart(
+              PieChartData(
+                sectionsSpace: 3,
+                centerSpaceRadius: 50,
+                sections: data.entries.toList().asMap().entries.map((e) {
+                  final index = e.key;
+                  final entry = e.value;
+                  final isSmall =
+                      entry.value < data.values.reduce((a, b) => a < b ? a : b);
+                  return PieChartSectionData(
+                    color: colors[index % colors.length],
+                    value: entry.value,
+                    title: entry.value >= 1
+                        ? '${entry.key}\n${entry.value.toStringAsFixed(0)}'
+                        : '',
+                    radius: isSmall ? 70 : 85,
+                    titleStyle: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  );
+                }).toList(),
               ),
-            );
-          }).toList(),
-        ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            alignment: WrapAlignment.center,
+            children: data.entries.toList().asMap().entries.map((e) {
+              final index = e.key;
+              final entry = e.value;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: colors[index % colors.length],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${entry.key} (${entry.value.toStringAsFixed(0)})',
+                    style: const TextStyle(fontSize: 10, color: Colors.white60),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ],
       ),
     ),
   );
@@ -1719,7 +1814,9 @@ Widget _buildHourlyChart(BuildContext context, Map<int, double> data) {
   if (data.isEmpty)
     return const SizedBox(
       height: 200,
-      child: Center(child: Text('No data', style: TextStyle(color: Colors.white38))),
+      child: Center(
+        child: Text('No data', style: TextStyle(color: Colors.white38)),
+      ),
     );
 
   final spots =
@@ -1736,13 +1833,17 @@ Widget _buildHourlyChart(BuildContext context, Map<int, double> data) {
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            getDrawingHorizontalLine:
-                (value) => FlLine(color: Colors.white.withOpacity(0.05), strokeWidth: 1),
+            getDrawingHorizontalLine: (value) =>
+                FlLine(color: Colors.white.withOpacity(0.05), strokeWidth: 1),
           ),
           titlesData: FlTitlesData(
             show: true,
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
@@ -1753,7 +1854,10 @@ Widget _buildHourlyChart(BuildContext context, Map<int, double> data) {
                     padding: const EdgeInsets.only(top: 8.0),
                     child: Text(
                       '${h}:00',
-                      style: const TextStyle(color: Colors.white38, fontSize: 10),
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 10,
+                      ),
                     ),
                   );
                 },

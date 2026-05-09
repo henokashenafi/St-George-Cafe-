@@ -92,9 +92,15 @@ class SearchNotifier extends Notifier<String> {
   void set(String val) => state = val;
 }
 
-final productSearchProvider = NotifierProvider<SearchNotifier, String>(SearchNotifier.new);
-final orderSearchProvider = NotifierProvider<SearchNotifier, String>(SearchNotifier.new);
-final userSearchProvider = NotifierProvider<SearchNotifier, String>(SearchNotifier.new);
+final productSearchProvider = NotifierProvider<SearchNotifier, String>(
+  SearchNotifier.new,
+);
+final orderSearchProvider = NotifierProvider<SearchNotifier, String>(
+  SearchNotifier.new,
+);
+final userSearchProvider = NotifierProvider<SearchNotifier, String>(
+  SearchNotifier.new,
+);
 
 // ── Data Providers ────────────────────────────────────────────────────────
 
@@ -153,7 +159,11 @@ final activeOrdersProvider = FutureProvider.autoDispose<List<OrderModel>>((
 ) async {
   final repo = ref.watch(posRepositoryProvider);
   final allOrders = await repo.getAllOrders();
-  return allOrders.where((o) => o.status == 'pending').toList();
+  return allOrders
+      .where(
+        (o) => o.status == OrderStatus.pending || o.status == OrderStatus.held,
+      )
+      .toList();
 });
 
 final todaysOrdersProvider = FutureProvider.autoDispose<List<OrderModel>>((
@@ -279,8 +289,9 @@ final reportAnalyticsProvider = Provider.autoDispose<ReportAnalytics?>((ref) {
   final ordersAsync = ref.watch(ordersProvider);
   return ordersAsync.when(
     data: (list) {
-      final completed =
-          list.where((o) => o.status == OrderStatus.completed).toList();
+      final completed = list
+          .where((o) => o.status == OrderStatus.completed)
+          .toList();
 
       final products = <String, ({int qty, double revenue})>{};
       final daily = <String, double>{};
@@ -321,14 +332,16 @@ final reportAnalyticsProvider = Provider.autoDispose<ReportAnalytics?>((ref) {
 
           final catName = item.categoryName ?? 'Other';
           categories[catName] = (categories[catName] ?? 0) + item.subtotal;
-          
-          waiterCats[wName]![catName] = (waiterCats[wName]![catName] ?? 0) + item.subtotal;
+
+          waiterCats[wName]![catName] =
+              (waiterCats[wName]![catName] ?? 0) + item.subtotal;
         }
       }
 
       final totalRevenue = completed.fold(0.0, (sum, o) => sum + o.grandTotal);
-      final avgValue =
-          completed.isEmpty ? 0.0 : totalRevenue / completed.length;
+      final avgValue = completed.isEmpty
+          ? 0.0
+          : totalRevenue / completed.length;
 
       String? mostSold;
       int maxQty = 0;

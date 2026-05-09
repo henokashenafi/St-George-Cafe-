@@ -87,7 +87,7 @@ class EnhancedBillService {
 
       // Generate PDF
       final pdf = await _generateBillPDF(combinedOrder, sessions, settings, t);
-      
+
       // Download logic would go here
       // For now, just print the receipt
       await EnhancedPrintService.printFinalReceipt(
@@ -112,9 +112,13 @@ class EnhancedBillService {
     }
 
     final subtotal = allItems.fold(0.0, (sum, item) => sum + item.subtotal);
-    final serviceChargeRate = double.tryParse(settings['serviceCharge'] ?? '0') ?? 0.0;
+    final serviceChargeRate =
+        double.tryParse(settings['serviceCharge'] ?? '0') ?? 0.0;
     final serviceCharge = subtotal * (serviceChargeRate / 100);
-    final totalDiscount = sessions.fold(0.0, (sum, session) => sum + session.discountAmount);
+    final totalDiscount = sessions.fold(
+      0.0,
+      (sum, session) => sum + session.discountAmount,
+    );
     final grandTotal = subtotal + serviceCharge - totalDiscount;
 
     return {
@@ -129,21 +133,29 @@ class EnhancedBillService {
   }
 
   /// Get session summary for display
-  static List<Map<String, dynamic>> getSessionSummaries(List<OrderModel> sessions) {
-    return sessions.map((session) => {
-      'sessionId': session.sessionId,
-      'createdAt': session.createdAt,
-      'itemCount': session.items.length,
-      'total': session.totalAmount,
-      'status': session.status.name,
-      'waiter': session.waiterName,
-    }).toList();
+  static List<Map<String, dynamic>> getSessionSummaries(
+    List<OrderModel> sessions,
+  ) {
+    return sessions
+        .map(
+          (session) => {
+            'sessionId': session.sessionId,
+            'createdAt': session.createdAt,
+            'itemCount': session.items.length,
+            'total': session.totalAmount,
+            'status': session.status.name,
+            'waiter': session.waiterName,
+          },
+        )
+        .toList();
   }
 
   /// Validate that all sessions can be combined
-  static List<String> validateSessionsForCombination(List<OrderModel> sessions) {
+  static List<String> validateSessionsForCombination(
+    List<OrderModel> sessions,
+  ) {
     final errors = <String>[];
-    
+
     if (sessions.isEmpty) {
       errors.add('No sessions to combine');
       return errors;
@@ -156,7 +168,9 @@ class EnhancedBillService {
     }
 
     // Check if any session is already completed
-    final completedSessions = sessions.where((s) => s.status == OrderStatus.completed);
+    final completedSessions = sessions.where(
+      (s) => s.status == OrderStatus.completed,
+    );
     if (completedSessions.isNotEmpty) {
       errors.add('Some sessions are already completed');
     }
@@ -179,7 +193,7 @@ class EnhancedBillService {
   ) async {
     final pdf = pw.Document();
     final now = DateTime.now();
-    
+
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -190,25 +204,25 @@ class EnhancedBillService {
             // Header
             _buildPDFHeader(settings, t, now),
             pw.SizedBox(height: 20),
-            
+
             // Order Info
             _buildPDFOrderInfo(combinedOrder, sessions, t),
             pw.SizedBox(height: 20),
-            
+
             // Sessions Summary
             if (sessions.length > 1) ...[
               _buildPDFSessionSummary(sessions, t),
               pw.SizedBox(height: 20),
             ],
-            
+
             // Items
             _buildPDFItems(combinedOrder.items, t),
             pw.SizedBox(height: 20),
-            
+
             // Totals
             _buildPDFTotals(combinedOrder, settings, t),
             pw.SizedBox(height: 20),
-            
+
             // Footer
             _buildPDFFooter(t, now),
           ],
@@ -219,15 +233,18 @@ class EnhancedBillService {
     return pdf;
   }
 
-  static pw.Widget _buildPDFHeader(Map<String, String> settings, String Function(String) t, DateTime now) {
+  static pw.Widget _buildPDFHeader(
+    Map<String, String> settings,
+    String Function(String) t,
+    DateTime now,
+  ) {
     return pw.Column(
       children: [
         pw.Text(
-          settings['restaurantName'] ?? 'ST. GEORGE CAFE',
-          style: pw.TextStyle(
-            fontSize: 24,
-            fontWeight: pw.FontWeight.bold,
-          ),
+          settings['cafe_name'] ??
+              settings['restaurantName'] ??
+              'ST. GEORGE CAFE',
+          style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
           textAlign: pw.TextAlign.center,
         ),
         if (settings['address'] != null) ...[
@@ -249,22 +266,20 @@ class EnhancedBillService {
         pw.SizedBox(height: 10),
         pw.Text(
           t('print.receipt'),
-          style: pw.TextStyle(
-            fontSize: 18,
-            fontWeight: pw.FontWeight.bold,
-          ),
+          style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
           textAlign: pw.TextAlign.center,
         ),
         pw.SizedBox(height: 10),
-        pw.Text(
-          DateFormat('dd/MM/yyyy HH:mm').format(now),
-          style: const pw.TextStyle(fontSize: 12),
-        ),
+        pw.Text(formatDate(now), style: const pw.TextStyle(fontSize: 12)),
       ],
     );
   }
 
-  static pw.Widget _buildPDFOrderInfo(OrderModel combinedOrder, List<OrderModel> sessions, String Function(String) t) {
+  static pw.Widget _buildPDFOrderInfo(
+    OrderModel combinedOrder,
+    List<OrderModel> sessions,
+    String Function(String) t,
+  ) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(15),
       decoration: pw.BoxDecoration(
@@ -279,7 +294,10 @@ class EnhancedBillService {
             children: [
               pw.Text(
                 '${t('print.table')}: ${combinedOrder.tableName}',
-                style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
               pw.Text(
                 '${t('print.waiter')}: ${combinedOrder.waiterName}',
@@ -313,7 +331,10 @@ class EnhancedBillService {
     );
   }
 
-  static pw.Widget _buildPDFSessionSummary(List<OrderModel> sessions, String Function(String) t) {
+  static pw.Widget _buildPDFSessionSummary(
+    List<OrderModel> sessions,
+    String Function(String) t,
+  ) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(15),
       decoration: pw.BoxDecoration(
@@ -328,42 +349,50 @@ class EnhancedBillService {
             style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 10),
-          ...sessions.map((session) => pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 8),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Expanded(
-                  flex: 2,
-                  child: pw.Text(
-                    DateFormat('HH:mm').format(session.createdAt),
-                    style: const pw.TextStyle(fontSize: 12),
+          ...sessions.map(
+            (session) => pw.Container(
+              margin: const pw.EdgeInsets.only(bottom: 8),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Expanded(
+                    flex: 2,
+                    child: pw.Text(
+                      DateFormat('HH:mm').format(session.createdAt),
+                      style: const pw.TextStyle(fontSize: 12),
+                    ),
                   ),
-                ),
-                pw.Expanded(
-                  flex: 1,
-                  child: pw.Text(
-                    '${session.items.length} ${t('print.items')}',
-                    style: const pw.TextStyle(fontSize: 12),
+                  pw.Expanded(
+                    flex: 1,
+                    child: pw.Text(
+                      '${session.items.length} ${t('print.items')}',
+                      style: const pw.TextStyle(fontSize: 12),
+                    ),
                   ),
-                ),
-                pw.Expanded(
-                  flex: 1,
-                  child: pw.Text(
-                    session.totalAmount.toStringAsFixed(2),
-                    style: const pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
-                    textAlign: pw.TextAlign.right,
+                  pw.Expanded(
+                    flex: 1,
+                    child: pw.Text(
+                      session.totalAmount.toStringAsFixed(2),
+                      style: const pw.TextStyle(
+                        fontSize: 12,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                      textAlign: pw.TextAlign.right,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          )),
+          ),
         ],
       ),
     );
   }
 
-  static pw.Widget _buildPDFItems(List<OrderItem> items, String Function(String) t) {
+  static pw.Widget _buildPDFItems(
+    List<OrderItem> items,
+    String Function(String) t,
+  ) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -392,14 +421,16 @@ class EnhancedBillService {
               ],
             ),
             // Items
-            ...items.map((item) => pw.TableRow(
-              children: [
-                _buildPDFCell(item.productName),
-                _buildPDFCell(item.quantity.toString()),
-                _buildPDFCell(item.unitPrice.toStringAsFixed(2)),
-                _buildPDFCell(item.subtotal.toStringAsFixed(2)),
-              ],
-            )),
+            ...items.map(
+              (item) => pw.TableRow(
+                children: [
+                  _buildPDFCell(item.productName),
+                  _buildPDFCell(item.quantity.toString()),
+                  _buildPDFCell(item.unitPrice.toStringAsFixed(2)),
+                  _buildPDFCell(item.subtotal.toStringAsFixed(2)),
+                ],
+              ),
+            ),
           ],
         ),
       ],
@@ -420,8 +451,13 @@ class EnhancedBillService {
     );
   }
 
-  static pw.Widget _buildPDFTotals(OrderModel order, Map<String, String> settings, String Function(String) t) {
-    final serviceChargeRate = double.tryParse(settings['serviceCharge'] ?? '0') ?? 0.0;
+  static pw.Widget _buildPDFTotals(
+    OrderModel order,
+    Map<String, String> settings,
+    String Function(String) t,
+  ) {
+    final serviceChargeRate =
+        double.tryParse(settings['serviceCharge'] ?? '0') ?? 0.0;
     final serviceCharge = order.totalAmount * (serviceChargeRate / 100);
     final grandTotal = order.totalAmount + serviceCharge - order.discountAmount;
 
@@ -486,11 +522,17 @@ class EnhancedBillService {
             children: [
               pw.Text(
                 t('print.total'),
-                style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
               pw.Text(
                 grandTotal.toStringAsFixed(2),
-                style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -523,7 +565,7 @@ class EnhancedBillService {
         ),
         pw.SizedBox(height: 10),
         pw.Text(
-          DateFormat('dd/MM/yyyy HH:mm:ss').format(now),
+          formatDate(now),
           style: const pw.TextStyle(fontSize: 10),
           textAlign: pw.TextAlign.center,
         ),

@@ -5,6 +5,16 @@ import 'package:intl/intl.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/models/settings.dart';
+import 'package:st_george_pos/locales/app_localizations.dart';
+import 'package:ethiopian_datetime/ethiopian_datetime.dart';
+
+String _fmtBillDate(DateTime dt) {
+  if (CalendarSettings.currentType == CalendarType.ethiopian) {
+    final et = dt.asETDateTime;
+    return ETDateFormat("MMM d, yyyy HH:mm").format(et);
+  }
+  return DateFormat('dd/MM/yyyy HH:mm').format(dt);
+}
 
 class BillService {
   // ── Kitchen Slip PDF (A5 compact) ────────────────────────────────────────
@@ -17,8 +27,7 @@ class BillService {
   }) async {
     final pdf = pw.Document();
     final now = DateTime.now();
-    final timeStr = DateFormat('HH:mm').format(now);
-    final dateStr = DateFormat('dd/MM/yyyy').format(now);
+    final dateStr = _fmtBillDate(now);
 
     pdf.addPage(
       pw.Page(
@@ -31,13 +40,19 @@ class BillService {
             pw.Center(
               child: pw.Text(
                 'KITCHEN ORDER',
-                style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
             ),
             pw.Center(
               child: pw.Text(
                 'Round: $roundNumber',
-                style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
             ),
             pw.SizedBox(height: 8),
@@ -47,7 +62,7 @@ class BillService {
             _receiptRow('Table:', order.tableName),
             _receiptRow('Order:', '#${order.id ?? "—"}'),
             _receiptRow('Waiter:', order.waiterName),
-            _receiptRow('Time:', '$timeStr | $dateStr'),
+            _receiptRow('Time:', dateStr),
             pw.Divider(thickness: 1),
 
             // Items
@@ -60,12 +75,18 @@ class BillService {
                   children: [
                     pw.Text(
                       '${item.quantity} x ${item.productName}',
-                      style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
                     ),
                     if (item.notes != null && item.notes!.isNotEmpty)
                       pw.Padding(
                         padding: const pw.EdgeInsets.only(left: 10, top: 1),
-                        child: pw.Text('>> ${item.notes}', style: const pw.TextStyle(fontSize: 10)),
+                        child: pw.Text(
+                          '>> ${item.notes}',
+                          style: const pw.TextStyle(fontSize: 10),
+                        ),
                       ),
                   ],
                 ),
@@ -102,7 +123,7 @@ class BillService {
   }) async {
     final pdf = pw.Document();
     final now = DateTime.now();
-    final dateStr = DateFormat('dd/MM/yyyy HH:mm').format(now);
+    final dateStr = _fmtBillDate(now);
     final voucherNo =
         'RCS-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${(order.id ?? 0).toString().padLeft(3, '0')}';
 
@@ -126,7 +147,10 @@ class BillService {
             pw.Center(
               child: pw.Text(
                 cafeName,
-                style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
             ),
             if (settings.address.isNotEmpty)
@@ -147,7 +171,10 @@ class BillService {
             pw.Center(
               child: pw.Text(
                 'CASH SALES INVOICE',
-                style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(
+                  fontSize: 11,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
             ),
             pw.SizedBox(height: 8),
@@ -164,10 +191,49 @@ class BillService {
             // Items Table
             pw.Row(
               children: [
-                pw.Expanded(flex: 4, child: pw.Text('Description', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold))),
-                pw.Expanded(flex: 1, child: pw.Text('Qty', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center)),
-                pw.Expanded(flex: 2, child: pw.Text('Price', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
-                pw.Expanded(flex: 2, child: pw.Text('Total', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
+                pw.Expanded(
+                  flex: 4,
+                  child: pw.Text(
+                    'Description',
+                    style: pw.TextStyle(
+                      fontSize: 9,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+                pw.Expanded(
+                  flex: 1,
+                  child: pw.Text(
+                    'Qty',
+                    style: pw.TextStyle(
+                      fontSize: 9,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                ),
+                pw.Expanded(
+                  flex: 2,
+                  child: pw.Text(
+                    'Price',
+                    style: pw.TextStyle(
+                      fontSize: 9,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                    textAlign: pw.TextAlign.right,
+                  ),
+                ),
+                pw.Expanded(
+                  flex: 2,
+                  child: pw.Text(
+                    'Total',
+                    style: pw.TextStyle(
+                      fontSize: 9,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                    textAlign: pw.TextAlign.right,
+                  ),
+                ),
               ],
             ),
             pw.SizedBox(height: 4),
@@ -176,10 +242,37 @@ class BillService {
                 padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
                 child: pw.Row(
                   children: [
-                    pw.Expanded(flex: 4, child: pw.Text(item.productName, style: const pw.TextStyle(fontSize: 9))),
-                    pw.Expanded(flex: 1, child: pw.Text('${item.quantity}', style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.center)),
-                    pw.Expanded(flex: 2, child: pw.Text(_fmt(item.unitPrice), style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.right)),
-                    pw.Expanded(flex: 2, child: pw.Text(_fmt(item.subtotal), style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.right)),
+                    pw.Expanded(
+                      flex: 4,
+                      child: pw.Text(
+                        item.productName,
+                        style: const pw.TextStyle(fontSize: 9),
+                      ),
+                    ),
+                    pw.Expanded(
+                      flex: 1,
+                      child: pw.Text(
+                        '${item.quantity}',
+                        style: const pw.TextStyle(fontSize: 9),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                    ),
+                    pw.Expanded(
+                      flex: 2,
+                      child: pw.Text(
+                        _fmt(item.unitPrice),
+                        style: const pw.TextStyle(fontSize: 9),
+                        textAlign: pw.TextAlign.right,
+                      ),
+                    ),
+                    pw.Expanded(
+                      flex: 2,
+                      child: pw.Text(
+                        _fmt(item.subtotal),
+                        style: const pw.TextStyle(fontSize: 9),
+                        textAlign: pw.TextAlign.right,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -188,21 +281,39 @@ class BillService {
 
             // Totals
             _totalRowReceipt('Subtotal:', subtotal),
-            _totalRowReceipt('Service Charge (${serviceChargePercent.toStringAsFixed(0)}%):', serviceCharge),
+            _totalRowReceipt(
+              'Service Charge (${serviceChargePercent.toStringAsFixed(0)}%):',
+              serviceCharge,
+            ),
             if (discount > 0) _totalRowReceipt('Discount:', -discount),
             pw.SizedBox(height: 4),
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text('GRAND TOTAL:', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-                pw.Text(_fmt(grandTotal), style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                pw.Text(
+                  'GRAND TOTAL:',
+                  style: pw.TextStyle(
+                    fontSize: 11,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.Text(
+                  _fmt(grandTotal),
+                  style: pw.TextStyle(
+                    fontSize: 11,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             pw.SizedBox(height: 10),
             pw.Center(
               child: pw.Text(
                 'THANK YOU!',
-                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(
+                  fontSize: 10,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
             ),
             if (settings.vatNumber.isNotEmpty)
@@ -224,23 +335,26 @@ class BillService {
   }
 
   static pw.Widget _receiptRow(String label, String value) => pw.Padding(
-        padding: const pw.EdgeInsets.symmetric(vertical: 1),
-        child: pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          children: [
-            pw.Text(label, style: const pw.TextStyle(fontSize: 9)),
-            pw.Text(value, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
-          ],
+    padding: const pw.EdgeInsets.symmetric(vertical: 1),
+    child: pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Text(label, style: const pw.TextStyle(fontSize: 9)),
+        pw.Text(
+          value,
+          style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
         ),
-      );
+      ],
+    ),
+  );
 
   static pw.Widget _totalRowReceipt(String label, double value) => pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          pw.Text(label, style: const pw.TextStyle(fontSize: 9)),
-          pw.Text(_fmt(value.abs()), style: const pw.TextStyle(fontSize: 9)),
-        ],
-      );
+    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+    children: [
+      pw.Text(label, style: const pw.TextStyle(fontSize: 9)),
+      pw.Text(_fmt(value.abs()), style: const pw.TextStyle(fontSize: 9)),
+    ],
+  );
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -299,7 +413,10 @@ class BillService {
   static String _fmt(double v) => NumberFormat('#,##0.00', 'en_US').format(v);
 
   /// Converts a number to localized words
-  static String _numberToWords(double amount, String Function(String key, {Map<String, String>? replacements}) t) {
+  static String _numberToWords(
+    double amount,
+    String Function(String key, {Map<String, String>? replacements}) t,
+  ) {
     final int whole = amount.truncate();
     final int cents = ((amount - whole) * 100).round();
     final words = _intToWords(whole, t);
@@ -309,7 +426,10 @@ class BillService {
     return '$words$centsStr ${t('numbers.only')}';
   }
 
-  static String _intToWords(int n, String Function(String key, {Map<String, String>? replacements}) t) {
+  static String _intToWords(
+    int n,
+    String Function(String key, {Map<String, String>? replacements}) t,
+  ) {
     if (n == 0) return t('numbers.zero');
     const ones = [
       '',

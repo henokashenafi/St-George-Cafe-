@@ -12,7 +12,8 @@ class GlobalSettingsScreen extends ConsumerStatefulWidget {
   const GlobalSettingsScreen({super.key});
 
   @override
-  ConsumerState<GlobalSettingsScreen> createState() => _GlobalSettingsScreenState();
+  ConsumerState<GlobalSettingsScreen> createState() =>
+      _GlobalSettingsScreenState();
 }
 
 class _GlobalSettingsScreenState extends ConsumerState<GlobalSettingsScreen> {
@@ -37,7 +38,9 @@ class _GlobalSettingsScreenState extends ConsumerState<GlobalSettingsScreen> {
       _cafeNameController.text = settings['cafe_name'] ?? 'St. George Cafe';
     }
     if (_addressController.text.isEmpty) {
-      _addressController.text = settings['cafe_address'] ?? 'Addis Ababa, Ethiopia';
+      _addressController.text =
+          settings['cafe_address'] ??
+          'Bahir Dar, Ethiopia. behind ST George Church';
     }
     if (_phoneController.text.isEmpty) {
       _phoneController.text = settings['cafe_phone'] ?? '+251 911 000000';
@@ -61,11 +64,27 @@ class _GlobalSettingsScreenState extends ConsumerState<GlobalSettingsScreen> {
     }
     setState(() => _saving = true);
     final repo = ref.read(posRepositoryProvider);
-    await repo.setSetting('cafe_name', _cafeNameController.text, currentUser.id!);
-    await repo.setSetting('cafe_address', _addressController.text, currentUser.id!);
+    await repo.setSetting(
+      'cafe_name',
+      _cafeNameController.text,
+      currentUser.id!,
+    );
+    await repo.setSetting(
+      'cafe_address',
+      _addressController.text,
+      currentUser.id!,
+    );
     await repo.setSetting('cafe_phone', _phoneController.text, currentUser.id!);
-    await repo.setSetting('service_charge_percent', charge.toString(), currentUser.id!);
-    await repo.setSetting('discount_enabled', _discountEnabled.toString(), currentUser.id!);
+    await repo.setSetting(
+      'service_charge_percent',
+      charge.toString(),
+      currentUser.id!,
+    );
+    await repo.setSetting(
+      'discount_enabled',
+      _discountEnabled.toString(),
+      currentUser.id!,
+    );
     ref.invalidate(appSettingsProvider);
     setState(() => _saving = false);
     if (mounted) {
@@ -172,15 +191,23 @@ class _GlobalSettingsScreenState extends ConsumerState<GlobalSettingsScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFD4AF37),
                   foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 onPressed: _saving ? null : _saveSettings,
                 child: _saving
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.black,
+                        ),
                       )
                     : Text(
                         ref.t('settings.save'),
@@ -276,8 +303,7 @@ class UserManagementScreen extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: TextField(
-            onChanged: (val) =>
-                ref.read(userSearchProvider.notifier).set(val),
+            onChanged: (val) => ref.read(userSearchProvider.notifier).set(val),
             style: const TextStyle(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
               hintText: ref.t('common.searchPlaceholder'),
@@ -318,93 +344,93 @@ class UserManagementScreen extends ConsumerWidget {
                       const Divider(color: Colors.white10, height: 1),
                   itemBuilder: (context, index) {
                     final u = filtered[index];
-                  final isDirector = u.role == UserRole.director;
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: isDirector
-                          ? const Color(0xFFD4AF37).withOpacity(0.2)
-                          : Colors.white10,
-                      child: Icon(
+                    final isDirector = u.role == UserRole.director;
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: isDirector
+                            ? const Color(0xFFD4AF37).withOpacity(0.2)
+                            : Colors.white10,
+                        child: Icon(
+                          isDirector
+                              ? Icons.admin_panel_settings_outlined
+                              : Icons.point_of_sale,
+                          color: isDirector
+                              ? const Color(0xFFD4AF37)
+                              : Colors.white54,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        u.username,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text(
                         isDirector
-                            ? Icons.admin_panel_settings_outlined
-                            : Icons.point_of_sale,
-                        color: isDirector
-                            ? const Color(0xFFD4AF37)
-                            : Colors.white54,
-                        size: 20,
+                            ? ref.t('settings.director')
+                            : ref.t('settings.cashier'),
+                        style: TextStyle(
+                          color: isDirector
+                              ? const Color(0xFFD4AF37)
+                              : Colors.white38,
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
-                    title: Text(
-                      u.username,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: Text(
-                      isDirector
-                          ? ref.t('settings.director')
-                          : ref.t('settings.cashier'),
-                      style: TextStyle(
-                        color: isDirector
-                            ? const Color(0xFFD4AF37)
-                            : Colors.white38,
-                        fontSize: 12,
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: u.isActive
-                                ? const Color(0xFF006B3C).withOpacity(0.2)
-                                : Colors.white10,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            u.isActive
-                                ? ref.t('settings.active')
-                                : ref.t('settings.inactive'),
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
                               color: u.isActive
-                                  ? const Color(0xFF006B3C)
-                                  : Colors.white38,
-                              letterSpacing: 1,
+                                  ? const Color(0xFF006B3C).withOpacity(0.2)
+                                  : Colors.white10,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              u.isActive
+                                  ? ref.t('settings.active')
+                                  : ref.t('settings.inactive'),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: u.isActive
+                                    ? const Color(0xFF006B3C)
+                                    : Colors.white38,
+                                letterSpacing: 1,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.edit_outlined,
-                            size: 18,
-                            color: Colors.white54,
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.edit_outlined,
+                              size: 18,
+                              color: Colors.white54,
+                            ),
+                            onPressed: () => _showUserDialog(context, ref, u),
                           ),
-                          onPressed: () => _showUserDialog(context, ref, u),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            size: 18,
-                            color: Colors.redAccent,
+                          IconButton(
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              size: 18,
+                              color: Colors.redAccent,
+                            ),
+                            onPressed: () => _confirmDelete(context, ref, u),
                           ),
-                          onPressed: () => _confirmDelete(context, ref, u),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Text('${ref.t('common.error')}: $e'),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Text('${ref.t('common.error')}: $e'),
+          ),
         ),
-      ),
       ],
     );
   }
