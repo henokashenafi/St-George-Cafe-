@@ -247,11 +247,17 @@ class ReportAnalytics {
   final Map<String, ({int qty, double revenue})> topProducts;
   final Map<String, double> dailySales;
   final Map<String, ({double revenue, int orders})> waiterPerformance;
+  final Map<String, double> categorySales;
+  final Map<int, double> hourlySales;
+  final Map<String, Map<String, double>> waiterCategorySales;
 
   ReportAnalytics({
     required this.topProducts,
     required this.dailySales,
     required this.waiterPerformance,
+    required this.categorySales,
+    required this.hourlySales,
+    required this.waiterCategorySales,
   });
 }
 
@@ -265,12 +271,19 @@ final reportAnalyticsProvider = Provider.autoDispose<ReportAnalytics?>((ref) {
       final products = <String, ({int qty, double revenue})>{};
       final daily = <String, double>{};
       final waiters = <String, ({double revenue, int orders})>{};
+      final categories = <String, double>{};
+      final hourly = <int, double>{};
+      final waiterCats = <String, Map<String, double>>{};
 
       for (final o in completed) {
         // Daily
         final dateKey =
             '${o.createdAt.year}-${o.createdAt.month}-${o.createdAt.day}';
         daily[dateKey] = (daily[dateKey] ?? 0) + o.grandTotal;
+
+        // Hourly
+        final hour = o.createdAt.hour;
+        hourly[hour] = (hourly[hour] ?? 0) + o.grandTotal;
 
         // Waiter
         final wName = o.waiterName;
@@ -280,7 +293,10 @@ final reportAnalyticsProvider = Provider.autoDispose<ReportAnalytics?>((ref) {
           orders: wData.orders + 1,
         );
 
-        // Products
+        // Waiter Category
+        if (!waiterCats.containsKey(wName)) waiterCats[wName] = {};
+
+        // Products & Categories
         for (final item in o.items) {
           final pName = item.productName;
           final pData = products[pName] ?? (qty: 0, revenue: 0.0);
@@ -288,6 +304,11 @@ final reportAnalyticsProvider = Provider.autoDispose<ReportAnalytics?>((ref) {
             qty: pData.qty + item.quantity,
             revenue: pData.revenue + item.subtotal,
           );
+
+          final catName = item.categoryName ?? 'Other';
+          categories[catName] = (categories[catName] ?? 0) + item.subtotal;
+          
+          waiterCats[wName]![catName] = (waiterCats[wName]![catName] ?? 0) + item.subtotal;
         }
       }
 
@@ -295,6 +316,9 @@ final reportAnalyticsProvider = Provider.autoDispose<ReportAnalytics?>((ref) {
         topProducts: products,
         dailySales: daily,
         waiterPerformance: waiters,
+        categorySales: categories,
+        hourlySales: hourly,
+        waiterCategorySales: waiterCats,
       );
     },
     loading: () => null,

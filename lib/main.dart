@@ -190,37 +190,37 @@ class DashboardScreen extends ConsumerWidget {
                           ref.read(dashboardViewProvider.notifier).state =
                               DashboardView.home,
                     ),
-                    if (!isDirector) ...[
-                      _SidebarItem(
-                        icon: Icons.add_shopping_cart,
-                        label: ref.t('navigation.newOrder'),
-                        isActive:
-                            ref.watch(dashboardViewProvider) ==
-                            DashboardView.newOrder,
-                        onTap: () =>
-                            ref.read(dashboardViewProvider.notifier).state =
-                                DashboardView.newOrder,
-                      ),
-                      _SidebarItem(
-                        icon: Icons.history,
-                        label: ref.t('navigation.history'),
-                        isActive:
-                            ref.watch(dashboardViewProvider) ==
-                            DashboardView.orders,
-                        onTap: () =>
-                            ref.read(dashboardViewProvider.notifier).state =
-                                DashboardView.orders,
-                      ),
-                      _SidebarItem(
-                        icon: Icons.pause_circle_outline,
-                        label: ref.t('navigation.held'),
-                        isActive:
-                            ref.watch(dashboardViewProvider) ==
-                            DashboardView.heldOrders,
-                        onTap: () =>
-                            ref.read(dashboardViewProvider.notifier).state =
-                                DashboardView.heldOrders,
-                      ),
+                    _SidebarItem(
+                      icon: Icons.add_shopping_cart,
+                      label: ref.t('navigation.newOrder'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.newOrder,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.newOrder,
+                    ),
+                    _SidebarItem(
+                      icon: Icons.history,
+                      label: ref.t('navigation.history'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.orders,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.orders,
+                    ),
+                    _SidebarItem(
+                      icon: Icons.pause_circle_outline,
+                      label: ref.t('navigation.held'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.heldOrders,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.heldOrders,
+                    ),
+                    if (isDirector) ...[
                       _SidebarItem(
                         icon: Icons.restaurant_menu,
                         label: ref.t('navigation.menu'),
@@ -252,14 +252,14 @@ class DashboardScreen extends ConsumerWidget {
                                 DashboardView.zones,
                       ),
                       _SidebarItem(
-                        icon: Icons.settings,
-                        label: ref.t('navigation.settings'),
+                        icon: Icons.manage_accounts_outlined,
+                        label: ref.t('navigation.users'),
                         isActive:
                             ref.watch(dashboardViewProvider) ==
-                            DashboardView.settings,
+                            DashboardView.users,
                         onTap: () =>
                             ref.read(dashboardViewProvider.notifier).state =
-                                DashboardView.settings,
+                                DashboardView.users,
                       ),
                     ],
                     _SidebarItem(
@@ -274,14 +274,14 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                     if (isDirector) ...[
                       _SidebarItem(
-                        icon: Icons.manage_accounts_outlined,
-                        label: ref.t('navigation.users'),
+                        icon: Icons.settings,
+                        label: ref.t('navigation.settings'),
                         isActive:
                             ref.watch(dashboardViewProvider) ==
-                            DashboardView.users,
+                            DashboardView.settings,
                         onTap: () =>
                             ref.read(dashboardViewProvider.notifier).state =
-                                DashboardView.users,
+                                DashboardView.settings,
                       ),
                     ],
                     const SizedBox(height: 40),
@@ -325,30 +325,27 @@ class DashboardScreen extends ConsumerWidget {
       case DashboardView.home:
         return const DashboardHomeScreen(key: ValueKey('home'));
       case DashboardView.newOrder:
-        if (isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
         return const OrderScreen(key: ValueKey('newOrder'));
       case DashboardView.orders:
         return const OrderHistoryScreen(key: ValueKey('orders'));
       case DashboardView.heldOrders:
-        if (isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
         return const HeldOrdersScreen(key: ValueKey('held_orders'));
       case DashboardView.menu:
-        if (isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
+        if (!isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
         return const MenuManagementScreen(key: ValueKey('menu'));
       case DashboardView.waiters:
-        if (isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
+        if (!isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
         return const WaiterManagementScreen(key: ValueKey('waiters'));
       case DashboardView.reports:
         return const ReportsScreen(key: ValueKey('reports'));
       case DashboardView.users:
-        if (!isDirector)
-          return const DashboardHomeScreen(key: ValueKey('home'));
+        if (!isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
         return const UserManagementScreen(key: ValueKey('users'));
       case DashboardView.settings:
-        if (isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
+        if (!isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
         return const TableManagementScreen(key: ValueKey('settings'));
       case DashboardView.zones:
-        if (isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
+        if (!isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
         return const ZoneManagementScreen(key: ValueKey('zones'));
       default:
         return const DashboardHomeScreen(key: ValueKey('home'));
@@ -480,7 +477,7 @@ class DashboardHomeScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 30),
         // Reports Quick Review
-        if (analytics != null) ...[
+        if (isDirector && analytics != null) ...[
           Text(
             ref.t('management.quickReview').toUpperCase(),
             style: const TextStyle(
@@ -514,26 +511,25 @@ class DashboardHomeScreen extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      ...analytics.topProducts.entries.toList()
-                        ..sort((a, b) => b.value.qty.compareTo(a.value.qty))
-                        ..take(3)
-                        .map((e) => Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(e.key,
-                                      style: const TextStyle(
-                                          fontSize: 12, color: Colors.white70)),
-                                  Text('${e.value.qty}',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12)),
-                                ],
-                              ),
-                            ))
-                        .toList(),
+                      ...(analytics.topProducts.entries.toList()
+                            ..sort((a, b) => b.value.qty.compareTo(a.value.qty)))
+                          .take(3)
+                          .map((e) => Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(e.key,
+                                        style: const TextStyle(
+                                            fontSize: 12, color: Colors.white70)),
+                                    Text('${e.value.qty}',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12)),
+                                  ],
+                                ),
+                              )),
                     ],
                   ),
                 ),
@@ -560,28 +556,27 @@ class DashboardHomeScreen extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      ...analytics.waiterPerformance.entries.toList()
-                        ..sort(
-                            (a, b) => b.value.revenue.compareTo(a.value.revenue))
-                        ..take(3)
-                        .map((e) => Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(e.key,
-                                      style: const TextStyle(
-                                          fontSize: 12, color: Colors.white70)),
-                                  Text(
-                                      '${e.value.revenue.toStringAsFixed(0)} ${ref.t('common.currency')}',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12)),
-                                ],
-                              ),
-                            ))
-                        .toList(),
+                      ...(analytics.waiterPerformance.entries.toList()
+                            ..sort((a, b) =>
+                                b.value.revenue.compareTo(a.value.revenue)))
+                          .take(3)
+                          .map((e) => Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(e.key,
+                                        style: const TextStyle(
+                                            fontSize: 12, color: Colors.white70)),
+                                    Text(
+                                        '${e.value.revenue.toStringAsFixed(0)} ${ref.t('common.currency')}',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12)),
+                                  ],
+                                ),
+                              )),
                     ],
                   ),
                 ),

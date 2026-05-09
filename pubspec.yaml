@@ -46,6 +46,7 @@ dependencies:
   printing: ^5.14.3
   shared_preferences: ^2.5.5
   crypto: ^3.0.3
+  fl_chart: ^0.70.2
   flutter_localizations:
     sdk: flutter
 

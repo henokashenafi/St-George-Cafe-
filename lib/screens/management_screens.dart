@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -846,6 +847,39 @@ class ReportsScreen extends ConsumerWidget {
                     const SizedBox(height: 28),
 
                     if (analytics != null) ...[
+                      // Advanced Charts
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _SectionHeader(
+                                  title: ref.t('management.categorySales'),
+                                  icon: Icons.pie_chart_outline,
+                                ),
+                                const SizedBox(height: 10),
+                                _buildCategoryChart(context, analytics.categorySales),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _SectionHeader(
+                                  title: ref.t('management.hourlySales'),
+                                  icon: Icons.show_chart,
+                                ),
+                                const SizedBox(height: 10),
+                                _buildHourlyChart(context, analytics.hourlySales),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1213,7 +1247,7 @@ class _Header extends ConsumerWidget {
             letterSpacing: 1.5,
           ),
         ),
-        if (onAdd != null && ref.watch(authProvider)?.role == UserRole.cashier)
+        if (onAdd != null)
           ElevatedButton.icon(
             icon: const Icon(Icons.add),
             label: Text(ref.t('management.addNew')),
@@ -1491,4 +1525,116 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
   }
+}
+
+Widget _buildCategoryChart(BuildContext context, Map<String, double> data) {
+  if (data.isEmpty)
+    return const SizedBox(
+      height: 200,
+      child: Center(child: Text('No data', style: TextStyle(color: Colors.white38))),
+    );
+
+  final colors = [
+    const Color(0xFFD4AF37),
+    const Color(0xFF006B3C),
+    const Color(0xFFC41E3A),
+    const Color(0xFF0047AB),
+    const Color(0xFF800080),
+    const Color(0xFFE97451),
+  ];
+
+  return GlassContainer(
+    opacity: 0.05,
+    child: Container(
+      height: 250,
+      padding: const EdgeInsets.all(24),
+      child: PieChart(
+        PieChartData(
+          sectionsSpace: 4,
+          centerSpaceRadius: 40,
+          sections: data.entries.toList().asMap().entries.map((e) {
+            final index = e.key;
+            final entry = e.value;
+            return PieChartSectionData(
+              color: colors[index % colors.length],
+              value: entry.value,
+              title: '${entry.key}\n${entry.value.toStringAsFixed(0)}',
+              radius: 60,
+              titleStyle: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _buildHourlyChart(BuildContext context, Map<int, double> data) {
+  if (data.isEmpty)
+    return const SizedBox(
+      height: 200,
+      child: Center(child: Text('No data', style: TextStyle(color: Colors.white38))),
+    );
+
+  final spots =
+      data.entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList()
+        ..sort((a, b) => a.x.compareTo(b.x));
+
+  return GlassContainer(
+    opacity: 0.05,
+    child: Container(
+      height: 250,
+      padding: const EdgeInsets.fromLTRB(24, 32, 32, 16),
+      child: LineChart(
+        LineChartData(
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            getDrawingHorizontalLine:
+                (value) => FlLine(color: Colors.white.withOpacity(0.05), strokeWidth: 1),
+          ),
+          titlesData: FlTitlesData(
+            show: true,
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                getTitlesWidget: (value, meta) {
+                  if (value % 3 != 0) return const SizedBox.shrink();
+                  final h = value.toInt();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      '${h}:00',
+                      style: const TextStyle(color: Colors.white38, fontSize: 10),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          borderData: FlBorderData(show: false),
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: const Color(0xFFD4AF37),
+              barWidth: 3,
+              isStrokeCapRound: true,
+              dotData: const FlDotData(show: true),
+              belowBarData: BarAreaData(
+                show: true,
+                color: const Color(0xFFD4AF37).withOpacity(0.1),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

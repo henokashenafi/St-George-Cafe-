@@ -222,6 +222,8 @@
     "qtySold": "Qty Sold",
     "performance": "Performance",
     "dailySales": "Daily Sales",
+    "categorySales": "Category Sales",
+    "hourlySales": "Peak Hours (Hourly Sales)",
     "salesRecord": "Sales Record"
   },
   "filters": {

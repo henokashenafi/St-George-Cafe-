@@ -194,6 +194,8 @@
     "qtySold": "የተሸጠ ብዛት",
     "performance": "አፈጻጸም",
     "dailySales": "የቀን ሽያጭ",
+    "categorySales": "የምድብ ሽያጭ",
+    "hourlySales": "የሰዓት ሽያጭ (ከፍተኛ ሰዓታት)",
     "salesRecord": "የሽያጭ መዝገብ",
     "transactions": "ትዕዛዛት"
   },
