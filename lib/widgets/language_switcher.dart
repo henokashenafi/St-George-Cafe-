@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
+import 'package:ethiopian_datetime/ethiopian_datetime.dart';
 
 class LanguageSwitcher extends ConsumerWidget {
   const LanguageSwitcher({super.key});
@@ -46,6 +48,96 @@ class LanguageSwitcher extends ConsumerWidget {
         onChanged: (AppLanguage? language) async {
           if (language != null) {
             await ref.read(languageProvider.notifier).changeLanguage(language);
+          }
+        },
+      ),
+    );
+  }
+}
+
+class CalendarDateDisplay extends ConsumerWidget {
+  const CalendarDateDisplay({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final calendarType = ref.watch(calendarProvider);
+    final formatted = _formatDate(calendarType);
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.calendar_month, size: 14, color: Color(0xFFD4AF37)),
+          const SizedBox(width: 6),
+          Text(
+            formatted,
+            style: const TextStyle(fontSize: 12, color: Colors.white70),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(CalendarType type) {
+    if (type == CalendarType.ethiopian) {
+      final now = ETDateTime.now();
+      return ETDateFormat("MMMM d, yyyy").format(now);
+    }
+    final now = DateTime.now();
+    return DateFormat('MMM d, yyyy').format(now);
+  }
+}
+
+class CalendarSwitcher extends ConsumerWidget {
+  const CalendarSwitcher({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentType = ref.watch(calendarProvider);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: DropdownButton<CalendarType>(
+        value: currentType,
+        dropdownColor: const Color(0xFF1A1A1A),
+        style: const TextStyle(color: Colors.white70, fontSize: 12),
+        icon: const Icon(
+          Icons.keyboard_arrow_down,
+          color: Colors.white54,
+          size: 14,
+        ),
+        underline: const SizedBox(),
+        items: [
+          DropdownMenuItem(
+            value: CalendarType.gregorian,
+            child: Text(
+              ref.t('calendar.gregorian'),
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ),
+          DropdownMenuItem(
+            value: CalendarType.ethiopian,
+            child: Text(
+              ref.t('calendar.ethiopian'),
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ),
+        ],
+        onChanged: (CalendarType? type) async {
+          if (type != null) {
+            await ref.read(calendarProvider.notifier).setCalendarType(type);
           }
         },
       ),

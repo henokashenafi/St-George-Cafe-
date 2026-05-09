@@ -40,6 +40,9 @@ void main() async {
   final savedLang = await AppLocalizations.getSavedLanguage();
   await AppLocalizations.load(savedLang);
 
+  // Initialize calendar type setting
+  await CalendarSettings.load();
+
   runApp(
     ProviderScope(
       overrides: [posRepositoryProvider.overrideWithValue(repo)],
@@ -122,6 +125,10 @@ class DashboardScreen extends ConsumerWidget {
           ),
         ),
         actions: [
+          // Calendar date display
+          const CalendarDateDisplay(),
+          // Calendar switcher
+          const CalendarSwitcher(),
           // Language switcher
           const LanguageSwitcher(),
           // Logged-in user chip
@@ -231,26 +238,28 @@ class DashboardScreen extends ConsumerWidget {
                             ref.read(dashboardViewProvider.notifier).state =
                                 DashboardView.menu,
                       ),
-                      _SidebarItem(
-                        icon: Icons.people,
-                        label: ref.t('navigation.waiters'),
-                        isActive:
-                            ref.watch(dashboardViewProvider) ==
-                            DashboardView.waiters,
-                        onTap: () =>
-                            ref.read(dashboardViewProvider.notifier).state =
-                                DashboardView.waiters,
-                      ),
-                      _SidebarItem(
-                        icon: Icons.map_outlined,
-                        label: ref.t('navigation.zones'),
-                        isActive:
-                            ref.watch(dashboardViewProvider) ==
-                            DashboardView.zones,
-                        onTap: () =>
-                            ref.read(dashboardViewProvider.notifier).state =
-                                DashboardView.zones,
-                      ),
+                    ],
+                    _SidebarItem(
+                      icon: Icons.people,
+                      label: ref.t('navigation.waiters'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.waiters,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.waiters,
+                    ),
+                    _SidebarItem(
+                      icon: Icons.map_outlined,
+                      label: ref.t('navigation.zones'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.zones,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.zones,
+                    ),
+                    if (isDirector) ...[
                       _SidebarItem(
                         icon: Icons.manage_accounts_outlined,
                         label: ref.t('navigation.users'),
@@ -331,20 +340,20 @@ class DashboardScreen extends ConsumerWidget {
       case DashboardView.heldOrders:
         return const HeldOrdersScreen(key: ValueKey('held_orders'));
       case DashboardView.menu:
-        if (!isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
+        if (!isDirector)
+          return const DashboardHomeScreen(key: ValueKey('home'));
         return const MenuManagementScreen(key: ValueKey('menu'));
       case DashboardView.waiters:
-        if (!isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
         return const WaiterManagementScreen(key: ValueKey('waiters'));
       case DashboardView.reports:
         return const ReportsScreen(key: ValueKey('reports'));
       case DashboardView.users:
-        if (!isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
+        if (!isDirector)
+          return const DashboardHomeScreen(key: ValueKey('home'));
         return const UserManagementScreen(key: ValueKey('users'));
       case DashboardView.settings:
         return const GlobalSettingsScreen(key: ValueKey('settings'));
       case DashboardView.zones:
-        if (!isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
         return const ZoneManagementScreen(key: ValueKey('zones'));
       default:
         return const DashboardHomeScreen(key: ValueKey('home'));
@@ -499,36 +508,51 @@ class DashboardHomeScreen extends ConsumerWidget {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.star,
-                              size: 16, color: Color(0xFFD4AF37)),
+                          const Icon(
+                            Icons.star,
+                            size: 16,
+                            color: Color(0xFFD4AF37),
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             ref.t('management.topProducts'),
                             style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 13),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      ...(analytics.topProducts.entries.toList()
-                            ..sort((a, b) => b.value.qty.compareTo(a.value.qty)))
+                      ...(analytics.topProducts.entries.toList()..sort(
+                            (a, b) => b.value.qty.compareTo(a.value.qty),
+                          ))
                           .take(3)
-                          .map((e) => Padding(
-                                padding: const EdgeInsets.only(bottom: 6),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(e.key,
-                                        style: const TextStyle(
-                                            fontSize: 12, color: Colors.white70)),
-                                    Text('${e.value.qty}',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12)),
-                                  ],
-                                ),
-                              )),
+                          .map(
+                            (e) => Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    e.key,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${e.value.qty}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                     ],
                   ),
                 ),
@@ -544,38 +568,52 @@ class DashboardHomeScreen extends ConsumerWidget {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.person,
-                              size: 16, color: Color(0xFFD4AF37)),
+                          const Icon(
+                            Icons.person,
+                            size: 16,
+                            color: Color(0xFFD4AF37),
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             ref.t('management.topWaiters'),
                             style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 13),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      ...(analytics.waiterPerformance.entries.toList()
-                            ..sort((a, b) =>
-                                b.value.revenue.compareTo(a.value.revenue)))
+                      ...(analytics.waiterPerformance.entries.toList()..sort(
+                            (a, b) =>
+                                b.value.revenue.compareTo(a.value.revenue),
+                          ))
                           .take(3)
-                          .map((e) => Padding(
-                                padding: const EdgeInsets.only(bottom: 6),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(e.key,
-                                        style: const TextStyle(
-                                            fontSize: 12, color: Colors.white70)),
-                                    Text(
-                                        '${e.value.revenue.toStringAsFixed(0)} ${ref.t('common.currency')}',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12)),
-                                  ],
-                                ),
-                              )),
+                          .map(
+                            (e) => Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    e.key,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${e.value.revenue.toStringAsFixed(0)} ${ref.t('common.currency')}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                     ],
                   ),
                 ),
@@ -585,7 +623,9 @@ class DashboardHomeScreen extends ConsumerWidget {
         ],
         const SizedBox(height: 30),
         // Mini stats bar
-        ref.watch(tablesProvider).when(
+        ref
+            .watch(tablesProvider)
+            .when(
               data: (allTables) {
                 final available = allTables
                     .where((t) => t.status == TableStatus.available)
@@ -593,7 +633,9 @@ class DashboardHomeScreen extends ConsumerWidget {
                 final occupied = allTables
                     .where((t) => t.status == TableStatus.occupied)
                     .length;
-                return ref.watch(waitersProvider).when(
+                return ref
+                    .watch(waitersProvider)
+                    .when(
                       data: (allWaiters) {
                         final totalTables = allTables.length;
                         final waitersOnDuty = allWaiters.length;

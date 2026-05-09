@@ -432,5 +432,10 @@
     "searchPlaceholder": "Search by name, ID...",
     "noResultsFound": "No results found",
     "noData": "No data available"
+  },
+  "calendar": {
+    "gregorian": "Gregorian",
+    "ethiopian": "Ethiopian",
+    "switchCalendar": "Switch calendar"
   }
 }

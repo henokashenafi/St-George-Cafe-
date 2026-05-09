@@ -285,6 +285,70 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     }
   }
 
+  Future<void> _completeOrder(
+    OrderModel order,
+    Map<String, String> settings,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: Text(ref.t('order.confirmComplete')),
+        content: Text(ref.t('order.confirmCompleteMessage')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(ref.t('order.later')),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF006B3C),
+            ),
+            child: Text(ref.t('order.yesFinalize')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final serviceChargePercent =
+            double.tryParse(settings['service_charge_percent'] ?? '5') ?? 5;
+        final subtotal = order.totalAmount;
+        final sc = subtotal * (serviceChargePercent / 100);
+
+        await ref
+            .read(posRepositoryProvider)
+            .completeOrder(
+              order.id!,
+              order.tableId,
+              serviceCharge: sc,
+              discountAmount: _discountAmount,
+            );
+
+        ref.refresh(tablesProvider);
+        if (selectedTable != null) {
+          ref
+              .read(activeOrderServiceProvider)
+              .refreshTableData(selectedTable!.id!);
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ref.t('order.completedAndFreed'))),
+        );
+
+        if (context.mounted) {
+          ref.read(dashboardViewProvider.notifier).state = DashboardView.home;
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${ref.t('common.error')}: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedCategoryId = ref.watch(selectedCategoryProvider);
@@ -731,6 +795,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                           ),
                                         ),
                                         onPressed: () async {
+                                          final totalBeforeDiscount =
+                                              subtotal + sc;
                                           final result =
                                               await showDialog<double>(
                                                 context: context,
@@ -738,7 +804,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                     _DiscountDialog(
                                                       initialDiscount:
                                                           _discountAmount,
-                                                      subtotal: subtotal,
+                                                      totalBeforeDiscount:
+                                                          totalBeforeDiscount,
                                                     ),
                                               );
                                           if (result != null) {
@@ -834,12 +901,19 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                       vertical: 16,
                                     ),
                                   ),
-                                  onPressed: () {
-                                    ref
-                                        .read(dashboardViewProvider.notifier)
-                                        .state = DashboardView
-                                        .home;
-                                  },
+                                  onPressed: activeOrderAsync.value == null
+                                      ? () {
+                                          ref
+                                              .read(
+                                                dashboardViewProvider.notifier,
+                                              )
+                                              .state = DashboardView
+                                              .home;
+                                        }
+                                      : () => _completeOrder(
+                                          activeOrderAsync.value!,
+                                          settings as Map<String, String>,
+                                        ),
                                   child: Text(
                                     ref.t('common.close'),
                                     style: const TextStyle(
@@ -1522,11 +1596,11 @@ class _IconBtn extends StatelessWidget {
 
 class _DiscountDialog extends ConsumerStatefulWidget {
   final double initialDiscount;
-  final double subtotal;
+  final double totalBeforeDiscount;
 
   const _DiscountDialog({
     required this.initialDiscount,
-    required this.subtotal,
+    required this.totalBeforeDiscount,
   });
 
   @override
@@ -1578,7 +1652,7 @@ class _DiscountDialogState extends ConsumerState<_DiscountDialog> {
           ),
           const SizedBox(height: 12),
           Text(
-            "${ref.t('order.total')}: ${(widget.subtotal - _val).toStringAsFixed(2)}",
+            "${ref.t('order.total')}: ${(widget.totalBeforeDiscount - _val).toStringAsFixed(2)}",
             style: const TextStyle(color: Colors.white38, fontSize: 12),
           ),
         ],
@@ -1593,7 +1667,12 @@ class _DiscountDialogState extends ConsumerState<_DiscountDialog> {
             backgroundColor: const Color(0xFFD4AF37),
             foregroundColor: Colors.black,
           ),
-          onPressed: () => Navigator.pop(context, _val),
+          onPressed: () {
+            final maxDiscount = widget.totalBeforeDiscount;
+            if (_val > maxDiscount) _val = maxDiscount;
+            if (_val < 0) _val = 0;
+            Navigator.pop(context, _val);
+          },
           child: Text(ref.t('common.save')),
         ),
       ],

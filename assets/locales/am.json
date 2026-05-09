@@ -436,5 +436,10 @@
     "error": "ስህተት",
     "errorLoading": "መረጃ መጫን አልተቻለም",
     "orderCreationFailed": "የትዕዛዝ ክፍለ-ጊዜ መጀመር አልተቻለም"
+  },
+  "calendar": {
+    "gregorian": "የጎርጎርያን",
+    "ethiopian": "ኢትዮጵያዊ",
+    "switchCalendar": "የቀን አቆጣጠር ይቀይሩ"
   }
 }

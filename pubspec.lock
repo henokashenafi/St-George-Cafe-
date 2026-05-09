@@ -169,6 +169,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.4"
+  ethiopian_datetime:
+    dependency: "direct main"
+    description:
+      name: ethiopian_datetime
+      sha256: "50fc1d387f532b0984d6b8573946a01e705acd45374ccea442a5de9fb3609c41"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.5"
   fake_async:
     dependency: transitive
     description:

@@ -9,25 +9,29 @@ class AppLocalizations {
   static Map<String, dynamic> _translations = {};
   static Map<String, dynamic> _fallbackTranslations = {};
   static AppLanguage _currentLanguage = AppLanguage.en;
-  
+
   static const String _prefKey = 'app_language';
   static const String _assetPath = 'assets/locales';
 
   static Future<void> load(AppLanguage language) async {
     try {
       // Always load English as fallback
-      final String enJsonString = await rootBundle.loadString('$_assetPath/en.json');
+      final String enJsonString = await rootBundle.loadString(
+        '$_assetPath/en.json',
+      );
       _fallbackTranslations = json.decode(enJsonString);
 
       if (language == AppLanguage.en) {
         _translations = _fallbackTranslations;
       } else {
-        final String jsonString = await rootBundle.loadString('$_assetPath/${language.name}.json');
+        final String jsonString = await rootBundle.loadString(
+          '$_assetPath/${language.name}.json',
+        );
         _translations = json.decode(jsonString);
       }
-      
+
       _currentLanguage = language;
-      
+
       // Save the selected language
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefKey, language.name);
@@ -53,10 +57,10 @@ class AppLocalizations {
     }
     return AppLanguage.en;
   }
-  
+
   static String get(String key) {
     final keys = key.split('.');
-    
+
     // First try the current language
     dynamic value = _translations;
     bool found = true;
@@ -68,7 +72,7 @@ class AppLocalizations {
         break;
       }
     }
-    
+
     if (found) return value.toString();
 
     // Fallback to English
@@ -82,26 +86,26 @@ class AppLocalizations {
         break;
       }
     }
-    
+
     if (found) return value.toString();
-    
+
     return key; // Return key if translation not found anywhere
   }
-  
+
   static String format(String key, {Map<String, String>? replacements}) {
     String result = get(key);
-    
+
     if (replacements != null) {
       replacements.forEach((placeholder, replacement) {
         result = result.replaceAll('{$placeholder}', replacement);
       });
     }
-    
+
     return result;
   }
-  
+
   static AppLanguage get currentLanguage => _currentLanguage;
-  
+
   static String getLanguageDisplayName(AppLanguage language) {
     switch (language) {
       case AppLanguage.en:
@@ -117,14 +121,60 @@ class LanguageNotifier extends Notifier<AppLanguage> {
   AppLanguage build() {
     return AppLocalizations.currentLanguage;
   }
-  
+
   Future<void> changeLanguage(AppLanguage language) async {
     await AppLocalizations.load(language);
     state = language;
   }
 }
 
-final languageProvider = NotifierProvider<LanguageNotifier, AppLanguage>(LanguageNotifier.new);
+final languageProvider = NotifierProvider<LanguageNotifier, AppLanguage>(
+  LanguageNotifier.new,
+);
+
+enum CalendarType { gregorian, ethiopian }
+
+class CalendarSettings {
+  static const String _prefKey = 'calendar_type';
+  static CalendarType _currentType = CalendarType.ethiopian;
+
+  static Future<void> load() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_prefKey);
+      if (saved != null) {
+        _currentType = CalendarType.values.firstWhere(
+          (e) => e.name == saved,
+          orElse: () => CalendarType.ethiopian,
+        );
+      }
+    } catch (e) {
+      print('Error loading calendar setting: $e');
+    }
+  }
+
+  static Future<void> save(CalendarType type) async {
+    _currentType = type;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefKey, type.name);
+  }
+
+  static CalendarType get currentType => _currentType;
+}
+
+class CalendarNotifier extends Notifier<CalendarType> {
+  @override
+  CalendarType build() => CalendarSettings.currentType;
+
+  Future<void> setCalendarType(CalendarType type) async {
+    await CalendarSettings.save(type);
+    state = type;
+  }
+}
+
+final calendarProvider = NotifierProvider<CalendarNotifier, CalendarType>(
+  CalendarNotifier.new,
+);
 
 // Extension for easy access to translations
 extension AppLocalizationsExtension on WidgetRef {
