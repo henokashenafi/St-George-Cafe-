@@ -42,7 +42,7 @@ class DatabaseHelper {
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 4,
+        version: 6,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -92,6 +92,32 @@ class DatabaseHelper {
     }
     if (oldVersion < 4) {
       await db.execute('ALTER TABLE order_items ADD COLUMN kitchen_round INTEGER DEFAULT 0');
+    }
+    if (oldVersion < 5) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS audit_logs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER,
+          action TEXT NOT NULL,
+          details TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+      ''');
+    }
+    if (oldVersion < 6) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS pos_charges (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          type TEXT NOT NULL,
+          value REAL NOT NULL,
+          is_active INTEGER DEFAULT 1
+        )
+      ''');
+      // Seed with defaults
+      await db.insert('pos_charges', {'name': 'VAT', 'type': 'addition', 'value': 15.0, 'is_active': 1});
+      await db.insert('pos_charges', {'name': 'Service Charge', 'type': 'addition', 'value': 5.0, 'is_active': 1});
     }
   }
 
@@ -196,7 +222,30 @@ class DatabaseHelper {
       )
     ''');
 
+    await db.execute('''
+      CREATE TABLE audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        action TEXT NOT NULL,
+        details TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE pos_charges (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        value REAL NOT NULL,
+        is_active INTEGER DEFAULT 1
+      )
+    ''');
+
     await _seedData(db);
+    await db.insert('pos_charges', {'name': 'VAT', 'type': 'addition', 'value': 15.0, 'is_active': 1});
+    await db.insert('pos_charges', {'name': 'Service Charge', 'type': 'addition', 'value': 5.0, 'is_active': 1});
   }
 
   Future _seedUsers(Database db) async {

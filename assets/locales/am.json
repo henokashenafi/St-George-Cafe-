@@ -8,7 +8,8 @@
     "selectUser": "እባክዎ ተጠቃሚ ይምረጡ እና የይለፍ ቃል ያስገቡ።",
     "incorrectPassword": "የይለፍ ቃል ተሳስቷል። እባክዎ እንደገና ይሞክሩ።",
     "username": "የተጠቃሚ ስም",
-    "password": "የይለፍ ቃል"
+    "password": "የይለፍ ቃል",
+    "logoutConfirm": "በእርግጥ መውጣት ይፈልጋሉ?"
   },
   "navigation": {
     "posMenu": "መሸጫ / ምናሌ",
@@ -22,7 +23,8 @@
     "logout": "መውጫ",
     "dashboard": "ዳሽቦርድ",
     "history": "ታሪክ",
-    "held": "ተይዘዋል"
+    "held": "ተይዘዋል",
+    "charges": "ተጨማሪዎች"
   },
   "order": {
     "title": "{table} — ትዕዛዝ",
@@ -310,7 +312,7 @@
     "grandTotal": "ጠቅላላ ድምር",
     "thankYou": "ለመጎብኘት አመሰግናለሁ!",
     "stGeorgeCafe": "ቅዱስ ጊዮርጊስ ካፌ",
-    "address": "አዲስ አበባ, ኢትዮጵያ",
+    "address": "ባህር ዳር, ኢትዮጵያ",
     "orderNumber": "ትዕዛዝ",
     "roundNumber": "ዙር #{n}",
     "items": "{count} እቃ(ዎች)"

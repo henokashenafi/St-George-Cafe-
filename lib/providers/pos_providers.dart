@@ -5,12 +5,13 @@ import 'package:st_george_pos/models/product.dart';
 import 'package:st_george_pos/models/table_model.dart';
 import 'package:st_george_pos/models/table_zone.dart';
 import 'package:st_george_pos/models/waiter.dart';
+import 'package:st_george_pos/models/charge.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/services/pos_repository.dart';
 import 'package:st_george_pos/models/settings.dart';
 
-enum DashboardView { home, tables, orders, heldOrders, menu, waiters, reports, settings, users }
+enum DashboardView { home, tables, orders, heldOrders, menu, waiters, reports, settings, users, auditLogs, pos, charges }
 
 // ── Repository & Services ─────────────────────────────────────────────────
 
@@ -71,6 +72,15 @@ class ZoneFilterNotifier extends Notifier<int?> {
 
 final selectedZoneFilterProvider =
     NotifierProvider<ZoneFilterNotifier, int?>(ZoneFilterNotifier.new);
+
+class SelectedTableNotifier extends Notifier<TableModel?> {
+  @override
+  TableModel? build() => null;
+  void set(TableModel? table) => state = table;
+}
+
+final selectedTableProvider =
+    NotifierProvider<SelectedTableNotifier, TableModel?>(SelectedTableNotifier.new);
 
 // ── Data Providers ────────────────────────────────────────────────────────
 
@@ -140,6 +150,11 @@ final usersProvider = FutureProvider.autoDispose<List<AppUser>>((ref) async {
   return await repo.getUsers();
 });
 
+final auditLogsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  final repo = ref.watch(posRepositoryProvider);
+  return await repo.getAuditLogs();
+});
+
 // ── Active Order Service ──────────────────────────────────────────────────
 
 class ActiveOrderService {
@@ -177,3 +192,48 @@ class ActiveOrderService {
 
 final activeOrderServiceProvider =
     Provider.autoDispose((ref) => ActiveOrderService(ref));
+
+// --- Dynamic Charges Provider ---
+final chargesProvider = FutureProvider<List<ChargeModel>>((ref) async {
+  final repo = ref.watch(posRepositoryProvider);
+  final data = await repo.getCharges();
+  return data.map((e) => ChargeModel.fromMap(e)).toList();
+});
+
+class ChargesNotifier extends Notifier<AsyncValue<List<ChargeModel>>> {
+  @override
+  AsyncValue<List<ChargeModel>> build() {
+    _load();
+    return const AsyncValue.loading();
+  }
+
+  Future<void> _load() async {
+    state = const AsyncValue.loading();
+    try {
+      final repo = ref.read(posRepositoryProvider);
+      final data = await repo.getCharges();
+      state = AsyncValue.data(data.map((e) => ChargeModel.fromMap(e)).toList());
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> add(ChargeModel charge) async {
+    await ref.read(posRepositoryProvider).addCharge(charge.toMap());
+    await _load();
+  }
+
+  Future<void> update(ChargeModel charge) async {
+    if (charge.id != null) {
+      await ref.read(posRepositoryProvider).updateCharge(charge.id!, charge.toMap());
+      await _load();
+    }
+  }
+
+  Future<void> delete(int id) async {
+    await ref.read(posRepositoryProvider).deleteCharge(id);
+    await _load();
+  }
+}
+
+final chargesListProvider = NotifierProvider<ChargesNotifier, AsyncValue<List<ChargeModel>>>(ChargesNotifier.new);

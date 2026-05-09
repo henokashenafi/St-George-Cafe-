@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,7 +12,7 @@ class AppLocalizations {
   static AppLanguage _currentLanguage = AppLanguage.en;
   
   static const String _prefKey = 'app_language';
-  static const String _assetPath = 'assets/locales';
+  static String get _assetPath => kIsWeb ? 'locales' : 'assets/locales';
 
   static Future<void> load(AppLanguage language) async {
     try {
@@ -33,7 +34,7 @@ class AppLocalizations {
       await prefs.setString(_prefKey, language.name);
     } catch (e) {
       print('Error loading translations for ${language.name}: $e');
-      _translations = _fallbackTranslations;
+      _translations = _fallbackTranslations.isNotEmpty ? _fallbackTranslations : {};
       _currentLanguage = AppLanguage.en;
     }
   }
@@ -109,6 +110,28 @@ class AppLocalizations {
       case AppLanguage.am:
         return 'አማርኛ';
     }
+  }
+
+  static String getEnglish(String key, {Map<String, String>? replacements}) {
+    final keys = key.split('.');
+    dynamic value = _fallbackTranslations;
+    bool found = true;
+    for (final k in keys) {
+      if (value is Map<String, dynamic> && value.containsKey(k)) {
+        value = value[k];
+      } else {
+        found = false;
+        break;
+      }
+    }
+
+    String result = found ? value.toString() : key;
+    if (replacements != null) {
+      replacements.forEach((placeholder, replacement) {
+        result = result.replaceAll('{$placeholder}', replacement);
+      });
+    }
+    return result;
   }
 }
 

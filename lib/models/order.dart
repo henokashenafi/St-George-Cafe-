@@ -70,8 +70,8 @@ class OrderModel {
       {List<OrderItem> items = const []}) {
     return OrderModel(
       id: map['id'],
-      tableId: map['table_id'],
-      waiterId: map['waiter_id'],
+      tableId: map['table_id'] ?? 0,
+      waiterId: map['waiter_id'] ?? 0,
       cashierId: map['cashier_id'],
       tableName: map['table_name'] ?? '',
       waiterName: map['waiter_name'] ?? '',
@@ -80,9 +80,13 @@ class OrderModel {
         (e) => e.toString().split('.').last == map['status'],
         orElse: () => OrderStatus.pending,
       ),
-      createdAt: DateTime.parse(map['created_at']),
-      updatedAt: DateTime.parse(map['updated_at']),
-      totalAmount: (map['total_amount'] as num).toDouble(),
+      createdAt: map['created_at'] != null 
+          ? DateTime.parse(map['created_at']) 
+          : DateTime.now(),
+      updatedAt: map['updated_at'] != null 
+          ? DateTime.parse(map['updated_at']) 
+          : DateTime.now(),
+      totalAmount: (map['total_amount'] as num? ?? 0).toDouble(),
       serviceCharge: (map['service_charge'] as num? ?? 0).toDouble(),
       discountAmount: (map['discount_amount'] as num? ?? 0).toDouble(),
       items: items,
@@ -101,6 +105,9 @@ class OrderModel {
       'total_amount': totalAmount,
       'service_charge': serviceCharge,
       'discount_amount': discountAmount,
+      'table_name': tableName,
+      'waiter_name': waiterName,
+      'cashier_name': cashierName,
     };
   }
 }

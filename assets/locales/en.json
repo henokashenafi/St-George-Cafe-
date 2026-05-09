@@ -8,7 +8,8 @@
     "selectUser": "Please select a user and enter your password.",
     "incorrectPassword": "Incorrect password. Please try again.",
     "username": "Username",
-    "password": "Password"
+    "password": "Password",
+    "logoutConfirm": "Are you sure you want to logout?"
   },
   "navigation": {
     "posMenu": "POS/Menu",
@@ -22,14 +23,15 @@
     "logout": "Logout",
     "dashboard": "Dashboard",
     "history": "History",
-    "held": "Held"
+    "held": "Held",
+    "charges": "Charges"
   },
   "order": {
     "title": "{table} — ORDER",
     "currentOrder": "CURRENT ORDER",
-    "sentToKitchen": "SENT TO KITCHEN",
+    "sentToKitchen": "ORDER PRINTED",
     "newItems": "NEW ITEMS",
-    "sendToKitchen": "Send to Kitchen",
+    "sendToKitchen": "PRINT ORDER",
     "printBill": "Print Bill",
     "cartEmpty": "Cart is empty",
     "selectTable": "Select Table",
@@ -304,7 +306,7 @@
     "grandTotal": "GRAND TOTAL",
     "thankYou": "Thank you for visiting!",
     "stGeorgeCafe": "ST GEORGE CAFE",
-    "address": "Addis Ababa, Ethiopia",
+    "address": "Bahir Dar, Ethiopia",
     "orderNumber": "Order",
     "roundNumber": "Round #{n}",
     "items": "{count} item(s)"

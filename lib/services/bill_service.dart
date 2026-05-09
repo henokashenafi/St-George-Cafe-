@@ -4,6 +4,7 @@ import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/models/order_item.dart';
+import 'package:st_george_pos/models/charge.dart';
 import 'package:st_george_pos/models/settings.dart';
 
 class BillService {
@@ -106,7 +107,7 @@ class BillService {
             pw.Divider(thickness: 2),
             pw.Center(
               child: pw.Text(
-                '${t('print.items', replacements: {'count': '${items.length}'})} — ${t('print.roundNumber', replacements: {'n': '$roundNumber'})}',
+                '${t('print.items', replacements: {'count': '${items.length}'})} - ${t('print.roundNumber', replacements: {'n': '$roundNumber'})}',
                 style: const pw.TextStyle(fontSize: 11),
               ),
             ),
@@ -128,7 +129,7 @@ class BillService {
     required List<OrderItem> items,
     required CafeSettings settings,
     required String cashierName,
-    required double serviceChargePercent,
+    required List<ChargeModel> activeCharges,
     required String Function(String key, {Map<String, String>? replacements}) t,
   }) async {
     final pdf = pw.Document();
@@ -138,9 +139,28 @@ class BillService {
         'RCS-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${(order.id ?? 0).toString().padLeft(3, '0')}';
 
     final subtotal = items.fold(0.0, (s, i) => s + i.subtotal);
-    final serviceCharge = subtotal * (serviceChargePercent / 100);
+    
+    // Calculate dynamic charges
+    final appliedCharges = <Map<String, dynamic>>[];
+    double totalAdditions = 0;
+    double totalDeductions = 0;
+
+    for (final c in activeCharges) {
+      if (!c.isActive) continue;
+      final amount = subtotal * (c.value / 100);
+      appliedCharges.add({
+        'name': '${c.name} (${c.value}%)',
+        'amount': (c.type == 'addition' ? 1 : -1) * amount,
+      });
+      if (c.type == 'addition') {
+        totalAdditions += amount;
+      } else {
+        totalDeductions += amount;
+      }
+    }
+
     final discount = order.discountAmount;
-    final grandTotal = subtotal + serviceCharge - discount;
+    final grandTotal = subtotal + totalAdditions - totalDeductions - discount;
     final amountWords = _numberToWords(grandTotal, t);
 
     final cafeName = settings.name.isNotEmpty
@@ -347,15 +367,7 @@ class BillService {
                   child: pw.Column(
                     children: [
                       _totalRow(t('bill.subtotal'), subtotal),
-                      _totalRow(
-                        t(
-                          'bill.serviceCharge',
-                          replacements: {
-                            'percent': serviceChargePercent.toStringAsFixed(0),
-                          },
-                        ),
-                        serviceCharge,
-                      ),
+                      ...appliedCharges.map((c) => _totalRow(c['name'], c['amount'])),
                       if (discount > 0)
                         _totalRow(t('bill.discount'), -discount),
                       pw.Divider(thickness: 1),
@@ -372,19 +384,10 @@ class BillService {
             pw.Divider(),
             pw.Center(
               child: pw.Text(
-                settings.address.isNotEmpty
-                    ? settings.address
-                    : t('bill.thankYou'),
-                style: const pw.TextStyle(fontSize: 9),
+                'Come again to St George Cafe - Thank you for visiting!',
+                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
               ),
             ),
-            if (settings.vatNumber.isNotEmpty)
-              pw.Center(
-                child: pw.Text(
-                  t('bill.tin', replacements: {'tin': settings.vatNumber}),
-                  style: const pw.TextStyle(fontSize: 9),
-                ),
-              ),
           ],
         ),
       ),

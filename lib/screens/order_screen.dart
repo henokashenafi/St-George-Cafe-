@@ -10,10 +10,11 @@ import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/models/waiter.dart';
 import 'package:st_george_pos/services/bill_service.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
+import 'package:st_george_pos/services/audit_service.dart';
+import 'package:st_george_pos/models/charge.dart';
 
 class OrderScreen extends ConsumerStatefulWidget {
-  final TableModel? table;
-  const OrderScreen({super.key, this.table});
+  const OrderScreen({super.key});
 
   @override
   ConsumerState<OrderScreen> createState() => _OrderScreenState();
@@ -26,18 +27,13 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   final TextEditingController _searchController = TextEditingController();
   Waiter? selectedWaiter;
   double _discountAmount = 0;
-  TableModel? selectedTable;
+  TableModel? get selectedTable => ref.watch(selectedTableProvider);
 
   @override
   void initState() {
     super.initState();
-    selectedTable = widget.table;
-    Future.microtask(() {
-      if (selectedTable != null) {
-        ref
-            .read(activeOrderServiceProvider)
-            .refreshTableData(selectedTable!.id!);
-      }
+    _searchController.addListener(() {
+      setState(() => searchQuery = _searchController.text);
     });
   }
 
@@ -188,8 +184,14 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         order: order,
         items: localItems,
         roundNumber: roundNumber,
-        t: ref.t,
+        t: (key, {replacements}) =>
+            AppLocalizations.getEnglish(key, replacements: replacements),
       );
+
+      await ref.read(auditServiceProvider).log(
+            'Sent to Kitchen',
+            details: 'Table: ${selectedTable!.name}, Items: ${localItems.length}, Round: $roundNumber',
+          );
 
       if (mounted) {
         ScaffoldMessenger.of(
@@ -239,8 +241,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     if (order.items.isEmpty) return;
 
     final subtotal = order.totalAmount;
-    final serviceCharge = subtotal * (serviceChargePercent / 100);
     double discount = _discountAmount;
+    final charges = (await ref.read(chargesProvider.future)).where((c) => c.isActive).toList();
 
     // Show bill confirmation dialog with discount input
     final confirmed = await showDialog<bool>(
@@ -248,8 +250,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
       builder: (ctx) => _BillConfirmDialog(
         order: order,
         subtotal: subtotal,
-        serviceCharge: serviceCharge,
-        serviceChargePercent: serviceChargePercent,
+        charges: charges,
         discountEnabled: discountEnabled,
         initialDiscount: discount,
         onDiscountChanged: (v) => discount = v,
@@ -258,6 +259,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
 
     if (confirmed == true) {
       final settings = await ref.read(cafeSettingsProvider.future);
+      final charges = (await ref.read(chargesProvider.future)).where((c) => c.isActive).toList();
+      
       await BillService.generateAndDownloadBill(
         order: order.copyWith(
           discountAmount: discount,
@@ -265,56 +268,94 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         items: order.items,
         settings: settings,
         cashierName: order.cashierName,
-        serviceChargePercent: serviceChargePercent,
-        t: ref.t,
+        activeCharges: charges,
+        t: (key, {replacements}) =>
+            AppLocalizations.getEnglish(key, replacements: replacements),
       );
+      double totalAdditions = 0;
+      double totalDeductions = 0;
+      for (final c in charges) {
+        final amount = order.totalAmount * (c.value / 100);
+        if (c.type == 'addition') totalAdditions += amount;
+        else totalDeductions += amount;
+      }
+
       await ref
           .read(posRepositoryProvider)
           .completeOrder(
             order.id!,
             order.tableId,
-            serviceCharge: serviceCharge,
-            discountAmount: discount,
+            cashierId: ref.read(authProvider)?.id,
+            serviceCharge: totalAdditions,
+            discountAmount: discount + totalDeductions,
           );
+      
+      await ref.read(auditServiceProvider).log(
+            'Order Completed',
+            details: 'ID: ${order.id}, Total: ${subtotal.toStringAsFixed(2)}, Table: ${order.tableName}',
+          );
+
       ref.refresh(tablesProvider);
-      if (mounted) Navigator.pop(context);
+      ref.read(selectedTableProvider.notifier).set(null);
+      ref.read(dashboardViewProvider.notifier).state = DashboardView.home;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final selectedTable = ref.watch(selectedTableProvider);
     final activeOrderAsync = ref.watch(activeOrderProvider(selectedTable?.id));
     final categoriesAsync = ref.watch(categoriesProvider);
     final productsAsync = ref.watch(productsProvider(selectedCategoryId));
     final waitersAsync = ref.watch(waitersProvider);
     final settingsAsync = ref.watch(appSettingsProvider);
 
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: Text(
-          '${selectedTable?.name ?? 'NEW'} — ORDER',
-          style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),
-        ),
-        backgroundColor: Colors.black.withOpacity(0.3),
-        elevation: 0,
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF121212), Color(0xFF003D22), Color(0xFF121212)],
-            stops: [0.0, 0.5, 1.0],
+    return Column(
+      children: [
+        // Header matching dashboard style
+        Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Row(
+            children: [
+              Text(
+                '${selectedTable?.name ?? 'NEW'} — ORDER',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const Spacer(),
+              if (selectedTable != null)
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () {
+                    ref.read(selectedTableProvider.notifier).set(null);
+                    ref.read(dashboardViewProvider.notifier).state =
+                        DashboardView.home;
+                  },
+                  tooltip: 'Close Order View',
+                ),
+            ],
           ),
         ),
-        child: Row(
-          children: [
+        if (selectedTable == null)
+          Expanded(
+            child: _TableSelectorView(
+              onTableSelected: (t) {
+                ref.read(selectedTableProvider.notifier).set(t);
+              },
+            ),
+          )
+        else
+          Expanded(
+            child: Row(
+              children: [
             // ── Menu panel ──────────────────────────────────────────────
             Expanded(
               flex: 3,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 100, 16, 16),
+                padding: const EdgeInsets.fromLTRB(0, 0, 16, 0),
                 child: Column(
                   children: [
                     GlassContainer(
@@ -385,66 +426,55 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 3,
-                                  childAspectRatio: 0.9,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 3.2,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 10,
                                 ),
                             itemCount: filtered.length,
                             itemBuilder: (_, i) {
                               final p = filtered[i];
                               return GlassContainer(
-                                opacity: 0.1,
+                                opacity: 0.05,
+                                border: Border.all(color: Colors.white.withOpacity(0.08)),
                                 child: InkWell(
                                   onTap: () => _addItem(p),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Expanded(
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(
-                                              0.05,
-                                            ),
-                                            borderRadius:
-                                                const BorderRadius.vertical(
-                                                  top: Radius.circular(16),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.restaurant_menu,
+                                          size: 16,
+                                          color: Color(0xFFD4AF37),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                p.name,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13,
                                                 ),
-                                          ),
-                                          child: const Icon(
-                                            Icons.fastfood,
-                                            size: 44,
-                                            color: Color(0xFFD4AF37),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              Text(
+                                                '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                                style: const TextStyle(
+                                                  color: Color(0xFFD4AF37),
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                      ),
-                                      Padding(
-                                        padding: const EdgeInsets.all(10),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              p.name,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            Text(
-                                              '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                              style: const TextStyle(
-                                                color: Color(0xFFD4AF37),
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               );
@@ -463,7 +493,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             // ── Cart panel ──────────────────────────────────────────────
             Container(
               width: 460,
-              margin: const EdgeInsets.fromLTRB(0, 100, 16, 16),
+              margin: const EdgeInsets.only(bottom: 16, right: 16),
               child: GlassContainer(
                 opacity: 0.15,
                 borderRadius: 24,
@@ -568,7 +598,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                               if (savedItems.isNotEmpty) ...[
                                 Text(
                                   ref.t('order.sentToKitchen'),
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white38,
@@ -598,7 +628,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                               if (localItems.isNotEmpty) ...[
                                 Text(
                                   ref.t('order.newItems'),
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFFD4AF37),
@@ -638,152 +668,147 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                             ],
                           );
                         },
-                        loading: () =>
-                            const Center(child: CircularProgressIndicator()),
+                        loading: () => const Center(child: CircularProgressIndicator()),
                         error: (e, _) => Text('$e'),
                       ),
                     ),
                     // Summary & actions
-                    settingsAsync.when(
-                      data: (settings) {
-                        final scPercent =
-                            double.tryParse(
-                              settings['service_charge_percent'] ?? '5',
-                            ) ??
-                            5;
-                        return Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.3),
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(24),
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              activeOrderAsync.maybeWhen(
-                                data: (order) {
-                                  final subtotal =
-                                      (order?.totalAmount ?? 0) + _localTotal;
-                                  final sc = subtotal * (scPercent / 100);
-                                  final total = subtotal + sc - _discountAmount;
-                                  return Column(
-                                    children: [
-                                      _SummaryRow(
-                                        ref.t('order.subtotal'),
-                                        '${subtotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                      ),
-                                      _SummaryRow(
-                                        ref.t(
-                                          'order.service',
-                                          replacements: {
-                                            'percent': scPercent
-                                                .toStringAsFixed(0),
-                                          },
-                                        ),
-                                        '${sc.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                      ),
-                                      if (_discountAmount > 0)
-                                        _SummaryRow(
-                                          ref.t('order.discount'),
-                                          '- ${_discountAmount.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                          color: Colors.greenAccent,
-                                        ),
-                                      const Divider(
-                                        color: Colors.white10,
-                                        height: 16,
-                                      ),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            ref.t('order.total'),
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w900,
-                                            ),
+                    Consumer(
+                      builder: (context, cRef, _) {
+                        final chargesAsync = cRef.watch(chargesListProvider);
+                        final appSettingsAsync = cRef.watch(appSettingsProvider);
+
+                        return chargesAsync.maybeWhen(
+                          data: (charges) {
+                            return Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.3),
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(24),
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  activeOrderAsync.maybeWhen(
+                                    data: (order) {
+                                      final subtotal = (order?.totalAmount ?? 0) + _localTotal;
+                                      double totalAdditions = 0;
+                                      double totalDeductions = 0;
+                                      final chargeWidgets = <Widget>[];
+
+                                      for (final c in charges.where((c) => c.isActive)) {
+                                        final amount = subtotal * (c.value / 100);
+                                        if (c.type == 'addition') {
+                                          totalAdditions += amount;
+                                        } else {
+                                          totalDeductions += amount;
+                                        }
+                                        chargeWidgets.add(
+                                          _SummaryRow(
+                                            '${c.name} (${c.value}%)',
+                                            '${c.type == 'addition' ? '' : '- '}${amount.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                            color: c.type == 'addition' ? null : Colors.redAccent,
                                           ),
-                                          Text(
-                                            '${total.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                            style: const TextStyle(
-                                              fontSize: 24,
-                                              fontWeight: FontWeight.w900,
-                                              color: Color(0xFFD4AF37),
+                                        );
+                                      }
+
+                                      final total = subtotal + totalAdditions - totalDeductions - _discountAmount;
+
+                                      return Column(
+                                        children: [
+                                          _SummaryRow(
+                                            ref.t('order.subtotal'),
+                                            '${subtotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                          ),
+                                          ...chargeWidgets,
+                                          if (_discountAmount > 0)
+                                            _SummaryRow(
+                                              ref.t('order.discount'),
+                                              '- ${_discountAmount.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                              color: Colors.greenAccent,
                                             ),
+                                          const Divider(color: Colors.white10, height: 16),
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                ref.t('order.total'),
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w900,
+                                                ),
+                                              ),
+                                              Text(
+                                                '${total.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                                style: const TextStyle(
+                                                  fontSize: 24,
+                                                  fontWeight: FontWeight.w900,
+                                                  color: Color(0xFFD4AF37),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ],
+                                      );
+                                    },
+                                    orElse: () => const SizedBox(),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.orange.withOpacity(0.85),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(vertical: 18),
+                                            shape: const RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.zero,
+                                            ),
+                                          ),
+                                          onPressed: () => appSettingsAsync.maybeWhen(
+                                            data: (s) => _sendToKitchen(activeOrderAsync.value, s),
+                                            orElse: () => null,
+                                          ),
+                                          child: Text(
+                                            ref.t('order.sendToKitchen'),
+                                            style: const TextStyle(fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF006B3C),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(vertical: 18),
+                                            shape: const RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.zero,
+                                            ),
+                                          ),
+                                          onPressed: activeOrderAsync.value == null
+                                              ? null
+                                              : () => appSettingsAsync.maybeWhen(
+                                                    data: (s) => _printBill(activeOrderAsync.value!, s),
+                                                    orElse: () => null,
+                                                  ),
+                                          child: Text(
+                                            ref.t('order.printBill'),
+                                            style: const TextStyle(fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
                                       ),
                                     ],
-                                  );
-                                },
-                                orElse: () => const SizedBox(),
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.orange
-                                            .withOpacity(0.85),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 18,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.zero,
-                                        ),
-                                      ),
-                                      onPressed: () => _sendToKitchen(
-                                        activeOrderAsync.value,
-                                        settings,
-                                      ),
-                                      child: Text(
-                                        ref.t('order.sendToKitchen'),
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(
-                                          0xFF006B3C,
-                                        ),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 18,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.zero,
-                                        ),
-                                      ),
-                                      onPressed: activeOrderAsync.value == null
-                                          ? null
-                                          : () => _printBill(
-                                              activeOrderAsync.value!,
-                                              settings,
-                                            ),
-                                      child: Text(
-                                        ref.t('order.printBill'),
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
+                            );
+                          },
+                          orElse: () => const SizedBox(height: 80),
                         );
                       },
-                      loading: () => const SizedBox(height: 80),
-                      error: (_, __) => const SizedBox(),
                     ),
                   ],
                 ),
@@ -792,14 +817,13 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           ],
         ),
       ),
-    );
-  }
+    ],
+  );
+}
 
   Future<void> _showTableSelectionDialog(BuildContext context) async {
     final tables = await ref.read(posRepositoryProvider).getTables();
-    final availableTables = tables
-        .where((t) => t.status == TableStatus.available)
-        .toList();
+    final availableTables = tables.toList();
 
     if (!mounted) return;
 
@@ -827,7 +851,9 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
 
     if (result != null) {
       setState(() {
-        selectedTable = result;
+      if (result != null) {
+        ref.read(selectedTableProvider.notifier).set(result);
+      }
       });
       ref.read(activeOrderServiceProvider).refreshTableData(result.id!);
     }
@@ -868,8 +894,7 @@ class _SummaryRow extends StatelessWidget {
 class _BillConfirmDialog extends ConsumerStatefulWidget {
   final OrderModel order;
   final double subtotal;
-  final double serviceCharge;
-  final double serviceChargePercent;
+  final List<ChargeModel> charges;
   final bool discountEnabled;
   final double initialDiscount;
   final ValueChanged<double> onDiscountChanged;
@@ -877,8 +902,7 @@ class _BillConfirmDialog extends ConsumerStatefulWidget {
   const _BillConfirmDialog({
     required this.order,
     required this.subtotal,
-    required this.serviceCharge,
-    required this.serviceChargePercent,
+    required this.charges,
     required this.discountEnabled,
     required this.initialDiscount,
     required this.onDiscountChanged,
@@ -910,7 +934,6 @@ class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
   @override
   Widget build(BuildContext context) {
     ref.watch(languageProvider);
-    final total = widget.subtotal + widget.serviceCharge - _discount;
     return AlertDialog(
       backgroundColor: const Color(0xFF1A1A1A),
       title: Text(ref.t('order.confirmBill')),
@@ -920,19 +943,14 @@ class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _Row(ref.t('order.items'), '${widget.order.items.length}'),
-            _Row(
-              ref.t('order.subtotal'),
-              '${widget.subtotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
-            ),
-            _Row(
-              ref.t(
-                'order.service',
-                replacements: {
-                  'percent': widget.serviceChargePercent.toStringAsFixed(0),
-                },
-              ),
-              '${widget.serviceCharge.toStringAsFixed(2)} ${ref.t('common.currency')}',
-            ),
+            _Row(ref.t('order.subtotal'), '${widget.subtotal.toStringAsFixed(2)} ${ref.t('common.currency')}'),
+            ...widget.charges.map((c) {
+              final amount = widget.subtotal * (c.value / 100);
+              return _Row(
+                '${c.name} (${c.value}%)',
+                '${(c.type == 'addition' ? '' : '- ')}${amount.toStringAsFixed(2)} ${ref.t('common.currency')}',
+              );
+            }),
             if (widget.discountEnabled) ...[
               const SizedBox(height: 12),
               TextField(
@@ -962,25 +980,37 @@ class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
               const SizedBox(height: 8),
             ],
             const Divider(color: Colors.white10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  ref.t('order.total'),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                Text(
-                  '${total.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                    color: Color(0xFFD4AF37),
-                  ),
-                ),
-              ],
+            Builder(
+              builder: (context) {
+                double totalAdditions = 0;
+                double totalDeductions = 0;
+                for (final c in widget.charges) {
+                  final amount = widget.subtotal * (c.value / 100);
+                  if (c.type == 'addition') totalAdditions += amount;
+                  else totalDeductions += amount;
+                }
+                final total = widget.subtotal + totalAdditions - totalDeductions - _discount;
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      ref.t('order.total'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      '${total.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        color: Color(0xFFD4AF37),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -1137,6 +1167,115 @@ class _IconBtn extends StatelessWidget {
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
       ),
+    );
+  }
+}
+
+class _TableSelectorView extends ConsumerWidget {
+  final Function(TableModel) onTableSelected;
+
+  const _TableSelectorView({required this.onTableSelected});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tablesAsync = ref.watch(tablesProvider);
+    final zonesAsync = ref.watch(tableZonesProvider);
+    final selectedZoneId = ref.watch(selectedZoneFilterProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              ref.t('dashboard.selectTable'),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const Spacer(),
+            zonesAsync.when(
+              data: (zones) => Row(
+                children: [
+                  ChoiceChip(
+                    label: Text(ref.t('common.all')),
+                    selected: selectedZoneId == null,
+                    onSelected: (_) =>
+                        ref.read(selectedZoneFilterProvider.notifier).set(null),
+                  ),
+                  ...zones.map((z) => Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: ChoiceChip(
+                          label: Text(z.name),
+                          selected: selectedZoneId == z.id,
+                          onSelected: (_) => ref
+                              .read(selectedZoneFilterProvider.notifier)
+                              .set(z.id),
+                        ),
+                      )),
+                ],
+              ),
+              loading: () => const SizedBox(),
+              error: (_, __) => const SizedBox(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Expanded(
+          child: tablesAsync.when(
+            data: (tables) => GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 5,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.1,
+              ),
+              itemCount: tables.length,
+              itemBuilder: (ctx, i) {
+                final table = tables[i];
+                final isOccupied = table.status == TableStatus.occupied;
+                return InkWell(
+                  onTap: () => onTableSelected(table),
+                  child: GlassContainer(
+                    opacity: 0.05,
+                    border: Border.all(
+                      color: isOccupied
+                          ? Colors.redAccent.withOpacity(0.5)
+                          : Colors.white10,
+                      width: isOccupied ? 2 : 1,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.table_restaurant,
+                          color: isOccupied ? Colors.redAccent : Colors.white70,
+                          size: 32,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          table.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          isOccupied ? 'OCCUPIED' : 'FREE',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isOccupied ? Colors.redAccent : Colors.green,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: ')),
+          ),
+        ),
+      ],
     );
   }
 }

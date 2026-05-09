@@ -16,6 +16,8 @@ import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/services/pos_repository.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:st_george_pos/widgets/language_switcher.dart';
+import 'package:st_george_pos/screens/audit_logs_screen.dart';
+import 'package:intl/intl.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -231,6 +233,16 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                     ],
                     _SidebarItem(
+                      icon: Icons.calculate_outlined,
+                      label: ref.t('navigation.charges'),
+                      isActive:
+                          ref.watch(dashboardViewProvider) ==
+                          DashboardView.charges,
+                      onTap: () =>
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.charges,
+                    ),
+                    _SidebarItem(
                       icon: Icons.bar_chart,
                       label: ref.t('navigation.reports'),
                       isActive:
@@ -251,22 +263,58 @@ class DashboardScreen extends ConsumerWidget {
                             ref.read(dashboardViewProvider.notifier).state =
                                 DashboardView.users,
                       ),
+                      _SidebarItem(
+                        icon: Icons.history_edu_outlined,
+                        label: 'AUDIT',
+                        isActive:
+                            ref.watch(dashboardViewProvider) ==
+                            DashboardView.auditLogs,
+                        onTap: () =>
+                            ref.read(dashboardViewProvider.notifier).state =
+                                DashboardView.auditLogs,
+                      ),
+                      _SidebarItem(
+                        icon: Icons.tune,
+                        label: 'SETTINGS',
+                        isActive:
+                            ref.watch(dashboardViewProvider) ==
+                            DashboardView.settings && isDirector, 
+                        onTap: () =>
+                            ref.read(dashboardViewProvider.notifier).state =
+                                DashboardView.settings,
+                      ),
                     ],
-                    _SidebarItem(
-                      icon: Icons.tune,
-                      label: ref.t('navigation.settings'),
-                      isActive:
-                          ref.watch(dashboardViewProvider) ==
-                          DashboardView.settings,
-                      onTap: () =>
-                          ref.read(dashboardViewProvider.notifier).state =
-                              DashboardView.settings,
-                    ),
                     const SizedBox(height: 40),
                     _SidebarItem(
                       icon: Icons.logout,
                       label: ref.t('navigation.logout'),
-                      onTap: () => ref.read(authProvider.notifier).logout(),
+                      onTap: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            backgroundColor: const Color(0xFF1A1A1A),
+                            title: Text(ref.t('navigation.logout')),
+                            content: Text(ref.t('auth.logoutConfirm')),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: Text(ref.t('common.no')),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.redAccent,
+                                  foregroundColor: Colors.white,
+                                ),
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: Text(ref.t('common.yes')),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          ref.read(authProvider.notifier).logout();
+                        }
+                      },
                     ),
                   ],
                 ),
@@ -304,31 +352,24 @@ class DashboardScreen extends ConsumerWidget {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _startNewOrderFlowFromDashboard(context, ref),
-        backgroundColor: const Color(0xFFD4AF37),
-        foregroundColor: Colors.black,
-        icon: const Icon(Icons.add),
-        label: Text(
-          ref.t('dashboard.newOrder'),
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
-          ),
-        ),
-      ),
     );
   }
 
   Widget _buildCurrentView(DashboardView view, bool isDirector, WidgetRef ref) {
     if (isDirector) {
       switch (view) {
+        case DashboardView.tables:
+          return const TableManagementScreen(key: ValueKey('tables'));
         case DashboardView.reports:
           return const ReportsScreen(key: ValueKey('reports'));
+        case DashboardView.charges:
+          return const ChargeManagementScreen(key: ValueKey('charges'));
         case DashboardView.users:
           return const UserManagementScreen(key: ValueKey('users'));
         case DashboardView.settings:
           return const SettingsScreen(key: ValueKey('settings'));
+        case DashboardView.auditLogs:
+          return const AuditLogsScreen(key: ValueKey('audit'));
         default:
           return const DashboardHomeScreen(key: ValueKey('home'));
       }
@@ -347,8 +388,12 @@ class DashboardScreen extends ConsumerWidget {
         return const WaiterManagementScreen(key: ValueKey('waiters'));
       case DashboardView.reports:
         return const ReportsScreen(key: ValueKey('reports'));
-      case DashboardView.settings:
-        return const TableManagementScreen(key: ValueKey('settings'));
+      case DashboardView.charges:
+        return const ChargeManagementScreen(key: ValueKey('charges'));
+      case DashboardView.pos:
+        return const OrderScreen(key: ValueKey('pos'));
+      case DashboardView.tables:
+        return const TableManagementScreen(key: ValueKey('tables'));
       default:
         return const DashboardHomeScreen(key: ValueKey('home'));
     }
@@ -360,276 +405,345 @@ class DashboardHomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tablesAsync = ref.watch(tablesProvider);
     final ordersAsync = ref.watch(ordersProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          ref.t('dashboard.title'),
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2,
-            color: Colors.white70,
-          ),
-        ),
-        const SizedBox(height: 24),
+        // ── Top Stats Row ──────────────────────────────────────────────────
+        ordersAsync.when(
+          data: (orders) {
+            final today = DateTime.now();
+            final todayOrders = orders.where((o) => 
+              o.createdAt.day == today.day && 
+              o.createdAt.month == today.month && 
+              o.createdAt.year == today.year
+            ).toList();
+            
+            final completedToday = todayOrders.where((o) => o.status == OrderStatus.completed).toList();
+            final revenueToday = completedToday.fold(0.0, (sum, o) => sum + o.grandTotal);
+            final pendingOrders = orders.where((o) => o.status == OrderStatus.pending).toList();
 
+            return Row(
+              children: [
+                _MiniStat(
+                  label: 'REVENUE TODAY',
+                  value: '${revenueToday.toStringAsFixed(0)} ${ref.t('common.currency')}',
+                  icon: Icons.payments,
+                  color: const Color(0xFFD4AF37),
+                ),
+                const SizedBox(width: 24),
+                _MiniStat(
+                  label: 'COMPLETED',
+                  value: '${completedToday.length}',
+                  icon: Icons.task_alt,
+                  color: const Color(0xFF22C55E),
+                ),
+                const SizedBox(width: 24),
+                _MiniStat(
+                  label: 'HELD ORDERS',
+                  value: '${pendingOrders.length}',
+                  icon: Icons.timer,
+                  color: Colors.orangeAccent,
+                ),
+              ],
+            );
+          },
+          loading: () => const SizedBox(height: 50),
+          error: (e, _) => const SizedBox(),
+        ),
+
+        const SizedBox(height: 40),
+
+        // ── Primary Action: New Order ────────────────────────────────────────
         InkWell(
           onTap: () => _startNewOrderFlowFromDashboard(context, ref),
-          child: SizedBox(
-            height: 160,
+          child: Container(
+            height: 180,
             width: double.infinity,
-            child: GlassContainer(
-              opacity: 0.1,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD4AF37).withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.add_shopping_cart,
-                      size: 48,
-                      color: Color(0xFFD4AF37),
-                    ),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.03),
+              borderRadius: BorderRadius.zero,
+              border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.2)),
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  right: 40,
+                  top: -20,
+                  child: Icon(
+                    Icons.add_shopping_cart,
+                    size: 220,
+                    color: const Color(0xFFD4AF37).withOpacity(0.05),
                   ),
-                  const SizedBox(width: 32),
-                  Column(
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD4AF37).withOpacity(0.1),
+                          borderRadius: BorderRadius.zero,
+                        ),
+                        child: Text(
+                          'QUICK ACTION',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFFD4AF37),
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       Text(
-                        ref.t('dashboard.startNewOrder'),
-                        style: const TextStyle(
-                          fontSize: 28,
+                        'START NEW ORDER',
+                        style: TextStyle(
+                          fontSize: 42,
                           fontWeight: FontWeight.w900,
-                          letterSpacing: 3,
-                          color: Color(0xFFD4AF37),
+                          letterSpacing: 4,
+                          color: Colors.white.withOpacity(0.9),
                         ),
                       ),
                       Text(
-                        ref.t('dashboard.startNewOrderSubtitle'),
-                        style: const TextStyle(
-                          color: Colors.white54,
+                        'Tap here to select a table and begin service',
+                        style: TextStyle(
                           fontSize: 16,
+                          color: Colors.white38,
+                          letterSpacing: 1,
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
 
-        const SizedBox(height: 32),
+        const SizedBox(height: 60),
 
+        // ── Live Workspace: Held Orders ─────────────────────────────────────
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    ref.t('dashboard.activeTables'),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white38,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  tablesAsync.when(
-                    data: (tables) {
-                      final occupied = tables
-                          .where((t) => t.status == TableStatus.occupied)
-                          .toList();
-                      if (occupied.isEmpty) {
-                        return SizedBox(
-                          height: 200,
-                          child: GlassContainer(
-                            opacity: 0.05,
-                            child: Center(
-                              child: Text(
-                                ref.t('dashboard.noActiveTables'),
-                                style: const TextStyle(color: Colors.white24),
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                      return GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 4,
-                              childAspectRatio: 1.2,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
-                            ),
-                        itemCount: occupied.length,
-                        itemBuilder: (context, index) {
-                          final table = occupied[index];
-                          return GlassContainer(
-                            opacity: 0.2,
-                            border: Border.all(
-                              color: const Color(0xFF006B3C).withOpacity(0.5),
-                              width: 2,
-                            ),
-                            child: InkWell(
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => OrderScreen(table: table),
-                                ),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(
-                                    Icons.table_bar,
-                                    size: 32,
-                                    color: Color(0xFFD4AF37),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    table.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  Text(
-                                    table.zoneName ?? '',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.white38,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => Text('${ref.t('errors.error')}: $e'),
-                  ),
-                ],
+            const Icon(Icons.layers_outlined, color: Color(0xFFD4AF37), size: 24),
+            const SizedBox(width: 12),
+            const Text(
+              'HELD ORDERS / PENDING BILLS',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2,
+                color: Colors.white70,
               ),
             ),
-            const SizedBox(width: 32),
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    ref.t('dashboard.todayOverview'),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white38,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ordersAsync.when(
-                    data: (orders) {
-                      final today = DateTime.now();
-                      final todayOrders = orders
-                          .where(
-                            (o) =>
-                                o.createdAt.day == today.day &&
-                                o.createdAt.month == today.month &&
-                                o.createdAt.year == today.year &&
-                                o.status == OrderStatus.completed,
-                          )
-                          .toList();
-
-                      final totalRevenue = todayOrders.fold(
-                        0.0,
-                        (sum, o) => sum + o.grandTotal,
-                      );
-
-                      return Column(
-                        children: [
-                          _StatCard(
-                            title: ref.t('dashboard.ordersCompleted'),
-                            value: '${todayOrders.length}',
-                            icon: Icons.check_circle_outline,
-                          ),
-                          const SizedBox(height: 16),
-                          _StatCard(
-                            title: ref.t('dashboard.totalRevenue'),
-                            value: '${totalRevenue.toStringAsFixed(2)} ETB',
-                            icon: Icons.payments_outlined,
-                            color: const Color(0xFFD4AF37),
-                          ),
-                        ],
-                      );
-                    },
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => Text('${ref.t('errors.error')}: $e'),
-                  ),
-                ],
-              ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () => ref.invalidate(ordersProvider),
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('REFRESH', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(foregroundColor: Colors.white24),
             ),
           ],
+        ),
+        const SizedBox(height: 24),
+
+        Expanded(
+          child: ordersAsync.when(
+            data: (orders) {
+              final pending = orders.where((o) => o.status == OrderStatus.pending).toList();
+              if (pending.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.inbox_outlined, size: 48, color: Colors.white.withOpacity(0.05)),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'No pending orders at the moment.',
+                        style: TextStyle(color: Colors.white12),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return ListView.builder(
+                padding: EdgeInsets.zero,
+                itemCount: pending.length,
+                itemBuilder: (context, index) {
+                  final order = pending[index];
+                  return _HeldOrderDashboardListTile(order: order);
+                },
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error loading orders: $e')),
+          ),
         ),
       ],
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
-  final String title;
+class _MiniStat extends StatelessWidget {
+  final String label;
   final String value;
   final IconData icon;
-  final Color? color;
-  const _StatCard({
-    required this.title,
+  final Color color;
+
+  const _MiniStat({
+    required this.label,
     required this.value,
     required this.icon,
-    this.color,
+    required this.color,
   });
+
   @override
   Widget build(BuildContext context) {
-    return GlassContainer(
-      padding: const EdgeInsets.all(20),
-      opacity: 0.1,
-      child: Row(
-        children: [
-          Icon(icon, size: 32, color: color ?? Colors.white38),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(fontSize: 12, color: Colors.white54),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 12, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.white38,
+                letterSpacing: 1,
               ),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: color ?? Colors.white,
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeldOrderDashboardListTile extends ConsumerWidget {
+  final OrderModel order;
+  const _HeldOrderDashboardListTile({required this.order});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final diff = DateTime.now().difference(order.createdAt);
+    final minutes = diff.inMinutes;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () {
+          final table = TableModel(
+            id: order.tableId,
+            name: order.tableName,
+            status: TableStatus.occupied,
+          );
+          ref.read(selectedTableProvider.notifier).set(table);
+          ref.read(dashboardViewProvider.notifier).state = DashboardView.pos;
+        },
+        child: GlassContainer(
+          opacity: 0.05,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          border: Border.all(color: Colors.white.withOpacity(0.08)),
+          child: Row(
+            children: [
+              // Icon & Table Info
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD4AF37).withOpacity(0.1),
+                  borderRadius: BorderRadius.zero,
+                ),
+                child: const Icon(Icons.table_bar, color: Color(0xFFD4AF37)),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      order.tableName.toUpperCase(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${ref.t('bill.waiter')}: ${order.waiterName}  •  ${order.items.length} ITEMS',
+                      style: const TextStyle(fontSize: 12, color: Colors.white38),
+                    ),
+                  ],
                 ),
               ),
+              
+              // Time Elapsed
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.timer_outlined, size: 14, color: Colors.orangeAccent),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${minutes}M',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orangeAccent,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Started ${DateFormat('HH:mm').format(order.createdAt)}',
+                    style: const TextStyle(fontSize: 11, color: Colors.white24),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 40),
+              
+              // Total Amount
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${order.totalAmount.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFFD4AF37),
+                    ),
+                  ),
+                  const Text(
+                    'ETB',
+                    style: TextStyle(fontSize: 10, color: Colors.white38, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 12),
+              const Icon(Icons.chevron_right, color: Colors.white12),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -648,9 +762,8 @@ void _startNewOrderFlowFromDashboard(
   );
 
   if (selectedTable != null && context.mounted) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => OrderScreen(table: selectedTable)),
-    );
+    ref.read(selectedTableProvider.notifier).set(selectedTable);
+    ref.read(dashboardViewProvider.notifier).state = DashboardView.pos;
   }
 }
 
@@ -686,7 +799,11 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
         width: screenSize.width * 0.88,
         height: screenSize.height * 0.88,
         decoration: BoxDecoration(
-          color: const Color(0xFF0F1117),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF121212), Color(0xFF003D22), Color(0xFF121212)],
+          ),
           borderRadius: BorderRadius.zero,
           border: Border.all(color: Colors.white.withOpacity(0.07)),
           boxShadow: [
@@ -727,9 +844,9 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
   Widget _buildZoneSidebar(AsyncValue zonesAsync) {
     return Container(
       width: 200,
-      decoration: const BoxDecoration(
-        color: Color(0xFF13161F),
-        border: Border(right: BorderSide(color: Color(0xFF1E2130))),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.3),
+        border: Border(right: BorderSide(color: Colors.white.withOpacity(0.05))),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -815,8 +932,8 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
   Widget _buildHeader(AsyncValue tablesAsync) {
     return Container(
       padding: const EdgeInsets.fromLTRB(28, 24, 28, 16),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFF1E2130))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
       ),
       child: Row(
         children: [
@@ -889,9 +1006,9 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
       child: Container(
         height: 44,
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1D27),
+          color: Colors.white.withOpacity(0.03),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFF2C3044)),
+          border: Border.all(color: Colors.white.withOpacity(0.08)),
         ),
         child: Row(
           children: [
@@ -1158,18 +1275,16 @@ class _ProfessionalTableCardState extends State<_ProfessionalTableCard> {
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      cursor: isOccupied
-          ? SystemMouseCursors.forbidden
-          : SystemMouseCursors.click,
+      cursor: SystemMouseCursors.click,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         decoration: BoxDecoration(
-          color: _hovered ? hoverColor : const Color(0xFF1A1D27),
+          color: _hovered ? hoverColor : Colors.white.withOpacity(0.03),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: _hovered
                 ? accentColor.withOpacity(0.5)
-                : const Color(0xFF2C3044),
+                : Colors.white.withOpacity(0.05),
             width: _hovered ? 1.5 : 1,
           ),
           boxShadow: _hovered
@@ -1182,7 +1297,7 @@ class _ProfessionalTableCardState extends State<_ProfessionalTableCard> {
               : [],
         ),
         child: InkWell(
-          onTap: isOccupied ? null : widget.onTap,
+          onTap: widget.onTap,
           borderRadius: BorderRadius.circular(14),
           child: Padding(
             padding: const EdgeInsets.all(14),

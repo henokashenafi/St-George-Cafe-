@@ -12,6 +12,7 @@ import 'package:st_george_pos/core/database_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:st_george_pos/models/table_model.dart';
 import 'package:st_george_pos/screens/order_screen.dart';
+import 'package:st_george_pos/models/charge.dart';
 
 // ── Menu Management ───────────────────────────────────────────────────────
 
@@ -509,12 +510,15 @@ class OrderHistoryScreen extends ConsumerWidget {
                                     final settings = await ref.read(
                                       cafeSettingsProvider.future,
                                     );
+                                    final charges = (await ref.read(chargesProvider.future))
+                                        .where((c) => c.isActive)
+                                        .toList();
                                     BillService.generateAndDownloadBill(
                                       order: o,
                                       items: o.items,
                                       settings: settings,
                                       cashierName: o.cashierName,
-                                      serviceChargePercent: scPercent,
+                                      activeCharges: charges,
                                       t: ref.t,
                                     );
                                   },
@@ -623,11 +627,8 @@ class HeldOrdersScreen extends ConsumerWidget {
                             name: o.tableName,
                             status: TableStatus.occupied,
                           );
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => OrderScreen(table: table),
-                            ),
-                          );
+                          ref.read(selectedTableProvider.notifier).set(table);
+                          ref.read(dashboardViewProvider.notifier).state = DashboardView.pos;
                         },
                         title: Text(
                           ref.t(
@@ -738,6 +739,18 @@ class ReportsScreen extends ConsumerWidget {
                 (s, o) => s + o.items.fold(0, (ss, i) => ss + i.quantity),
               );
 
+              final vatRate = double.tryParse(ref.watch(appSettingsProvider).value?['cafe_vat_rate'] ?? '5.0') ?? 5.0;
+              final vatSum = subtotalSum * (vatRate / 100);
+
+              // Per-category
+              final categoryMap = <String, double>{};
+              for (final o in completed) {
+                for (final item in o.items) {
+                  // We don't have category name in OrderItem, but we can try to find it via product if needed.
+                  // For now, let's group by product names if category is missing in model.
+                }
+              }
+
               // Per-waiter
               final waiterMap = <String, double>{};
               for (final o in completed) {
@@ -758,134 +771,120 @@ class ReportsScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Summary cards
-                    GridView.count(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 20,
-                      mainAxisSpacing: 20,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      childAspectRatio: 2.2,
+                    // ── Formal Financial Summary ──────────────────────────
+                    Text(
+                      'FINANCIAL OVERVIEW',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 2,
+                        color: Colors.white.withOpacity(0.4),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    GlassContainer(
+                      opacity: 0.05,
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          _SummaryRow(
+                            label: ref.t('management.subtotal'),
+                            value: subtotalSum,
+                            symbol: 'ETB',
+                          ),
+                          const Divider(height: 32, color: Colors.white10),
+                          _SummaryRow(
+                            label: ref.t('management.serviceCharge'),
+                            value: serviceSum,
+                            symbol: 'ETB',
+                          ),
+                          _SummaryRow(
+                            label: ref.t('management.discountsGiven'),
+                            value: -discountSum,
+                            symbol: 'ETB',
+                            color: Colors.redAccent.withOpacity(0.8),
+                          ),
+                          _SummaryRow(
+                            label: 'ESTIMATED VAT ($vatRate%)',
+                            value: vatSum,
+                            symbol: 'ETB',
+                            color: Colors.blueAccent.withOpacity(0.8),
+                          ),
+                          const Divider(height: 32, color: Colors.white10),
+                          _SummaryRow(
+                            label: ref.t('management.grandTotal'),
+                            value: grandSum,
+                            symbol: 'ETB',
+                            isTotal: true,
+                            color: const Color(0xFFD4AF37),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // ── Performance Metrics Grid ──────────────────────────
+                    Row(
                       children: [
-                        _ReportCard(
-                          title: ref.t('management.subtotal'),
-                          value:
-                              '${subtotalSum.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                          icon: Icons.receipt_outlined,
+                        Expanded(
+                          child: _ReportMetricCard(
+                            title: ref.t('management.orderCount'),
+                            value: '${completed.length}',
+                            icon: Icons.receipt_long,
+                          ),
                         ),
-                        _ReportCard(
-                          title: ref.t('management.serviceCharge'),
-                          value:
-                              '${serviceSum.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                          icon: Icons.room_service_outlined,
-                        ),
-                        _ReportCard(
-                          title: ref.t('management.discountsGiven'),
-                          value:
-                              '${discountSum.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                          icon: Icons.discount_outlined,
-                        ),
-                        _ReportCard(
-                          title: ref.t('management.grandTotal'),
-                          value:
-                              '${grandSum.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                          icon: Icons.trending_up,
-                          color: const Color(0xFFD4AF37),
-                        ),
-                        _ReportCard(
-                          title: ref.t('management.orderCount'),
-                          value: '${completed.length}',
-                          icon: Icons.shopping_bag_outlined,
-                        ),
-                        _ReportCard(
-                          title: ref.t('management.itemsSold'),
-                          value: '$itemsSum',
-                          icon: Icons.fastfood_outlined,
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _ReportMetricCard(
+                            title: ref.t('management.itemsSold'),
+                            value: '$itemsSum',
+                            icon: Icons.inventory_2_outlined,
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 28),
-                    // Per-waiter
-                    if (waiterMap.isNotEmpty) ...[
-                      Text(
-                        ref.t('management.byWaiter'),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      GlassContainer(
-                        opacity: 0.05,
-                        child: Column(
-                          children: waiterMap.entries
-                              .map(
-                                (e) => ListTile(
-                                  leading: Container(
-                                    width: 32,
-                                    height: 32,
-                                    color: const Color(0xFF006B3C),
-                                    child: const Icon(
-                                      Icons.person,
-                                      color: Colors.white,
-                                      size: 18,
-                                    ),
-                                  ),
-                                  title: Text(e.key),
-                                  trailing: Text(
-                                    '${e.value.toStringAsFixed(2)} ETB',
-                                    style: const TextStyle(
-                                      color: Color(0xFFD4AF37),
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                    const SizedBox(height: 32),
+
+                    // ── Detailed Breakdowns ─────────────────────────────
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // By Waiter
+                        if (waiterMap.isNotEmpty)
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _SectionHeader(ref.t('management.byWaiter')),
+                                const SizedBox(height: 12),
+                                _FormalDataTable(
+                                  data: waiterMap.entries.toList(),
+                                  icon: Icons.person_outline,
+                                  iconColor: const Color(0xFF006B3C),
                                 ),
-                              )
-                              .toList(),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                    // Per-cashier
-                    if (cashierMap.isNotEmpty) ...[
-                      Text(
-                        ref.t('management.byCashier'),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      GlassContainer(
-                        opacity: 0.05,
-                        child: Column(
-                          children: cashierMap.entries
-                              .map(
-                                (e) => ListTile(
-                                  leading: Container(
-                                    width: 32,
-                                    height: 32,
-                                    color: const Color(0xFFD4AF37),
-                                    child: const Icon(
-                                      Icons.point_of_sale,
-                                      color: Colors.black,
-                                      size: 18,
-                                    ),
-                                  ),
-                                  title: Text(e.key),
-                                  trailing: Text(
-                                    '${e.value.toStringAsFixed(2)} ETB',
-                                    style: const TextStyle(
-                                      color: Color(0xFFD4AF37),
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                              ],
+                            ),
+                          ),
+                        if (waiterMap.isNotEmpty && cashierMap.isNotEmpty)
+                          const SizedBox(width: 24),
+                        // By Cashier
+                        if (cashierMap.isNotEmpty)
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _SectionHeader(ref.t('management.byCashier')),
+                                const SizedBox(height: 12),
+                                _FormalDataTable(
+                                  data: cashierMap.entries.toList(),
+                                  icon: Icons.point_of_sale_outlined,
+                                  iconColor: const Color(0xFFD4AF37),
                                 ),
-                              )
-                              .toList(),
-                        ),
-                      ),
-                    ],
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               );
@@ -1251,6 +1250,342 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         validator: (value) =>
             value == null || value.isEmpty ? requiredFieldMessage : null,
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  final String label;
+  final double value;
+  final String symbol;
+  final bool isTotal;
+  final Color? color;
+
+  const _SummaryRow({
+    required this.label,
+    required this.value,
+    required this.symbol,
+    this.isTotal = false,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isTotal ? 16 : 14,
+              fontWeight: isTotal ? FontWeight.w900 : FontWeight.w400,
+              color: isTotal ? Colors.white : Colors.white70,
+            ),
+          ),
+          Text(
+            '${value.toStringAsFixed(2)} $symbol',
+            style: TextStyle(
+              fontSize: isTotal ? 20 : 14,
+              fontWeight: isTotal ? FontWeight.w900 : FontWeight.w700,
+              color: color ?? (isTotal ? const Color(0xFFD4AF37) : Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportMetricCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+
+  const _ReportMetricCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassContainer(
+      opacity: 0.05,
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: const Color(0xFFD4AF37), size: 24),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.4)),
+              ),
+              Text(
+                value,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader(this.title);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title.toUpperCase(),
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.5,
+        color: Colors.white.withOpacity(0.3),
+      ),
+    );
+  }
+}
+
+class _FormalDataTable extends StatelessWidget {
+  final List<MapEntry<String, double>> data;
+  final IconData icon;
+  final Color iconColor;
+
+  const _FormalDataTable({
+    required this.data,
+    required this.icon,
+    required this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassContainer(
+      opacity: 0.05,
+      child: Column(
+        children: data.map((e) {
+          final isLast = data.last == e;
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(icon, size: 16, color: iconColor.withOpacity(0.7)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        e.key,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    Text(
+                      '${e.value.toStringAsFixed(2)} ETB',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFD4AF37),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!isLast) const Divider(height: 1, color: Colors.white10),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// ── Charge Management ───────────────────────────────────────────────────
+
+class ChargeManagementScreen extends ConsumerWidget {
+  const ChargeManagementScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final chargesAsync = ref.watch(chargesListProvider);
+
+    return Column(
+      children: [
+        _Header(
+          title: 'DYNAMIC CHARGES (ADDITIONS & DEDUCTIONS)',
+          onAdd: () => _showChargeDialog(context, ref, null),
+        ),
+        const SizedBox(height: 24),
+        Expanded(
+          child: chargesAsync.when(
+            data: (charges) => GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                childAspectRatio: 2.2,
+                crossAxisSpacing: 20,
+                mainAxisSpacing: 20,
+              ),
+              itemCount: charges.length,
+              itemBuilder: (ctx, i) {
+                final charge = charges[i];
+                return _ChargeCard(
+                  charge: charge,
+                  onEdit: () => _showChargeDialog(context, ref, charge),
+                  onDelete: () => ref.read(chargesListProvider.notifier).delete(charge.id!),
+                );
+              },
+            ),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showChargeDialog(BuildContext context, WidgetRef ref, ChargeModel? charge) {
+    final nameCtrl = TextEditingController(text: charge?.name);
+    final valueCtrl = TextEditingController(text: charge?.value.toString());
+    String type = charge?.type ?? 'addition';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocalState) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: Text(charge == null ? 'Add Charge' : 'Edit Charge'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Name (e.g. VAT, Service)'),
+              ),
+              TextField(
+                controller: valueCtrl,
+                decoration: const InputDecoration(labelText: 'Value (%)'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              DropdownButton<String>(
+                value: type,
+                isExpanded: true,
+                items: const [
+                  DropdownMenuItem(value: 'addition', child: Text('Addition (+)')),
+                  DropdownMenuItem(value: 'deduction', child: Text('Deduction (-)')),
+                ],
+                onChanged: (v) => setLocalState(() => type = v!),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () {
+                final newCharge = ChargeModel(
+                  id: charge?.id,
+                  name: nameCtrl.text,
+                  type: type,
+                  value: double.tryParse(valueCtrl.text) ?? 0.0,
+                  isActive: charge?.isActive ?? true,
+                );
+                if (charge == null) {
+                  ref.read(chargesListProvider.notifier).add(newCharge);
+                } else {
+                  ref.read(chargesListProvider.notifier).update(newCharge);
+                }
+                Navigator.pop(ctx);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChargeCard extends StatelessWidget {
+  final ChargeModel charge;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _ChargeCard({
+    required this.charge,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isAddition = charge.type == 'addition';
+    return GlassContainer(
+      opacity: 0.05,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (isAddition ? Colors.green : Colors.red).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  charge.type.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isAddition ? Colors.green : Colors.red,
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white54),
+                    onPressed: onEdit,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                    onPressed: onDelete,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            charge.name,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            '${charge.value}%',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              color: isAddition ? const Color(0xFFD4AF37) : Colors.redAccent,
+            ),
+          ),
+        ],
       ),
     );
   }

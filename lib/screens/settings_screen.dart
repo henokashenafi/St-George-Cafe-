@@ -6,6 +6,8 @@ import 'package:st_george_pos/providers/pos_providers.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:st_george_pos/core/database_helper.dart';
+import 'package:st_george_pos/services/audit_service.dart';
+import 'package:st_george_pos/models/settings.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -16,21 +18,43 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _serviceChargeController = TextEditingController();
+  final _cafeNameController = TextEditingController();
+  final _cafeAddressController = TextEditingController();
+  final _cafePhoneController = TextEditingController();
+  final _cafeVatController = TextEditingController();
+  final _cafeCurrencyController = TextEditingController();
+  
   bool _discountEnabled = true;
   bool _saving = false;
+  bool _initialized = false;
 
   @override
   void dispose() {
     _serviceChargeController.dispose();
+    _cafeNameController.dispose();
+    _cafeAddressController.dispose();
+    _cafePhoneController.dispose();
+    _cafeVatController.dispose();
+    _cafeCurrencyController.dispose();
     super.dispose();
   }
 
-  void _loadSettings(Map<String, String> settings) {
-    if (_serviceChargeController.text.isEmpty) {
-      _serviceChargeController.text =
-          settings['service_charge_percent'] ?? '5.0';
-    }
+  Future<void> _loadSettings() async {
+    if (_initialized) return;
+    
+    final settings = await ref.read(appSettingsProvider.future);
+    final cafe = await ref.read(cafeSettingsProvider.future);
+    
+    _serviceChargeController.text = settings['service_charge_percent'] ?? '5.0';
     _discountEnabled = (settings['discount_enabled'] ?? 'true') == 'true';
+    
+    _cafeNameController.text = cafe.name;
+    _cafeAddressController.text = cafe.address;
+    _cafePhoneController.text = cafe.phone;
+    _cafeVatController.text = cafe.vatNumber;
+    _cafeCurrencyController.text = cafe.currency;
+    
+    setState(() => _initialized = true);
   }
 
   Future<void> _saveSettings() async {
@@ -45,9 +69,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
     setState(() => _saving = true);
     final repo = ref.read(posRepositoryProvider);
+    
+    // Save Billing
     await repo.setSetting('service_charge_percent', charge.toString(), currentUser.id!);
     await repo.setSetting('discount_enabled', _discountEnabled.toString(), currentUser.id!);
+    
+    // Save Cafe Info
+    final newCafe = CafeSettings(
+      name: _cafeNameController.text,
+      address: _cafeAddressController.text,
+      phone: _cafePhoneController.text,
+      vatNumber: _cafeVatController.text,
+      currency: _cafeCurrencyController.text,
+      vatRate: charge, // Use service charge as vat rate placeholder or separate it?
+    );
+    await repo.saveSettings(newCafe);
+    
+    await ref.read(auditServiceProvider).log(
+      'Settings Updated',
+      details: 'User: ${currentUser.username}, SC: $charge%',
+    );
+
     ref.invalidate(appSettingsProvider);
+    ref.invalidate(cafeSettingsProvider);
+    
     setState(() => _saving = false);
     if (mounted) {
       ScaffoldMessenger.of(
@@ -60,9 +105,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(appSettingsProvider);
 
-    return settingsAsync.when(
-      data: (settings) {
-        _loadSettings(settings);
+    return FutureBuilder(
+      future: _loadSettings(),
+      builder: (context, snapshot) {
+        if (!_initialized) return const Center(child: CircularProgressIndicator());
         return SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,16 +168,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
               const SizedBox(height: 32),
+              _SectionHeader(title: 'CAFE INFORMATION'),
+              GlassContainer(
+                opacity: 0.05,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      _buildTextField(_cafeNameController, 'Cafe Name'),
+                      const SizedBox(height: 16),
+                      _buildTextField(_cafeAddressController, 'Address'),
+                      const SizedBox(height: 16),
+                      _buildTextField(_cafePhoneController, 'Phone'),
+                      const SizedBox(height: 16),
+                      _buildTextField(_cafeVatController, 'VAT Number'),
+                      const SizedBox(height: 16),
+                      _buildTextField(_cafeCurrencyController, 'Currency (e.g. ETB)'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 40),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFD4AF37),
                   foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
+                    horizontal: 48,
+                    vertical: 20,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.zero,
                   ),
                 ),
                 onPressed: _saving ? null : _saveSettings,
@@ -144,17 +211,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           color: Colors.black,
                         ),
                       )
-                    : Text(
-                        ref.t('settings.save'),
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                    : const Text(
+                        'SAVE ALL SETTINGS',
+                        style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2),
                       ),
               ),
+              const SizedBox(height: 60),
             ],
           ),
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Text('${ref.t('common.error')}: $e'),
+    );
+  }
+
+  Widget _buildTextField(TextEditingController ctrl, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: ctrl,
+          style: const TextStyle(color: Colors.white),
+          decoration: _inputDec(label),
+        ),
+      ],
     );
   }
 
