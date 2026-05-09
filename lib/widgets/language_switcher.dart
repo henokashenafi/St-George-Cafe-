@@ -1,6 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
+import 'package:ethiopian_datetime/ethiopian_datetime.dart';
+
+class EthiopianDateDisplay extends StatelessWidget {
+  const EthiopianDateDisplay({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = ETDateTime.now();
+    final formatted = ETDateFormat("MMMM d, yyyy").format(now);
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.calendar_month, size: 14, color: Color(0xFFD4AF37)),
+          const SizedBox(width: 6),
+          Text(
+            formatted,
+            style: const TextStyle(fontSize: 12, color: Colors.white70),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class LanguageSwitcher extends ConsumerWidget {
   const LanguageSwitcher({super.key});
