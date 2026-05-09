@@ -22,92 +22,61 @@ class BillService {
 
     pdf.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.a5,
-        margin: const pw.EdgeInsets.all(24),
+        pageFormat: PdfPageFormat.roll80,
+        margin: const pw.EdgeInsets.all(10),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            // ── Header ──────────────────────────────────────────────────
+            // Header
             pw.Center(
               child: pw.Text(
-                t('print.kitchenOrder'),
-                style: pw.TextStyle(
-                  fontSize: 22,
-                  fontWeight: pw.FontWeight.bold,
-                ),
+                'KITCHEN ORDER',
+                style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
               ),
             ),
             pw.Center(
               child: pw.Text(
-                t('print.roundNumber', replacements: {'n': '$roundNumber'}),
-                style: pw.TextStyle(
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
-                ),
+                'Round: $roundNumber',
+                style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
               ),
             ),
             pw.SizedBox(height: 8),
-            pw.Divider(thickness: 2),
+            pw.Divider(thickness: 1),
 
-            // ── Info ─────────────────────────────────────────────────────
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text(
-                  '${t('print.table')}: ${order.tableName}',
-                  style: pw.TextStyle(
-                    fontSize: 14,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.Text(
-                  '${t('print.orderNumber')}: #${order.id ?? "—"}',
-                  style: const pw.TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
+            // Info
+            _receiptRow('Table:', order.tableName),
+            _receiptRow('Order:', '#${order.id ?? "—"}'),
+            _receiptRow('Waiter:', order.waiterName),
+            _receiptRow('Time:', '$timeStr | $dateStr'),
+            pw.Divider(thickness: 1),
+
+            // Items
             pw.SizedBox(height: 4),
-            _infoRow(t('print.waiter'), order.waiterName),
-            _infoRow(t('print.time'), '$timeStr  |  $dateStr'),
-            pw.Divider(thickness: 2),
-            pw.SizedBox(height: 6),
-
-            // ── Items ─────────────────────────────────────────────────────
             ...items.map(
               (item) => pw.Padding(
-                padding: const pw.EdgeInsets.symmetric(vertical: 4),
+                padding: const pw.EdgeInsets.symmetric(vertical: 2),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      '${item.quantity} x  ${item.productName}',
-                      style: pw.TextStyle(
-                        fontSize: 15,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
+                      '${item.quantity} x ${item.productName}',
+                      style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
                     ),
                     if (item.notes != null && item.notes!.isNotEmpty)
                       pw.Padding(
-                        padding: const pw.EdgeInsets.only(left: 20, top: 2),
-                        child: pw.Text(
-                          '>> ${item.notes}',
-                          style: pw.TextStyle(
-                            fontSize: 11,
-                            fontStyle: pw.FontStyle.italic,
-                          ),
-                        ),
+                        padding: const pw.EdgeInsets.only(left: 10, top: 1),
+                        child: pw.Text('>> ${item.notes}', style: const pw.TextStyle(fontSize: 10)),
                       ),
                   ],
                 ),
               ),
             ),
-
             pw.SizedBox(height: 8),
-            pw.Divider(thickness: 2),
+            pw.Divider(thickness: 1),
             pw.Center(
               child: pw.Text(
-                '${t('print.items', replacements: {'count': '${items.length}'})} — ${t('print.roundNumber', replacements: {'n': '$roundNumber'})}',
-                style: const pw.TextStyle(fontSize: 11),
+                'Items: ${items.length} | Round: $roundNumber',
+                style: const pw.TextStyle(fontSize: 9),
               ),
             ),
           ],
@@ -121,7 +90,7 @@ class BillService {
     );
   }
 
-  // ── Customer Receipt PDF (A4 Invoice — matches sample image) ─────────────
+  // ── Customer Receipt PDF (80mm Roll - Compact) ───────────────────────────
 
   static Future<void> generateAndDownloadBill({
     required OrderModel order,
@@ -133,7 +102,7 @@ class BillService {
   }) async {
     final pdf = pw.Document();
     final now = DateTime.now();
-    final dateStr = DateFormat('dd/MM/yyyy').format(now);
+    final dateStr = DateFormat('dd/MM/yyyy HH:mm').format(now);
     final voucherNo =
         'RCS-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${(order.id ?? 0).toString().padLeft(3, '0')}';
 
@@ -141,7 +110,6 @@ class BillService {
     final serviceCharge = subtotal * (serviceChargePercent / 100);
     final discount = order.discountAmount;
     final grandTotal = subtotal + serviceCharge - discount;
-    final amountWords = _numberToWords(grandTotal, t);
 
     final cafeName = settings.name.isNotEmpty
         ? settings.name
@@ -149,240 +117,99 @@ class BillService {
 
     pdf.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.fromLTRB(40, 36, 40, 36),
+        pageFormat: PdfPageFormat.roll80,
+        margin: const pw.EdgeInsets.all(10),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            // ── Cafe name ────────────────────────────────────────────────
-            pw.Text(
-              cafeName,
-              style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
-            ),
-            if (settings.address.isNotEmpty)
-              pw.Text(
-                settings.address,
-                style: const pw.TextStyle(fontSize: 10),
-              ),
-            if (settings.phone.isNotEmpty)
-              pw.Text(
-                '${t('bill.tel')}: ${settings.phone}',
-                style: const pw.TextStyle(fontSize: 10),
-              ),
-            pw.SizedBox(height: 6),
-
-            // ── Title ─────────────────────────────────────────────────────
-            pw.Align(
-              alignment: pw.Alignment.centerRight,
-              child: pw.Text(
-                t('bill.cashSalesInvoice'),
-                style: pw.TextStyle(
-                  fontSize: 14,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ),
-            pw.SizedBox(height: 10),
-
-            // ── Info box (2-column) ───────────────────────────────────────
-            pw.Container(
-              decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
-              child: pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  // Left column
-                  pw.Expanded(
-                    child: pw.Container(
-                      padding: const pw.EdgeInsets.all(8),
-                      decoration: const pw.BoxDecoration(
-                        border: pw.Border(right: pw.BorderSide(width: 0.5)),
-                      ),
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Text(
-                            t('bill.to'),
-                            style: const pw.TextStyle(fontSize: 10),
-                          ),
-                          pw.SizedBox(height: 4),
-                          _infoRow(
-                            t('bill.preparedBy'),
-                            cashierName,
-                            fontSize: 10,
-                          ),
-                          _infoRow(
-                            t('bill.waiter'),
-                            order.waiterName,
-                            fontSize: 10,
-                          ),
-                          _infoRow(
-                            t('bill.table'),
-                            order.tableName,
-                            fontSize: 10,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Right column
-                  pw.Expanded(
-                    child: pw.Container(
-                      padding: const pw.EdgeInsets.all(8),
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          _infoRow(t('bill.voucher'), voucherNo, fontSize: 10),
-                          _infoRow(t('bill.date'), dateStr, fontSize: 10),
-                          _infoRow(
-                            t('bill.orderNumber'),
-                            '#${order.id ?? "—"}',
-                            fontSize: 10,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            pw.SizedBox(height: 14),
-
-            // ── Items table ───────────────────────────────────────────────
-            pw.Table(
-              border: pw.TableBorder.all(width: 0.5),
-              columnWidths: {
-                0: const pw.FlexColumnWidth(5), // Description
-                1: const pw.FixedColumnWidth(40), // Qty
-                2: const pw.FixedColumnWidth(80), // Unit Price
-                3: const pw.FixedColumnWidth(80), // Total
-              },
-              children: [
-                // Header row
-                pw.TableRow(
-                  decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-                  children: [
-                    _cell(t('bill.description'), bold: true, fontSize: 10),
-                    _cell(
-                      t('bill.qty'),
-                      bold: true,
-                      fontSize: 10,
-                      align: pw.TextAlign.center,
-                    ),
-                    _cell(
-                      t('bill.unitAmount'),
-                      bold: true,
-                      fontSize: 10,
-                      align: pw.TextAlign.right,
-                    ),
-                    _cell(
-                      t('bill.total'),
-                      bold: true,
-                      fontSize: 10,
-                      align: pw.TextAlign.right,
-                    ),
-                  ],
-                ),
-                // Item rows
-                ...items.map(
-                  (item) => pw.TableRow(
-                    children: [
-                      _cell(
-                        '${item.productName}${item.notes != null && item.notes!.isNotEmpty ? " (${item.notes})" : ""}',
-                        fontSize: 11,
-                      ),
-                      _cell(
-                        '${item.quantity}',
-                        fontSize: 11,
-                        align: pw.TextAlign.center,
-                      ),
-                      _cell(
-                        _fmt(item.unitPrice),
-                        fontSize: 11,
-                        align: pw.TextAlign.right,
-                      ),
-                      _cell(
-                        _fmt(item.subtotal),
-                        fontSize: 11,
-                        align: pw.TextAlign.right,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            pw.SizedBox(height: 10),
-
-            // ── Amount in words + totals side-by-side ─────────────────────
-            pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                // Amount in words (left)
-                pw.Expanded(
-                  flex: 3,
-                  child: pw.Container(
-                    padding: const pw.EdgeInsets.all(8),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(width: 0.5),
-                    ),
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          amountWords,
-                          style: pw.TextStyle(
-                            fontSize: 10,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                pw.SizedBox(width: 12),
-                // Totals (right)
-                pw.Expanded(
-                  flex: 2,
-                  child: pw.Column(
-                    children: [
-                      _totalRow(t('bill.subtotal'), subtotal),
-                      _totalRow(
-                        t(
-                          'bill.serviceCharge',
-                          replacements: {
-                            'percent': serviceChargePercent.toStringAsFixed(0),
-                          },
-                        ),
-                        serviceCharge,
-                      ),
-                      if (discount > 0)
-                        _totalRow(t('bill.discount'), -discount),
-                      pw.Divider(thickness: 1),
-                      _totalRow(t('bill.grandTotal'), grandTotal, bold: true),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            pw.SizedBox(height: 24),
-
-            // ── Footer ────────────────────────────────────────────────────
-            pw.Divider(),
+            // Header
             pw.Center(
               child: pw.Text(
-                settings.address.isNotEmpty
-                    ? settings.address
-                    : t('bill.thankYou'),
-                style: const pw.TextStyle(fontSize: 9),
+                cafeName,
+                style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+              ),
+            ),
+            if (settings.address.isNotEmpty)
+              pw.Center(
+                child: pw.Text(
+                  settings.address,
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ),
+            if (settings.phone.isNotEmpty)
+              pw.Center(
+                child: pw.Text(
+                  'Tel: ${settings.phone}',
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ),
+            pw.SizedBox(height: 8),
+            pw.Center(
+              child: pw.Text(
+                'CASH SALES INVOICE',
+                style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+              ),
+            ),
+            pw.SizedBox(height: 8),
+            pw.Divider(thickness: 0.5),
+
+            // Info
+            _receiptRow('Voucher:', voucherNo),
+            _receiptRow('Date:', dateStr),
+            _receiptRow('Table:', order.tableName),
+            _receiptRow('Waiter:', order.waiterName),
+            _receiptRow('Cashier:', cashierName),
+            pw.Divider(thickness: 0.5),
+
+            // Items Table
+            pw.Row(
+              children: [
+                pw.Expanded(flex: 4, child: pw.Text('Description', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold))),
+                pw.Expanded(flex: 1, child: pw.Text('Qty', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center)),
+                pw.Expanded(flex: 2, child: pw.Text('Price', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
+                pw.Expanded(flex: 2, child: pw.Text('Total', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
+              ],
+            ),
+            pw.SizedBox(height: 4),
+            ...items.map(
+              (item) => pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
+                child: pw.Row(
+                  children: [
+                    pw.Expanded(flex: 4, child: pw.Text(item.productName, style: const pw.TextStyle(fontSize: 9))),
+                    pw.Expanded(flex: 1, child: pw.Text('${item.quantity}', style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.center)),
+                    pw.Expanded(flex: 2, child: pw.Text(_fmt(item.unitPrice), style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.right)),
+                    pw.Expanded(flex: 2, child: pw.Text(_fmt(item.subtotal), style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.right)),
+                  ],
+                ),
+              ),
+            ),
+            pw.Divider(thickness: 0.5),
+
+            // Totals
+            _totalRowReceipt('Subtotal:', subtotal),
+            _totalRowReceipt('Service Charge (${serviceChargePercent.toStringAsFixed(0)}%):', serviceCharge),
+            if (discount > 0) _totalRowReceipt('Discount:', -discount),
+            pw.SizedBox(height: 4),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text('GRAND TOTAL:', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                pw.Text(_fmt(grandTotal), style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+              ],
+            ),
+            pw.SizedBox(height: 10),
+            pw.Center(
+              child: pw.Text(
+                'THANK YOU!',
+                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
               ),
             ),
             if (settings.vatNumber.isNotEmpty)
               pw.Center(
                 child: pw.Text(
-                  t('bill.tin', replacements: {'tin': settings.vatNumber}),
-                  style: const pw.TextStyle(fontSize: 9),
+                  'TIN: ${settings.vatNumber}',
+                  style: const pw.TextStyle(fontSize: 8),
                 ),
               ),
           ],
@@ -392,9 +219,28 @@ class BillService {
 
     await Printing.layoutPdf(
       onLayout: (_) async => pdf.save(),
-      name: 'Invoice_${voucherNo}.pdf',
+      name: 'Receipt_${voucherNo}.pdf',
     );
   }
+
+  static pw.Widget _receiptRow(String label, String value) => pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 1),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(label, style: const pw.TextStyle(fontSize: 9)),
+            pw.Text(value, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+          ],
+        ),
+      );
+
+  static pw.Widget _totalRowReceipt(String label, double value) => pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(label, style: const pw.TextStyle(fontSize: 9)),
+          pw.Text(_fmt(value.abs()), style: const pw.TextStyle(fontSize: 9)),
+        ],
+      );
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 

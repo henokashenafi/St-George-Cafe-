@@ -11,7 +11,7 @@ import 'package:st_george_pos/screens/management_screens.dart';
 import 'package:st_george_pos/screens/order_screen.dart';
 import 'package:st_george_pos/screens/table_management_screen.dart';
 import 'package:st_george_pos/screens/zone_management_screen.dart';
-import 'package:st_george_pos/screens/settings_screen.dart' hide SettingsScreen;
+import 'package:st_george_pos/screens/settings_screen.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/services/pos_repository.dart';
@@ -342,8 +342,7 @@ class DashboardScreen extends ConsumerWidget {
         if (!isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
         return const UserManagementScreen(key: ValueKey('users'));
       case DashboardView.settings:
-        if (!isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
-        return const TableManagementScreen(key: ValueKey('settings'));
+        return const GlobalSettingsScreen(key: ValueKey('settings'));
       case DashboardView.zones:
         if (!isDirector) return const DashboardHomeScreen(key: ValueKey('home'));
         return const ZoneManagementScreen(key: ValueKey('zones'));
@@ -702,19 +701,20 @@ class _MiniStatCard extends StatelessWidget {
   }
 }
 
-class _ActiveTableTile extends StatelessWidget {
+class _ActiveTableTile extends ConsumerWidget {
   final OrderModel order;
   final VoidCallback onTap;
-  final String currency;
+  final String? currency;
 
   const _ActiveTableTile({
     required this.order,
     required this.onTap,
-    this.currency = 'ETB',
+    this.currency,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final displayCurrency = currency ?? ref.t('common.currency');
     return Container(
       width: 180,
       margin: const EdgeInsets.only(right: 16),
@@ -773,7 +773,7 @@ class _ActiveTableTile extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  '${order.totalAmount.toStringAsFixed(2)} $currency',
+                  '${order.totalAmount.toStringAsFixed(2)} $displayCurrency',
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,

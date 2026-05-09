@@ -55,7 +55,8 @@
     "addNote": "ማስታወሻ ጨምር",
     "decreaseQty": "ብዛት ቀንስ",
     "increaseQty": "ብዛት ጨምር",
-    "removeItem": "እቃ አስወግድ"
+    "removeItem": "እቃ አስወግድ",
+    "addDiscount": "ቅናሽ ጨምር"
   },
   "orderConfirm": {
     "title": "ሂሳብ አረጋግጥ እና አትም",
@@ -186,6 +187,7 @@
     "serviceCharge": "የአገልግሎት ክፍያ",
     "discountsGiven": "የተሰጡ ቅናሾች",
     "grandTotal": "ጠቅላላ ድምር",
+    "statusLabel": "ሁኔታ: {status}",
     "orderCount": "ትዕዛዛት",
     "itemsSold": "የተሸጡ እቃዎች",
     "unknown": "ያልታወቀ",
@@ -209,7 +211,8 @@
     "today": "ዛሬ",
     "thisWeek": "ይህ ሳምንት",
     "thisMonth": "ይህ ወር",
-    "allTime": "ሁሉም ጊዜ"
+    "allTime": "ሁሉም ጊዜ",
+    "custom": "የቀን ክልል"
   },
   "settings": {
     "cafeInformation": "የካፌ መረጃ",
@@ -239,7 +242,12 @@
     "active": "ንቁ",
     "inactive": "ያልተነቃ",
     "newPasswordHint": "አዲስ የይለፍ ቃል",
-    "serviceChargeHint": "ለምሳሌ 5.0"
+    "serviceChargeHint": "ለምሳሌ 5.0",
+    "developerTools": "የገንቢ መሣሪያዎች",
+    "seedDemoData": "የሙከራ መረጃ ይሙሉ",
+    "clearTransactions": "ሁሉንም ትዕዛዛት አጽዳ",
+    "seedingSuccess": "የሙከራ መረጃ በተሳካ ሁኔታ ተሞልቷል",
+    "clearingSuccess": "ሁሉም ትዕዛዛት ተሰርዘዋል"
   },
   "roles": {
     "cashier": "ገንዘብ ተቀባይ",

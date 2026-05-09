@@ -65,7 +65,8 @@
     "addNote": "Add Note",
     "decreaseQty": "Decrease Quantity",
     "increaseQty": "Increase Quantity",
-    "removeItem": "Remove Item"
+    "removeItem": "Remove Item",
+    "addDiscount": "Add Discount"
   },
   "orderConfirm": {
     "title": "Confirm & Print Bill",
@@ -269,7 +270,12 @@
     "newPasswordHint": "New Password",
     "serviceChargeHint": "e.g. 5.0",
     "save": "Save",
-    "users": "Users"
+    "users": "Users",
+    "developerTools": "Developer Tools",
+    "seedDemoData": "Seed Demo Data",
+    "clearTransactions": "Clear All Transactions",
+    "seedingSuccess": "Demo data seeded successfully",
+    "clearingSuccess": "All transactions cleared"
   },
   "roles": {
     "cashier": "Cashier",

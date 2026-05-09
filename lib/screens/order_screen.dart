@@ -754,6 +754,37 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                       ),
                                     ],
                                   ),
+                                  const SizedBox(height: 12),
+                                  if (scPercent > 0 || _discountAmount > 0)
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: OutlinedButton.icon(
+                                        icon: const Icon(Icons.discount_outlined, size: 16),
+                                        label: Text(
+                                          _discountAmount > 0
+                                              ? '${ref.t('order.discount')}: ${_discountAmount.toStringAsFixed(2)}'
+                                              : ref.t('order.addDiscount'),
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: const Color(0xFFD4AF37),
+                                          side: const BorderSide(color: Color(0xFFD4AF37)),
+                                          padding: const EdgeInsets.symmetric(vertical: 8),
+                                        ),
+                                        onPressed: () async {
+                                          final result = await showDialog<double>(
+                                            context: context,
+                                            builder: (ctx) => _DiscountDialog(
+                                              initialDiscount: _discountAmount,
+                                              subtotal: subtotal,
+                                            ),
+                                          );
+                                          if (result != null) {
+                                            setState(() => _discountAmount = result);
+                                          }
+                                        },
+                                      ),
+                                    ),
                                 ],
                               );
                             },
@@ -1520,6 +1551,81 @@ class _IconBtn extends StatelessWidget {
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
       ),
+    );
+  }
+}
+class _DiscountDialog extends ConsumerStatefulWidget {
+  final double initialDiscount;
+  final double subtotal;
+
+  const _DiscountDialog({
+    required this.initialDiscount,
+    required this.subtotal,
+  });
+
+  @override
+  ConsumerState<_DiscountDialog> createState() => _DiscountDialogState();
+}
+
+class _DiscountDialogState extends ConsumerState<_DiscountDialog> {
+  late TextEditingController _ctrl;
+  double _val = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _val = widget.initialDiscount;
+    _ctrl = TextEditingController(text: _val > 0 ? _val.toString() : '');
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1A1A1A),
+      title: Text(ref.t('order.addDiscount')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _ctrl,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              labelText: ref.t('order.discountLabel'),
+              labelStyle: const TextStyle(color: Colors.white54),
+              prefixIcon: const Icon(Icons.discount_outlined, color: Colors.white38),
+            ),
+            onChanged: (v) => setState(() => _val = double.tryParse(v) ?? 0),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "${ref.t('order.total')}: ${(widget.subtotal - _val).toStringAsFixed(2)}",
+            style: const TextStyle(color: Colors.white38, fontSize: 12),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(ref.t('common.cancel')),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFD4AF37),
+            foregroundColor: Colors.black,
+          ),
+          onPressed: () => Navigator.pop(context, _val),
+          child: Text(ref.t('common.save')),
+        ),
+      ],
     );
   }
 }

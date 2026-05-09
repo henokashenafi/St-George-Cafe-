@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import 'package:st_george_pos/core/mock_data_seeder.dart';
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:path/path.dart';
@@ -40,7 +41,7 @@ class DatabaseHelper {
       dbPath = join(appDocumentsDir.path, 'st_george_pos.db');
     }
 
-    return await databaseFactory.openDatabase(
+    final db = await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
         version: 6,
@@ -49,6 +50,21 @@ class DatabaseHelper {
         onConfigure: _onConfigure,
       ),
     );
+
+    // Auto-seed mock data if database is empty (for demo)
+    final res = await db.rawQuery('SELECT COUNT(*) FROM orders');
+    final countVal = res.first.values.first;
+    print('DEBUG: Database initialized. Order count: $countVal (${countVal.runtimeType})');
+    
+    final orderCount = countVal is int ? countVal : int.tryParse(countVal.toString()) ?? 0;
+
+    if (orderCount == 0) {
+      print('DEBUG: Seeding mock data...');
+      await MockDataSeeder.seedDetailedMockData(db);
+      print('DEBUG: Mock data seeding complete.');
+    }
+
+    return db;
   }
 
   Future _onConfigure(Database db) async {
@@ -220,6 +236,7 @@ class DatabaseHelper {
     ''');
 
     await _seedData(db);
+    await _seedWaitersZonesTables(db);
   }
 
   Future _seedUsers(Database db) async {
@@ -254,24 +271,50 @@ class DatabaseHelper {
     await _seedUsers(db);
     await _seedSettings(db);
 
-    // Seed Categories
+    final categories = [
+      'Hot Drinks',
+      'Cold Drinks',
+      'Breakfast',
+      'Main Course',
+      'Fasting',
+      'Snacks',
+      'Desserts'
+    ];
     final catIds = <String, int>{};
-    for (var cat in ['Coffee', 'Tea', 'Pastries', 'Soft Drinks']) {
+    for (var cat in categories) {
       final id = await db.insert('categories', {'name': cat});
       catIds[cat] = id;
     }
 
-    // Seed Products
     final products = [
-      {'category': 'Coffee', 'name': 'Macchiato', 'price': 35.0},
-      {'category': 'Coffee', 'name': 'Black Coffee', 'price': 25.0},
-      {'category': 'Coffee', 'name': 'Caffe Latte', 'price': 45.0},
-      {'category': 'Tea', 'name': 'Black Tea', 'price': 15.0},
-      {'category': 'Tea', 'name': 'Spiced Tea', 'price': 20.0},
-      {'category': 'Pastries', 'name': 'Croissant', 'price': 55.0},
-      {'category': 'Pastries', 'name': 'Chocolate Cake', 'price': 75.0},
-      {'category': 'Soft Drinks', 'name': 'Coca Cola', 'price': 30.0},
-      {'category': 'Soft Drinks', 'name': 'Water 0.5L', 'price': 20.0},
+      {'category': 'Hot Drinks', 'name': 'Macchiato', 'price': 35.0},
+      {'category': 'Hot Drinks', 'name': 'Black Coffee', 'price': 25.0},
+      {'category': 'Hot Drinks', 'name': 'Caffe Latte', 'price': 45.0},
+      {'category': 'Hot Drinks', 'name': 'Tea', 'price': 15.0},
+      {'category': 'Hot Drinks', 'name': 'Spiced Tea', 'price': 20.0},
+      {'category': 'Hot Drinks', 'name': 'Cappuccino', 'price': 50.0},
+      {'category': 'Cold Drinks', 'name': 'Coca Cola', 'price': 30.0},
+      {'category': 'Cold Drinks', 'name': 'Water 0.5L', 'price': 20.0},
+      {'category': 'Cold Drinks', 'name': 'Sprite', 'price': 30.0},
+      {'category': 'Cold Drinks', 'name': 'Fanta', 'price': 30.0},
+      {'category': 'Cold Drinks', 'name': 'Fresh Orange Juice', 'price': 65.0},
+      {'category': 'Breakfast', 'name': 'Injera Firfir', 'price': 85.0},
+      {'category': 'Breakfast', 'name': 'Chechebsa', 'price': 95.0},
+      {'category': 'Breakfast', 'name': 'Ful Medames', 'price': 75.0},
+      {'category': 'Breakfast', 'name': 'Scrambled Eggs', 'price': 65.0},
+      {'category': 'Main Course', 'name': 'Doro Wat', 'price': 350.0},
+      {'category': 'Main Course', 'name': 'Beef Tibs', 'price': 280.0},
+      {'category': 'Main Course', 'name': 'Kitfo', 'price': 420.0},
+      {'category': 'Main Course', 'name': 'Pasta with Meat', 'price': 120.0},
+      {'category': 'Fasting', 'name': 'Beyaynetu', 'price': 110.0},
+      {'category': 'Fasting', 'name': 'Shira Wat', 'price': 85.0},
+      {'category': 'Fasting', 'name': 'Fasting Firfir', 'price': 75.0},
+      {'category': 'Snacks', 'name': 'French Fries', 'price': 55.0},
+      {'category': 'Snacks', 'name': 'Samosa (Meat)', 'price': 25.0},
+      {'category': 'Snacks', 'name': 'Samosa (Lentil)', 'price': 20.0},
+      {'category': 'Desserts', 'name': 'Chocolate Cake', 'price': 75.0},
+      {'category': 'Desserts', 'name': 'Fruit Salad', 'price': 60.0},
+      {'category': 'Desserts', 'name': 'Ice Cream', 'price': 45.0},
     ];
 
     for (var p in products) {
@@ -282,6 +325,7 @@ class DatabaseHelper {
       });
     }
   }
+
 
   Future<void> _seedWaitersZonesTables(Database db) async {
     final waiterIds = <int>[];

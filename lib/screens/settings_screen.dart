@@ -6,26 +6,42 @@ import 'package:st_george_pos/providers/pos_providers.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:st_george_pos/core/database_helper.dart';
+import 'package:st_george_pos/core/mock_data_seeder.dart';
 
-class SettingsScreen extends ConsumerStatefulWidget {
-  const SettingsScreen({super.key});
+class GlobalSettingsScreen extends ConsumerStatefulWidget {
+  const GlobalSettingsScreen({super.key});
 
   @override
-  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+  ConsumerState<GlobalSettingsScreen> createState() => _GlobalSettingsScreenState();
 }
 
-class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+class _GlobalSettingsScreenState extends ConsumerState<GlobalSettingsScreen> {
+  final _cafeNameController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _serviceChargeController = TextEditingController();
   bool _discountEnabled = true;
   bool _saving = false;
 
   @override
   void dispose() {
+    _cafeNameController.dispose();
+    _addressController.dispose();
+    _phoneController.dispose();
     _serviceChargeController.dispose();
     super.dispose();
   }
 
   void _loadSettings(Map<String, String> settings) {
+    if (_cafeNameController.text.isEmpty) {
+      _cafeNameController.text = settings['cafe_name'] ?? 'St. George Cafe';
+    }
+    if (_addressController.text.isEmpty) {
+      _addressController.text = settings['cafe_address'] ?? 'Addis Ababa, Ethiopia';
+    }
+    if (_phoneController.text.isEmpty) {
+      _phoneController.text = settings['cafe_phone'] ?? '+251 911 000000';
+    }
     if (_serviceChargeController.text.isEmpty) {
       _serviceChargeController.text =
           settings['service_charge_percent'] ?? '5.0';
@@ -45,6 +61,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
     setState(() => _saving = true);
     final repo = ref.read(posRepositoryProvider);
+    await repo.setSetting('cafe_name', _cafeNameController.text, currentUser.id!);
+    await repo.setSetting('cafe_address', _addressController.text, currentUser.id!);
+    await repo.setSetting('cafe_phone', _phoneController.text, currentUser.id!);
     await repo.setSetting('service_charge_percent', charge.toString(), currentUser.id!);
     await repo.setSetting('discount_enabled', _discountEnabled.toString(), currentUser.id!);
     ref.invalidate(appSettingsProvider);
@@ -67,6 +86,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _SectionHeader(title: ref.t('settings.cafeInformation')),
+              GlassContainer(
+                opacity: 0.05,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      _buildTextField(
+                        controller: _cafeNameController,
+                        label: ref.t('settings.cafeName'),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        controller: _addressController,
+                        label: ref.t('settings.address'),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        controller: _phoneController,
+                        label: ref.t('settings.phoneNumber'),
+                        keyboardType: TextInputType.phone,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
               _SectionHeader(title: ref.t('settings.billing')),
               GlassContainer(
                 opacity: 0.05,
@@ -126,23 +172,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFD4AF37),
                   foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: _saving ? null : _saveSettings,
                 child: _saving
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.black,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
                       )
                     : Text(
                         ref.t('settings.save'),
@@ -155,6 +193,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Text('${ref.t('common.error')}: $e'),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
+          style: const TextStyle(color: Colors.white),
+          decoration: _inputDec('Enter $label'),
+        ),
+      ],
     );
   }
 
