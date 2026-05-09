@@ -98,50 +98,90 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                       ? null
                       : () => _showProductDialog(context, null),
                 ),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: TextField(
+                    onChanged: (val) =>
+                        ref.read(productSearchProvider.notifier).set(val),
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: ref.t('common.searchPlaceholder'),
+                      hintStyle: const TextStyle(color: Colors.white24),
+                      prefixIcon:
+                          const Icon(Icons.search, color: Colors.white38),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.05),
+                      border: const OutlineInputBorder(
+                        borderRadius: BorderRadius.zero,
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                    ),
+                  ),
+                ),
                 Expanded(
                   child: productsAsync.when(
-                    data: (products) => ListView.builder(
-                      itemCount: products.length,
-                      itemBuilder: (_, i) {
-                        final p = products[i];
-                        return ListTile(
-                          leading: Container(
-                            width: 40,
-                            height: 40,
-                            color: Colors.white10,
-                            child: const Icon(
-                              Icons.fastfood,
-                              color: Color(0xFFD4AF37),
-                            ),
-                          ),
-                          title: Text(p.name),
-                          subtitle: Text(
-                            '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.edit_outlined,
-                                  color: Colors.white54,
-                                  size: 20,
-                                ),
-                                onPressed: () => _showProductDialog(context, p),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.redAccent,
-                                  size: 20,
-                                ),
-                                onPressed: () => _deleteProduct(p.id!),
-                              ),
-                            ],
+                    data: (products) {
+                      final query =
+                          ref.watch(productSearchProvider).toLowerCase();
+                      final filtered = products
+                          .where((p) => p.name.toLowerCase().contains(query))
+                          .toList();
+
+                      if (filtered.isEmpty) {
+                        return Center(
+                          child: Opacity(
+                            opacity: 0.4,
+                            child: Text(ref.t('common.noResultsFound')),
                           ),
                         );
-                      },
-                    ),
+                      }
+
+                      return ListView.builder(
+                        itemCount: filtered.length,
+                        itemBuilder: (_, i) {
+                          final p = filtered[i];
+                          return ListTile(
+                            leading: Container(
+                              width: 40,
+                              height: 40,
+                              color: Colors.white10,
+                              child: const Icon(
+                                Icons.fastfood,
+                                color: Color(0xFFD4AF37),
+                              ),
+                            ),
+                            title: Text(p.name),
+                            subtitle: Text(
+                              '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    color: Colors.white54,
+                                    size: 20,
+                                  ),
+                                  onPressed: () =>
+                                      _showProductDialog(context, p),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.redAccent,
+                                    size: 20,
+                                  ),
+                                  onPressed: () => _deleteProduct(p.id!),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
                     loading: () =>
                         const Center(child: CircularProgressIndicator()),
                     error: (e, _) => Text('${ref.t('common.error')}: $e'),
@@ -440,39 +480,78 @@ class OrderHistoryScreen extends ConsumerWidget {
         children: [
           Padding(
             padding: const EdgeInsets.all(20),
-            child: Row(
+            child: Column(
               children: [
-                Text(
-                  ref.t('management.orders'),
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-                const Spacer(),
-                _DateFilterChips(
-                  filter: filter,
-                  onChanged: (f) {
-                    ref.read(reportDateFilterProvider.notifier).set(f);
-                  },
+                Row(
+                  children: [
+                    Text(
+                      ref.t('management.orders'),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(width: 32),
+                    Expanded(
+                      child: TextField(
+                        onChanged: (val) =>
+                            ref.read(orderSearchProvider.notifier).set(val),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: ref.t('common.searchPlaceholder'),
+                          hintStyle: const TextStyle(color: Colors.white24),
+                          prefixIcon:
+                              const Icon(Icons.search, color: Colors.white38),
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.05),
+                          border: const OutlineInputBorder(
+                            borderRadius: BorderRadius.zero,
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 0),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    _DateFilterChips(
+                      filter: filter,
+                      onChanged: (f) {
+                        ref.read(reportDateFilterProvider.notifier).set(f);
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           Expanded(
             child: orders.when(
-              data: (list) => list.isEmpty
-                  ? Center(
-                      child: Opacity(
-                        opacity: 0.4,
-                        child: Text(ref.t('management.noOrdersInRange')),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: list.length,
-                      itemBuilder: (_, i) {
-                        final o = list[i];
+              data: (list) {
+                final query = ref.watch(orderSearchProvider).toLowerCase();
+                final filtered = list.where((o) {
+                  return o.id.toString().contains(query) ||
+                      o.tableName.toLowerCase().contains(query) ||
+                      o.waiterName.toLowerCase().contains(query);
+                }).toList();
+
+                if (filtered.isEmpty) {
+                  return Center(
+                    child: Opacity(
+                      opacity: 0.4,
+                      child: Text(query.isEmpty
+                          ? ref.t('management.noOrdersInRange')
+                          : ref.t('common.noResultsFound')),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  itemCount: filtered.length,
+                  itemBuilder: (_, i) {
+                    final o = filtered[i];
                         final settings =
                             ref.watch(appSettingsProvider).value ?? {};
                         final scPercent =
@@ -552,7 +631,8 @@ class OrderHistoryScreen extends ConsumerWidget {
                               .toList(),
                         );
                       },
-                    ),
+                    );
+              },
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Text('$e'),
             ),
@@ -768,6 +848,10 @@ class ReportsScreen extends ConsumerWidget {
         Expanded(
           child: ordersAsync.when(
             data: (orderList) {
+              if (analytics == null) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
               final completed = orderList
                   .where((o) => o.status == OrderStatus.completed)
                   .where((o) =>
@@ -794,311 +878,369 @@ class ReportsScreen extends ConsumerWidget {
                 (s, o) => s + o.items.fold(0, (ss, i) => ss + i.quantity),
               );
 
-              return SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Summary cards
-                    GridView.count(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 20,
-                      mainAxisSpacing: 20,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      childAspectRatio: 2.2,
-                      children: [
-                        _ReportCard(
-                          title: ref.t('management.subtotal'),
+              return ListView(
+                padding: const EdgeInsets.only(bottom: 40),
+                children: [
+                  // KPI Cards
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StatSummaryCard(
+                          title: ref.t('management.avgOrderValue'),
                           value:
-                              '${subtotalSum.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                          icon: Icons.receipt_outlined,
-                        ),
-                        _ReportCard(
-                          title: ref.t('management.serviceCharge'),
-                          value:
-                              '${serviceSum.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                          icon: Icons.room_service_outlined,
-                        ),
-                        _ReportCard(
-                          title: ref.t('management.discountsGiven'),
-                          value:
-                              '${discountSum.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                          icon: Icons.discount_outlined,
-                        ),
-                        _ReportCard(
-                          title: ref.t('management.grandTotal'),
-                          value:
-                              '${grandSum.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                          icon: Icons.trending_up,
+                              '${analytics.avgOrderValue.toStringAsFixed(0)} ${ref.t('common.currency')}',
+                          icon: Icons.receipt_long_outlined,
                           color: const Color(0xFFD4AF37),
                         ),
-                        _ReportCard(
-                          title: ref.t('management.orderCount'),
-                          value: '${completed.length}',
-                          icon: Icons.shopping_bag_outlined,
-                        ),
-                        _ReportCard(
-                          title: ref.t('management.itemsSold'),
-                          value: '$itemsSoldTotal',
-                          icon: Icons.fastfood_outlined,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 28),
-
-                    if (analytics != null) ...[
-                      // Advanced Charts
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _SectionHeader(
-                                  title: ref.t('management.categorySales'),
-                                  icon: Icons.pie_chart_outline,
-                                ),
-                                const SizedBox(height: 10),
-                                _buildCategoryChart(context, analytics.categorySales),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 20),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _SectionHeader(
-                                  title: ref.t('management.hourlySales'),
-                                  icon: Icons.show_chart,
-                                ),
-                                const SizedBox(height: 10),
-                                _buildHourlyChart(context, analytics.hourlySales),
-                              ],
-                            ),
-                          ),
-                        ],
                       ),
-                      const SizedBox(height: 32),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Top Selling Products
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _SectionHeader(
-                                  title: ref.t('management.topProducts'),
-                                  icon: Icons.star_outline,
-                                ),
-                                const SizedBox(height: 10),
-                                GlassContainer(
-                                  opacity: 0.05,
-                                  child: Column(
-                                    children: (analytics.topProducts.entries
-                                            .toList()
-                                          ..sort((a, b) => b.value.qty
-                                              .compareTo(a.value.qty)))
-                                        .take(10)
-                                        .map((e) => ListTile(
-                                              dense: true,
-                                              title: Text(
-                                                e.key,
-                                                style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold),
-                                              ),
-                                              subtitle: Text(
-                                                '${ref.t('management.revenue')}: ${e.value.revenue.toStringAsFixed(2)}',
-                                                style: const TextStyle(
-                                                    fontSize: 10,
-                                                    color: Colors.white38),
-                                              ),
-                                              trailing: Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color:
-                                                      const Color(0xFFD4AF37)
-                                                          .withOpacity(0.1),
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
-                                                ),
-                                                child: Text(
-                                                  '${e.value.qty} ${ref.t('management.qtySold')}',
-                                                  style: const TextStyle(
-                                                    color: Color(0xFFD4AF37),
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            ))
-                                        .toList(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 20),
-                          // Daily Sales Breakdown
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _SectionHeader(
-                                  title: ref.t('management.dailySales'),
-                                  icon: Icons.calendar_today_outlined,
-                                ),
-                                const SizedBox(height: 10),
-                                GlassContainer(
-                                  opacity: 0.05,
-                                  child: Column(
-                                    children: (analytics.dailySales.entries
-                                            .toList()
-                                          ..sort((a, b) =>
-                                              b.key.compareTo(a.key)))
-                                        .take(10)
-                                        .map((e) => ListTile(
-                                              dense: true,
-                                              title: Text(e.key),
-                                              trailing: Text(
-                                                '${e.value.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                                style: const TextStyle(
-                                                  color: Color(0xFFD4AF37),
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ))
-                                        .toList(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 28),
-                      // Waiter Performance
-                      _SectionHeader(
-                        title: ref.t('management.performance'),
-                        icon: Icons.person_outline,
-                      ),
-                      const SizedBox(height: 10),
-                      GlassContainer(
-                        opacity: 0.05,
-                        child: Column(
-                          children: analytics.waiterPerformance.entries
-                              .map((e) => ListTile(
-                                    leading: const CircleAvatar(
-                                      backgroundColor: Color(0xFF006B3C),
-                                      child: Icon(Icons.person,
-                                          size: 18, color: Colors.white),
-                                    ),
-                                    title: Text(e.key),
-                                    subtitle: Text(
-                                      '${e.value.orders} ${ref.t('management.orderCount')}',
-                                      style: const TextStyle(fontSize: 11),
-                                    ),
-                                    trailing: Text(
-                                      '${e.value.revenue.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                      style: const TextStyle(
-                                        color: Color(0xFFD4AF37),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                  ))
-                              .toList(),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _StatSummaryCard(
+                          title: ref.t('management.mostSoldItem'),
+                          value: analytics.mostSoldItem ?? '-',
+                          icon: Icons.star_outline,
+                          color: const Color(0xFF006B3C),
                         ),
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _StatSummaryCard(
+                          title: ref.t('management.shiftSummary'),
+                          value:
+                              '${completed.length} ${ref.t('management.orders')}',
+                          icon: Icons.timer_outlined,
+                          color: const Color(0xFFC41E3A),
+                        ),
+                      ),
                     ],
-
-                    // Sales Record (Transactions)
-                    _SectionHeader(
-                      title: ref.t('management.salesRecord'),
-                      icon: Icons.list_alt_outlined,
-                    ),
-                    const SizedBox(height: 10),
-                    GlassContainer(
-                      opacity: 0.05,
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: completed.length,
-                        separatorBuilder: (_, __) =>
-                            const Divider(color: Colors.white10, height: 1),
-                        itemBuilder: (_, i) {
-                          final o = completed[i];
-                          return ExpansionTile(
-                            leading: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.05),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '#${o.id}',
-                                  style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white54),
-                                ),
-                              ),
-                            ),
-                            title: Text(
-                              o.tableName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            subtitle: Text(
-                              '${o.waiterName} • ${DateFormat('HH:mm').format(o.createdAt)}',
-                              style: const TextStyle(
-                                  fontSize: 11, color: Colors.white38),
-                            ),
-                            trailing: Text(
-                              '${o.grandTotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                              style: const TextStyle(
-                                color: Color(0xFFD4AF37),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            children: o.items
-                                .map((item) => ListTile(
-                                      dense: true,
-                                      title: Text(item.productName),
-                                      trailing: Text(
-                                        '${item.quantity} × ${item.unitPrice.toStringAsFixed(2)}',
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                    ))
-                                .toList(),
-                          );
-                        },
+                  ),
+                  const SizedBox(height: 24),
+                  // Summary cards
+                  GridView.count(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 20,
+                    mainAxisSpacing: 20,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    childAspectRatio: 2.2,
+                    children: [
+                      _ReportCard(
+                        title: ref.t('management.subtotal'),
+                        value:
+                            '${subtotalSum.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                        icon: Icons.receipt_outlined,
                       ),
-                    ),
-                    const SizedBox(height: 40),
-                  ],
-                ),
+                      _ReportCard(
+                        title: ref.t('management.serviceCharge'),
+                        value:
+                            '${serviceSum.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                        icon: Icons.room_service_outlined,
+                      ),
+                      _ReportCard(
+                        title: ref.t('management.discountsGiven'),
+                        value:
+                            '${discountSum.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                        icon: Icons.discount_outlined,
+                      ),
+                      _ReportCard(
+                        title: ref.t('management.grandTotal'),
+                        value:
+                            '${grandSum.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                        icon: Icons.trending_up,
+                        color: const Color(0xFFD4AF37),
+                      ),
+                      _ReportCard(
+                        title: ref.t('management.orderCount'),
+                        value: '${completed.length}',
+                        icon: Icons.shopping_bag_outlined,
+                      ),
+                      _ReportCard(
+                        title: ref.t('management.itemsSold'),
+                        value: '$itemsSoldTotal',
+                        icon: Icons.inventory_2_outlined,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 40),
+                  // Charts
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          children: [
+                            _SectionHeader(
+                                title: ref.t('management.categorySales'),
+                                icon: Icons.pie_chart_outline),
+                            const SizedBox(height: 10),
+                            _buildCategoryChart(context, analytics.categorySales),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            _SectionHeader(
+                                title: ref.t('management.hourlySales'),
+                                icon: Icons.show_chart),
+                            const SizedBox(height: 10),
+                            _buildHourlyChart(context, analytics.hourlySales),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 40),
+                  _SectionHeader(
+                      title: ref.t('management.topProducts'),
+                      icon: Icons.star_outline),
+                  const SizedBox(height: 10),
+                  _buildTopProductsTable(context, analytics.topProducts, ref),
+                  const SizedBox(height: 40),
+                  _SectionHeader(
+                      title: ref.t('management.performance'), icon: Icons.person_outline),
+                  const SizedBox(height: 10),
+                  _buildWaiterPerformanceTable(context, analytics.waiterPerformance, ref),
+                  const SizedBox(height: 40),
+                  _SectionHeader(
+                      title: ref.t('management.dailySales'),
+                      icon: Icons.calendar_today_outlined),
+                  const SizedBox(height: 10),
+                  _buildDailySalesTable(context, analytics.dailySales, ref),
+                  const SizedBox(height: 40),
+                  _SectionHeader(
+                      title: ref.t('management.salesRecord'),
+                      icon: Icons.list_alt_outlined),
+                  const SizedBox(height: 10),
+                  _buildSalesRecordList(context, completed, ref),
+                ],
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text('${ref.t('common.error')}: $e'),
+            error: (e, _) => Center(child: Text('$e')),
           ),
         ),
       ],
     );
   }
+
+  Widget _buildTopProductsTable(BuildContext context,
+      Map<String, ({int qty, double revenue})> products, WidgetRef ref) {
+    return GlassContainer(
+      opacity: 0.05,
+      child: Column(
+        children: (products.entries.toList()
+              ..sort((a, b) => b.value.qty.compareTo(a.value.qty)))
+            .take(10)
+            .map((e) => ListTile(
+                  dense: true,
+                  title: Text(
+                    e.key,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    '${ref.t('management.revenue')}: ${e.value.revenue.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 10, color: Colors.white38),
+                  ),
+                  trailing: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD4AF37).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '${e.value.qty} ${ref.t('management.qtySold')}',
+                      style: const TextStyle(
+                        color: Color(0xFFD4AF37),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ))
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildWaiterPerformanceTable(
+      BuildContext context, Map<String, ({int orders, double revenue})> performance, WidgetRef ref) {
+    return GlassContainer(
+      opacity: 0.05,
+      child: Column(
+        children: performance.entries
+            .map((e) => ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFF006B3C),
+                    child: Icon(Icons.person, size: 18, color: Colors.white),
+                  ),
+                  title: Text(e.key),
+                  subtitle: Text(
+                    '${e.value.orders} ${ref.t('management.orderCount')}',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  trailing: Text(
+                    '${e.value.revenue.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                    style: const TextStyle(
+                      color: Color(0xFFD4AF37),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                ))
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildDailySalesTable(
+      BuildContext context, Map<String, double> dailySales, WidgetRef ref) {
+    return GlassContainer(
+      opacity: 0.05,
+      child: Column(
+        children: (dailySales.entries.toList()
+              ..sort((a, b) => b.key.compareTo(a.key)))
+            .take(10)
+            .map((e) => ListTile(
+                  dense: true,
+                  title: Text(e.key),
+                  trailing: Text(
+                    '${e.value.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                    style: const TextStyle(
+                      color: Color(0xFFD4AF37),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ))
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildSalesRecordList(
+      BuildContext context, List<OrderModel> orders, WidgetRef ref) {
+    return GlassContainer(
+      opacity: 0.05,
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: orders.length,
+        separatorBuilder: (_, __) =>
+            const Divider(color: Colors.white10, height: 1),
+        itemBuilder: (_, i) {
+          final o = orders[i];
+          return ExpansionTile(
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Text(
+                  '#${o.id}',
+                  style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white54),
+                ),
+              ),
+            ),
+            title: Text(
+              o.tableName,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+            subtitle: Text(
+              '${o.waiterName} • ${DateFormat('HH:mm').format(o.createdAt)}',
+              style: const TextStyle(fontSize: 11, color: Colors.white38),
+            ),
+            trailing: Text(
+              '${o.grandTotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
+              style: const TextStyle(
+                color: Color(0xFFD4AF37),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            children: o.items
+                .map((item) => ListTile(
+                      dense: true,
+                      title: Text(item.productName),
+                      trailing: Text(
+                        '${item.quantity} × ${item.unitPrice.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ))
+                .toList(),
+          );
+        },
+      ),
+    );
+  }
 }
 
+class _StatSummaryCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _StatSummaryCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassContainer(
+      opacity: 0.05,
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 class _SectionHeader extends StatelessWidget {
   final String title;
   final IconData icon;

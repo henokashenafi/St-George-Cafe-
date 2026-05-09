@@ -210,16 +210,51 @@ class UserManagementScreen extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: TextField(
+            onChanged: (val) =>
+                ref.read(userSearchProvider.notifier).set(val),
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: ref.t('common.searchPlaceholder'),
+              hintStyle: const TextStyle(color: Colors.white24),
+              prefixIcon: const Icon(Icons.search, color: Colors.white38),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.05),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 0),
+            ),
+          ),
+        ),
         Expanded(
           child: usersAsync.when(
-            data: (users) => GlassContainer(
-              opacity: 0.05,
-              child: ListView.separated(
-                itemCount: users.length,
-                separatorBuilder: (_, __) =>
-                    const Divider(color: Colors.white10, height: 1),
-                itemBuilder: (context, index) {
-                  final u = users[index];
+            data: (users) {
+              final query = ref.watch(userSearchProvider).toLowerCase();
+              final filtered = users
+                  .where((u) => u.username.toLowerCase().contains(query))
+                  .toList();
+
+              if (filtered.isEmpty) {
+                return Center(
+                  child: Opacity(
+                    opacity: 0.4,
+                    child: Text(ref.t('common.noResultsFound')),
+                  ),
+                );
+              }
+
+              return GlassContainer(
+                opacity: 0.05,
+                child: ListView.separated(
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, __) =>
+                      const Divider(color: Colors.white10, height: 1),
+                  itemBuilder: (context, index) {
+                    final u = filtered[index];
                   final isDirector = u.role == UserRole.director;
                   return ListTile(
                     leading: CircleAvatar(
@@ -301,11 +336,12 @@ class UserManagementScreen extends ConsumerWidget {
                   );
                 },
               ),
-            ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text('${ref.t('common.error')}: $e'),
-          ),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Text('${ref.t('common.error')}: $e'),
         ),
+      ),
       ],
     );
   }

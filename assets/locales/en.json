@@ -217,14 +217,20 @@
     "add": "Add",
     "allWaiters": "All Waiters",
     "transactions": "Transactions",
+    "quickReview": "Quick Review",
     "topProducts": "Top Selling Products",
+    "topWaiters": "Top Performing Waiters",
     "revenue": "Revenue",
     "qtySold": "Qty Sold",
     "performance": "Performance",
     "dailySales": "Daily Sales",
     "categorySales": "Category Sales",
     "hourlySales": "Peak Hours (Hourly Sales)",
-    "salesRecord": "Sales Record"
+    "salesRecord": "Sales Record",
+    "shiftSummary": "Shift Summary",
+    "growth": "Growth",
+    "avgOrderValue": "Avg. Order Value",
+    "mostSoldItem": "Most Sold Item"
   },
   "filters": {
     "today": "Today",
@@ -416,6 +422,9 @@
     "noResults": "No results",
     "notes": "Notes",
     "save": "Save",
-    "search": "Search"
+    "search": "Search",
+    "searchPlaceholder": "Search by name, ID...",
+    "noResultsFound": "No results found",
+    "noData": "No data available"
   }
 }

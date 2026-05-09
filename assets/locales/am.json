@@ -189,7 +189,10 @@
     "orderCount": "ትዕዛዛት",
     "itemsSold": "የተሸጡ እቃዎች",
     "unknown": "ያልታወቀ",
+    "transactions": "ትዕዛዛት",
+    "quickReview": "ፈጣን እይታ",
     "topProducts": "በብዛት የተሸጡ እቃዎች",
+    "topWaiters": "ጥሩ አፈጻጸም ያላቸው አስተናጋጆች",
     "revenue": "ገቢ",
     "qtySold": "የተሸጠ ብዛት",
     "performance": "አፈጻጸም",
@@ -197,7 +200,10 @@
     "categorySales": "የምድብ ሽያጭ",
     "hourlySales": "የሰዓት ሽያጭ (ከፍተኛ ሰዓታት)",
     "salesRecord": "የሽያጭ መዝገብ",
-    "transactions": "ትዕዛዛት"
+    "shiftSummary": "የፈረቃ ማጠቃለያ",
+    "growth": "እድገት",
+    "avgOrderValue": "አማካይ የትዕዛዝ ዋጋ",
+    "mostSoldItem": "በብዛት የተሸጠ እቃ"
   },
   "filters": {
     "today": "ዛሬ",
@@ -290,6 +296,10 @@
     "delete": "ሰርዝ",
     "save": "አስቀምጥ",
     "cancel": "ሰርዝ",
+    "search": "ፈልግ",
+    "searchPlaceholder": "በስም ወይም በመለያ ይፈልጉ...",
+    "noResultsFound": "ምንም ውጤት አልተገኘም",
+    "noData": "ምንም መረጃ የለም",
     "deleteConfirmTitle": "ሰርዝ",
     "discountLabel": "ቅነሳ (ብር)",
     "tableDoesNotHaveWaiter": "ይህ ጠረጴዛ የተመደበ አስተናጋጅ የለውም። እባክዎ በጠረጴዛ አስተዳዳሪው ያዋቅሩት።",
