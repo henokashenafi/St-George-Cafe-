@@ -122,6 +122,8 @@ class DashboardScreen extends ConsumerWidget {
           ),
         ),
         actions: [
+          // Ethiopian calendar date display
+          const EthiopianDateDisplay(),
           // Language switcher
           const LanguageSwitcher(),
           // Logged-in user chip
@@ -278,7 +280,8 @@ class DashboardScreen extends ConsumerWidget {
                         label: 'SETTINGS',
                         isActive:
                             ref.watch(dashboardViewProvider) ==
-                            DashboardView.settings && isDirector, 
+                                DashboardView.settings &&
+                            isDirector,
                         onTap: () =>
                             ref.read(dashboardViewProvider.notifier).state =
                                 DashboardView.settings,
@@ -414,21 +417,32 @@ class DashboardHomeScreen extends ConsumerWidget {
         ordersAsync.when(
           data: (orders) {
             final today = DateTime.now();
-            final todayOrders = orders.where((o) => 
-              o.createdAt.day == today.day && 
-              o.createdAt.month == today.month && 
-              o.createdAt.year == today.year
-            ).toList();
-            
-            final completedToday = todayOrders.where((o) => o.status == OrderStatus.completed).toList();
-            final revenueToday = completedToday.fold(0.0, (sum, o) => sum + o.grandTotal);
-            final pendingOrders = orders.where((o) => o.status == OrderStatus.pending).toList();
+            final todayOrders = orders
+                .where(
+                  (o) =>
+                      o.createdAt.day == today.day &&
+                      o.createdAt.month == today.month &&
+                      o.createdAt.year == today.year,
+                )
+                .toList();
+
+            final completedToday = todayOrders
+                .where((o) => o.status == OrderStatus.completed)
+                .toList();
+            final revenueToday = completedToday.fold(
+              0.0,
+              (sum, o) => sum + o.grandTotal,
+            );
+            final pendingOrders = orders
+                .where((o) => o.status == OrderStatus.pending)
+                .toList();
 
             return Row(
               children: [
                 _MiniStat(
                   label: 'REVENUE TODAY',
-                  value: '${revenueToday.toStringAsFixed(0)} ${ref.t('common.currency')}',
+                  value:
+                      '${revenueToday.toStringAsFixed(0)} ${ref.t('common.currency')}',
                   icon: Icons.payments,
                   color: const Color(0xFFD4AF37),
                 ),
@@ -464,7 +478,9 @@ class DashboardHomeScreen extends ConsumerWidget {
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.03),
               borderRadius: BorderRadius.zero,
-              border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.2)),
+              border: Border.all(
+                color: const Color(0xFFD4AF37).withOpacity(0.2),
+              ),
             ),
             child: Stack(
               children: [
@@ -484,7 +500,10 @@ class DashboardHomeScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFD4AF37).withOpacity(0.1),
                           borderRadius: BorderRadius.zero,
@@ -530,7 +549,11 @@ class DashboardHomeScreen extends ConsumerWidget {
         // ── Live Workspace: Held Orders ─────────────────────────────────────
         Row(
           children: [
-            const Icon(Icons.layers_outlined, color: Color(0xFFD4AF37), size: 24),
+            const Icon(
+              Icons.layers_outlined,
+              color: Color(0xFFD4AF37),
+              size: 24,
+            ),
             const SizedBox(width: 12),
             const Text(
               'HELD ORDERS / PENDING BILLS',
@@ -555,13 +578,19 @@ class DashboardHomeScreen extends ConsumerWidget {
         Expanded(
           child: ordersAsync.when(
             data: (orders) {
-              final pending = orders.where((o) => o.status == OrderStatus.pending).toList();
+              final pending = orders
+                  .where((o) => o.status == OrderStatus.pending)
+                  .toList();
               if (pending.isEmpty) {
                 return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.inbox_outlined, size: 48, color: Colors.white.withOpacity(0.05)),
+                      Icon(
+                        Icons.inbox_outlined,
+                        size: 48,
+                        color: Colors.white.withOpacity(0.05),
+                      ),
                       const SizedBox(height: 16),
                       const Text(
                         'No pending orders at the moment.',
@@ -689,19 +718,26 @@ class _HeldOrderDashboardListTile extends ConsumerWidget {
                     const SizedBox(height: 2),
                     Text(
                       '${ref.t('bill.waiter')}: ${order.waiterName}  •  ${order.items.length} ITEMS',
-                      style: const TextStyle(fontSize: 12, color: Colors.white38),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white38,
+                      ),
                     ),
                   ],
                 ),
               ),
-              
+
               // Time Elapsed
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.timer_outlined, size: 14, color: Colors.orangeAccent),
+                      const Icon(
+                        Icons.timer_outlined,
+                        size: 14,
+                        color: Colors.orangeAccent,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '${minutes}M',
@@ -720,7 +756,7 @@ class _HeldOrderDashboardListTile extends ConsumerWidget {
                 ],
               ),
               const SizedBox(width: 40),
-              
+
               // Total Amount
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -735,7 +771,11 @@ class _HeldOrderDashboardListTile extends ConsumerWidget {
                   ),
                   const Text(
                     'ETB',
-                    style: TextStyle(fontSize: 10, color: Colors.white38, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.white38,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -846,7 +886,9 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
       width: 200,
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.3),
-        border: Border(right: BorderSide(color: Colors.white.withOpacity(0.05))),
+        border: Border(
+          right: BorderSide(color: Colors.white.withOpacity(0.05)),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -933,7 +975,9 @@ class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
     return Container(
       padding: const EdgeInsets.fromLTRB(28, 24, 28, 16),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+        ),
       ),
       child: Row(
         children: [
