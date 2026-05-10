@@ -269,64 +269,44 @@ class BillService {
             pw.SizedBox(height: 14),
 
             // ── Items table ───────────────────────────────────────────────
-            pw.Table(
-              border: pw.TableBorder.all(width: 0.5),
-              columnWidths: {
-                0: const pw.FlexColumnWidth(5), // Description
-                1: const pw.FixedColumnWidth(40), // Qty
-                2: const pw.FixedColumnWidth(80), // Unit Price
-                3: const pw.FixedColumnWidth(80), // Total
-              },
+            // ── Items List (No Table) ──────────────────────────────────────────
+            pw.Column(
               children: [
                 // Header row
-                pw.TableRow(
-                  decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-                  children: [
-                    _cell(t('bill.description'), bold: true, fontSize: 10),
-                    _cell(
-                      t('bill.qty'),
-                      bold: true,
-                      fontSize: 10,
-                      align: pw.TextAlign.center,
-                    ),
-                    _cell(
-                      t('bill.unitAmount'),
-                      bold: true,
-                      fontSize: 10,
-                      align: pw.TextAlign.right,
-                    ),
-                    _cell(
-                      t('bill.total'),
-                      bold: true,
-                      fontSize: 10,
-                      align: pw.TextAlign.right,
-                    ),
-                  ],
+                pw.Container(
+                  color: PdfColors.grey200,
+                  padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                  child: pw.Row(
+                    children: [
+                      pw.Expanded(flex: 5, child: pw.Text(t('bill.description'), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                      pw.Container(width: 40, child: pw.Text(t('bill.qty'), textAlign: pw.TextAlign.center, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                      pw.Container(width: 80, child: pw.Text(t('bill.unitAmount'), textAlign: pw.TextAlign.right, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                      pw.Container(width: 80, child: pw.Text(t('bill.total'), textAlign: pw.TextAlign.right, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                    ],
+                  ),
                 ),
+                pw.Divider(height: 1, thickness: 0.5),
                 // Item rows
                 ...items.map(
-                  (item) => pw.TableRow(
-                    children: [
-                      _cell(
-                        '${item.productName}${item.notes != null && item.notes!.isNotEmpty ? " (${item.notes})" : ""}',
-                        fontSize: 11,
-                      ),
-                      _cell(
-                        '${item.quantity}',
-                        fontSize: 11,
-                        align: pw.TextAlign.center,
-                      ),
-                      _cell(
-                        _fmt(item.unitPrice),
-                        fontSize: 11,
-                        align: pw.TextAlign.right,
-                      ),
-                      _cell(
-                        _fmt(item.subtotal),
-                        fontSize: 11,
-                        align: pw.TextAlign.right,
-                      ),
-                    ],
+                  (item) => pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(bottom: pw.BorderSide(width: 0.2, color: PdfColors.grey400)),
+                    ),
+                    child: pw.Row(
+                      children: [
+                        pw.Expanded(
+                          flex: 5,
+                          child: pw.Text(
+                            '${item.productName}${item.notes != null && item.notes!.isNotEmpty ? " (${item.notes})" : ""}',
+                            style: const pw.TextStyle(fontSize: 11),
+                          ),
+                        ),
+                        pw.Container(width: 40, child: pw.Text('${item.quantity}', textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 11))),
+                        pw.Container(width: 80, child: pw.Text(_fmt(item.unitPrice), textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 11))),
+                        pw.Container(width: 80, child: pw.Text(_fmt(item.subtotal), textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 11))),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -386,6 +366,13 @@ class BillService {
               child: pw.Text(
                 'Come again to St George Cafe - Thank you for visiting!',
                 style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+              ),
+            ),
+            pw.SizedBox(height: 4),
+            pw.Center(
+              child: pw.Text(
+                'Powered by Askualink',
+                style: pw.TextStyle(fontSize: 12, color: PdfColors.grey900, fontWeight: pw.FontWeight.bold),
               ),
             ),
           ],

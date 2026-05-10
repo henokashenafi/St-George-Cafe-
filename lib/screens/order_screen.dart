@@ -11,7 +11,8 @@ import 'package:st_george_pos/models/waiter.dart';
 import 'package:st_george_pos/services/bill_service.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:st_george_pos/services/audit_service.dart';
-import 'package:st_george_pos/models/charge.dart';
+import 'package:st_george_pos/core/widgets/top_toaster.dart';
+import '../models/charge.dart';
 
 class OrderScreen extends ConsumerStatefulWidget {
   const OrderScreen({super.key});
@@ -68,22 +69,57 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     });
   }
 
-  void _updateQuantity(int index, int delta) {
-    setState(() {
-      final item = localItems[index];
-      final newQty = item.quantity + delta;
-      if (newQty > 0) {
+  void _updateQuantity(int index, int delta) async {
+    final item = localItems[index];
+    final newQty = item.quantity + delta;
+    if (newQty > 0) {
+      setState(() {
         localItems[index] = item.copyWith(
           quantity: newQty,
           subtotal: newQty * item.unitPrice,
         );
-      } else {
-        localItems.removeAt(index);
+      });
+    } else {
+      final confirm = await _showDeleteConfirmation(item.productName);
+      if (confirm) {
+        setState(() => localItems.removeAt(index));
       }
-    });
+    }
   }
 
-  void _removeItem(int index) => setState(() => localItems.removeAt(index));
+  void _removeItem(int index) async {
+    final confirm = await _showDeleteConfirmation(localItems[index].productName);
+    if (confirm) {
+      setState(() => localItems.removeAt(index));
+    }
+  }
+
+  Future<bool> _showDeleteConfirmation(String productName) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1A1A1A),
+            title: Text(ref.t('order.removeConfirm')),
+            content: Text(ref.t('order.removeConfirmMessage',
+                replacements: {'product': productName})),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(ref.t('common.no')),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(ref.t('common.yes')),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
 
   void _addNoteToItem(int index) async {
     final controller = TextEditingController(
@@ -149,9 +185,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     OrderModel? order = existingOrder;
     if (order == null) {
       if (selectedWaiter == null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(ref.t('order.selectWaiter'))));
+        TopToaster.show(context, ref.t('order.selectWaiter'), isError: true);
         return;
       }
       final currentUser = ref.read(authProvider)!;
@@ -193,10 +227,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             details: 'Table: ${selectedTable!.name}, Items: ${localItems.length}, Round: $roundNumber',
           );
 
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(ref.t('order.sentToKitchen'))));
+      if (roundNumber != null) {
+        TopToaster.show(context, ref.t('order.sentToKitchen'));
       }
     }
     setState(() => localItems = []);
@@ -421,6 +453,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                 ),
                               )
                               .toList();
+                          filtered.sort((a, b) => a.name.compareTo(b.name));
                           return GridView.builder(
                             padding: EdgeInsets.zero,
                             gridDelegate:
@@ -610,6 +643,9 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                     item: item,
                                     isSaved: true,
                                     onVoid: () async {
+                                      final confirm = await _showDeleteConfirmation(item.productName);
+                                      if (!confirm) return;
+                                      
                                       await ref
                                           .read(posRepositoryProvider)
                                           .voidOrderItem(item.id!, order!.id!);

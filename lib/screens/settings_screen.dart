@@ -8,6 +8,7 @@ import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:st_george_pos/core/database_helper.dart';
 import 'package:st_george_pos/services/audit_service.dart';
 import 'package:st_george_pos/models/settings.dart';
+import 'package:st_george_pos/core/widgets/top_toaster.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -62,9 +63,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (currentUser == null) return;
     final charge = double.tryParse(_serviceChargeController.text);
     if (charge == null || charge < 0 || charge > 100) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ref.t('settings.serviceChargeError'))),
-      );
+      TopToaster.show(context, ref.t('settings.serviceChargeError'), isError: true);
       return;
     }
     setState(() => _saving = true);
@@ -95,9 +94,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     
     setState(() => _saving = false);
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(ref.t('settings.saved'))));
+      TopToaster.show(context, ref.t('settings.saved'));
     }
   }
 

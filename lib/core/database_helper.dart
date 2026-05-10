@@ -42,7 +42,7 @@ class DatabaseHelper {
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 6,
+        version: 7,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -115,9 +115,14 @@ class DatabaseHelper {
           is_active INTEGER DEFAULT 1
         )
       ''');
-      // Seed with defaults
-      await db.insert('pos_charges', {'name': 'VAT', 'type': 'addition', 'value': 15.0, 'is_active': 1});
+      // Seed with defaults (VAT set to 0.0 per new requirement)
+      await db.insert('pos_charges', {'name': 'VAT', 'type': 'addition', 'value': 0.0, 'is_active': 1});
       await db.insert('pos_charges', {'name': 'Service Charge', 'type': 'addition', 'value': 5.0, 'is_active': 1});
+    }
+    if (oldVersion < 7) {
+      await db.execute('ALTER TABLE products ADD COLUMN category_ids TEXT');
+      // Migrate existing category_id to category_ids
+      await db.execute('UPDATE products SET category_ids = category_id');
     }
   }
 
@@ -134,6 +139,7 @@ class DatabaseHelper {
       CREATE TABLE products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         category_id INTEGER,
+        category_ids TEXT,
         name TEXT NOT NULL,
         price REAL NOT NULL,
         image_path TEXT,
@@ -244,7 +250,7 @@ class DatabaseHelper {
     ''');
 
     await _seedData(db);
-    await db.insert('pos_charges', {'name': 'VAT', 'type': 'addition', 'value': 15.0, 'is_active': 1});
+    await db.insert('pos_charges', {'name': 'VAT', 'type': 'addition', 'value': 0.0, 'is_active': 1});
     await db.insert('pos_charges', {'name': 'Service Charge', 'type': 'addition', 'value': 5.0, 'is_active': 1});
   }
 

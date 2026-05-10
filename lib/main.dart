@@ -48,15 +48,27 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+
     return MaterialApp(
       title: 'St George Cafe POS',
       debugShowCheckedModeBanner: false,
+      themeMode: ThemeMode.dark,
       theme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.light,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFD4AF37),
+          brightness: Brightness.light,
+          primary: const Color(0xFFD4AF37),
+          secondary: const Color(0xFF006B3C),
+        ),
+      ),
+      darkTheme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
         colorScheme: ColorScheme.fromSeed(
@@ -364,13 +376,13 @@ class DashboardScreen extends ConsumerWidget {
         case DashboardView.tables:
           return const TableManagementScreen(key: ValueKey('tables'));
         case DashboardView.reports:
-          return const ReportsScreen(key: ValueKey('reports'));
+          return ReportsScreen(key: const ValueKey('reports'));
         case DashboardView.charges:
-          return const ChargeManagementScreen(key: ValueKey('charges'));
+          return ChargeManagementScreen(key: const ValueKey('charges'));
         case DashboardView.users:
           return const UserManagementScreen(key: ValueKey('users'));
         case DashboardView.settings:
-          return const SettingsScreen(key: ValueKey('settings'));
+          return SettingsScreen(key: const ValueKey('settings'));
         case DashboardView.auditLogs:
           return const AuditLogsScreen(key: ValueKey('audit'));
         default:
@@ -382,17 +394,17 @@ class DashboardScreen extends ConsumerWidget {
       case DashboardView.home:
         return const DashboardHomeScreen(key: ValueKey('home'));
       case DashboardView.orders:
-        return const OrderHistoryScreen(key: ValueKey('orders'));
+        return OrderHistoryScreen(key: const ValueKey('orders'));
       case DashboardView.heldOrders:
-        return const HeldOrdersScreen(key: ValueKey('held_orders'));
+        return HeldOrdersScreen(key: const ValueKey('held_orders'));
       case DashboardView.menu:
-        return const MenuManagementScreen(key: ValueKey('menu'));
+        return MenuManagementScreen(key: const ValueKey('menu'));
       case DashboardView.waiters:
-        return const WaiterManagementScreen(key: ValueKey('waiters'));
+        return WaiterManagementScreen(key: const ValueKey('waiters'));
       case DashboardView.reports:
-        return const ReportsScreen(key: ValueKey('reports'));
+        return ReportsScreen(key: const ValueKey('reports'));
       case DashboardView.charges:
-        return const ChargeManagementScreen(key: ValueKey('charges'));
+        return ChargeManagementScreen(key: const ValueKey('charges'));
       case DashboardView.pos:
         return const OrderScreen(key: ValueKey('pos'));
       case DashboardView.tables:
@@ -491,6 +503,25 @@ class DashboardHomeScreen extends ConsumerWidget {
                     Icons.add_shopping_cart,
                     size: 220,
                     color: const Color(0xFFD4AF37).withOpacity(0.05),
+                  ),
+                ),
+                Positioned(
+                  right: 40,
+                  bottom: 40,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD4AF37),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFD4AF37).withOpacity(0.3),
+                          blurRadius: 20,
+                          spreadRadius: 5,
+                        )
+                      ],
+                    ),
+                    child: const Icon(Icons.add, size: 40, color: Colors.black),
                   ),
                 ),
                 Padding(
@@ -727,35 +758,69 @@ class _HeldOrderDashboardListTile extends ConsumerWidget {
                 ),
               ),
 
-              // Time Elapsed
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.timer_outlined,
-                        size: 14,
-                        color: Colors.orangeAccent,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${minutes}M',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orangeAccent,
+              // Time Elapsed Flag
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: minutes > 30 
+                      ? Colors.redAccent.withOpacity(0.2) 
+                      : minutes > 15 
+                          ? Colors.orangeAccent.withOpacity(0.2)
+                          : Colors.greenAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: minutes > 30 
+                        ? Colors.redAccent 
+                        : minutes > 15 
+                            ? Colors.orangeAccent
+                            : Colors.greenAccent.withOpacity(0.5),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.timer_outlined,
+                          size: 12,
+                          color: minutes > 30 
+                              ? Colors.redAccent 
+                              : minutes > 15 
+                                  ? Colors.orangeAccent
+                                  : Colors.greenAccent,
                         ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${minutes}M',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: minutes > 30 
+                                ? Colors.redAccent 
+                                : minutes > 15 
+                                    ? Colors.orangeAccent
+                                    : Colors.greenAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      'WAITING',
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                        color: minutes > 30 
+                            ? Colors.redAccent 
+                            : minutes > 15 
+                                ? Colors.orangeAccent
+                                : Colors.greenAccent,
                       ),
-                    ],
-                  ),
-                  Text(
-                    'Started ${DateFormat('HH:mm').format(order.createdAt)}',
-                    style: const TextStyle(fontSize: 11, color: Colors.white24),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 40),
+              const SizedBox(width: 20),
 
               // Total Amount
               Column(
