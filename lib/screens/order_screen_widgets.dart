@@ -62,7 +62,7 @@ class CartItemTile extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: isSaved ? kSurface.withOpacity(0.6) : kSurface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: kBorder),
       ),
       child: Column(
@@ -77,7 +77,7 @@ class CartItemTile extends ConsumerWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: isSaved ? kGreen.withOpacity(0.15) : kGold.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.zero,
                 ),
                 child: Text('${item.quantity}',
                     style: TextStyle(
@@ -131,7 +131,7 @@ class _IconBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) => InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.zero,
         child: Padding(
           padding: const EdgeInsets.all(4),
           child: Icon(icon, size: 16, color: color),
@@ -218,7 +218,7 @@ class _BillConfirmDialogState extends ConsumerState<BillConfirmDialog> {
     final total = widget.subtotal + widget.serviceCharge - _discount;
     return AlertDialog(
       backgroundColor: kSurface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       title: Row(
         children: [
           const Icon(Icons.receipt_long, color: kGold),
@@ -258,9 +258,9 @@ class _BillConfirmDialogState extends ConsumerState<BillConfirmDialog> {
                   labelStyle: const TextStyle(color: kTextSub),
                   filled: true,
                   fillColor: kBg,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: kBorder)),
+                  border: const OutlineInputBorder(
+                      borderRadius: BorderRadius.zero,
+                      borderSide: BorderSide(color: kBorder)),
                 ),
                 onChanged: (v) {
                   setState(() => _discount = double.tryParse(v) ?? 0);
@@ -337,11 +337,11 @@ class ProductCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.zero,
       child: Container(
         decoration: BoxDecoration(
           color: kSurface,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.zero,
           border: Border.all(color: kBorder),
         ),
         child: Column(

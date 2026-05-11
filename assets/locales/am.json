@@ -15,7 +15,7 @@
     "posMenu": "መሸጫ / ምናሌ",
     "orders": "ትዕዛዛት",
     "menu": "ምናሌ",
-    "waiters": "አስተናጋጆች",
+    "waiters": "አስተናጋጆች እና ጠረጴዛዎች",
     "manage": "ማስተዳደሪያ",
     "reports": "ሪፖርቶች",
     "users": "ተጠቃሚዎች",
@@ -97,7 +97,7 @@
   "management": {
     "categories": "ምድቦች",
     "products": "እቃዎች",
-    "waiters": "አስተናጋጆች",
+    "waiters": "አስተናጋጆች እና ጠረጴዛዎች",
     "orders": "ትዕዛዛት",
     "reports": "ሪፖርቶች",
     "addCategory": "ምድብ ጨምር",

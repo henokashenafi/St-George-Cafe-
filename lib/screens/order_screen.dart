@@ -14,6 +14,8 @@ import 'package:st_george_pos/services/audit_service.dart';
 import 'package:st_george_pos/core/widgets/top_toaster.dart';
 import '../models/charge.dart';
 
+enum OrderAssistantStep { waiter, table, product }
+
 class OrderScreen extends ConsumerStatefulWidget {
   const OrderScreen({super.key});
 
@@ -27,14 +29,20 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   String searchQuery = '';
   String waiterSearchQuery = '';
   bool _waiterSearchActive = false;
+  OrderAssistantStep currentStep = OrderAssistantStep.waiter;
+  final TextEditingController _assistantController = TextEditingController();
+  final FocusNode _assistantFocusNode = FocusNode();
 
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _waiterSearchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final FocusNode _waiterSearchFocusNode = FocusNode();
 
-  // Track latest visible filtered products for Enter-to-add
+  // Track latest visible filtered items for Enter-to-select
   List<Product> _lastFilteredProducts = [];
+  List<Waiter> _lastFilteredWaiters = [];
+  List<TableModel> _lastFilteredTables = [];
+  int _suggestionIndex = 0;
 
   String _sortOption = 'alpha';
   Waiter? selectedWaiter;
@@ -44,6 +52,31 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   @override
   void initState() {
     super.initState();
+    _assistantController.addListener(() {
+      final query = _assistantController.text;
+      setState(() {
+        if (currentStep == OrderAssistantStep.waiter) waiterSearchQuery = query;
+        else if (currentStep == OrderAssistantStep.product) searchQuery = query;
+        _suggestionIndex = 0; // Reset index on type
+      });
+      // Auto-select when exactly 1 match and query is long enough
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (currentStep == OrderAssistantStep.waiter &&
+            _lastFilteredWaiters.length == 1 &&
+            query.length >= 2) {
+          _onWaiterSelected(_lastFilteredWaiters.first);
+        } else if (currentStep == OrderAssistantStep.table &&
+            _lastFilteredTables.length == 1 &&
+            query.length >= 1) {
+          _onTableSelected(_lastFilteredTables.first);
+        }
+      });
+    });
+    
+    // Auto-focus assistant bar
+    _assistantFocusNode.requestFocus();
+    
     _searchController.addListener(() {
       setState(() => searchQuery = _searchController.text);
     });
@@ -54,10 +87,19 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     _waiterSearchFocusNode.addListener(() {
       setState(() => _waiterSearchActive = _waiterSearchFocusNode.hasFocus);
     });
+
+    // Check if table already selected (e.g. from dashboard)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (selectedTable != null) {
+        setState(() => currentStep = OrderAssistantStep.product);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _assistantController.dispose();
+    _assistantFocusNode.dispose();
     _searchController.dispose();
     _waiterSearchController.dispose();
     _searchFocusNode.dispose();
@@ -76,12 +118,98 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     });
   }
 
-  void _addFirstFilteredItem() {
-    if (_lastFilteredProducts.isNotEmpty) {
-      _addItem(_lastFilteredProducts.first);
-      // Clear search after adding so cashier sees full menu again
-      _searchController.clear();
+  void _onWaiterSelected(Waiter waiter) {
+    setState(() {
+      selectedWaiter = waiter;
+      currentStep = OrderAssistantStep.table;
+      _assistantController.clear();
+      waiterSearchQuery = '';
+    });
+  }
+
+  void _onTableSelected(TableModel table) {
+    ref.read(selectedTableProvider.notifier).set(table);
+    setState(() {
+      currentStep = OrderAssistantStep.product;
+      _assistantController.clear();
+    });
+  }
+
+  void _onProductSelected(Product product) {
+    if (selectedTable == null ||
+        (ref.read(activeOrderProvider(selectedTable?.id)).value == null &&
+            selectedWaiter == null)) {
+      TopToaster.show(context, 'Please select a waiter and table first',
+          isError: true);
+      return;
     }
+    _showQuickQuantityPicker(product);
+  }
+
+  Future<void> _showQuickQuantityPicker(Product product) async {
+    final qty = await showDialog<int>(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.75),
+      builder: (ctx) => _QuickQtyDialog(product: product),
+    );
+    if (qty != null && qty > 0) {
+      _addItemWithQty(product, qty);
+      setState(() => searchQuery = '');
+      _assistantController.clear();
+      Future.microtask(() => _assistantFocusNode.requestFocus());
+    } else {
+      Future.microtask(() => _assistantFocusNode.requestFocus());
+    }
+  }
+
+
+  void _handleAssistantSubmit(String value) {
+    if (currentStep == OrderAssistantStep.waiter) {
+      if (_lastFilteredWaiters.isNotEmpty) {
+        final index = _suggestionIndex.clamp(0, _lastFilteredWaiters.length - 1);
+        _onWaiterSelected(_lastFilteredWaiters[index]);
+      }
+    } else if (currentStep == OrderAssistantStep.table) {
+      if (_lastFilteredTables.isNotEmpty) {
+        final index = _suggestionIndex.clamp(0, _lastFilteredTables.length - 1);
+        _onTableSelected(_lastFilteredTables[index]);
+      }
+    } else if (currentStep == OrderAssistantStep.product) {
+      if (value.isEmpty) {
+        final settings = ref.read(appSettingsProvider).value;
+        final activeOrder =
+            ref.read(activeOrderProvider(selectedTable?.id)).value;
+        if (settings != null) _sendToKitchen(activeOrder, settings);
+      } else if (_lastFilteredProducts.isNotEmpty) {
+        final index = _suggestionIndex.clamp(0, _lastFilteredProducts.length - 1);
+        _onProductSelected(_lastFilteredProducts[index]);
+      }
+    }
+  }
+
+  void _addItemWithQty(Product product, int qty) {
+    setState(() {
+      final index = localItems.indexWhere(
+        (item) => item.productId == product.id && !item.isPrintedToKitchen,
+      );
+      if (index != -1) {
+        final e = localItems[index];
+        localItems[index] = e.copyWith(
+          quantity: e.quantity + qty,
+          subtotal: (e.quantity + qty) * e.unitPrice,
+        );
+      } else {
+        localItems.add(
+          OrderItem(
+            productId: product.id!,
+            productName: product.name,
+            quantity: qty,
+            unitPrice: product.price,
+            subtotal: product.price * qty,
+          ),
+        );
+      }
+    });
   }
 
   void _addItem(Product product) {
@@ -259,7 +387,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         items: localItems,
         roundNumber: roundNumber,
         t: (key, {replacements}) =>
-            AppLocalizations.getEnglish(key, replacements: replacements),
+            AppLocalizations.format(key, replacements: replacements),
       );
 
       await ref.read(auditServiceProvider).log(
@@ -344,7 +472,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         cashierName: order.cashierName,
         activeCharges: charges,
         t: (key, {replacements}) =>
-            AppLocalizations.getEnglish(key, replacements: replacements),
+            AppLocalizations.format(key, replacements: replacements),
       );
       double totalAdditions = 0;
       double totalDeductions = 0;
@@ -383,7 +511,17 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     final categoriesAsync = ref.watch(categoriesProvider);
     final productsAsync = ref.watch(productsProvider(selectedCategoryId));
     final waitersAsync = ref.watch(waitersProvider);
+    final tablesAsync = ref.watch(tablesProvider);
     final settingsAsync = ref.watch(appSettingsProvider);
+
+    // Sync currentStep when selectedTable changes (e.g. from held orders)
+    ref.listen(selectedTableProvider, (prev, next) {
+      if (next != null && currentStep == OrderAssistantStep.waiter) {
+        setState(() {
+          currentStep = OrderAssistantStep.product;
+        });
+      }
+    });
 
     // Top-level Focus captures ALL key presses when nothing else has focus.
     // Any printable char → auto-routes to item search field.
@@ -392,26 +530,44 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
       onKeyEvent: (node, event) {
         // Only react on key-down, ignore if any text field is already focused
         if (event is! KeyDownEvent) return KeyEventResult.ignored;
-        if (_searchFocusNode.hasFocus || _waiterSearchFocusNode.hasFocus) {
+        final logical = event.logicalKey;
+        
+        // Escape → clear assistant bar
+        if (logical == LogicalKeyboardKey.escape) {
+          _assistantController.clear();
+          _assistantFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        }
+
+        // Arrow Key Navigation for Suggestions
+        if (logical == LogicalKeyboardKey.arrowDown) {
+          setState(() {
+            int max = 0;
+            if (currentStep == OrderAssistantStep.waiter) max = _lastFilteredWaiters.length;
+            if (currentStep == OrderAssistantStep.table) max = _lastFilteredTables.length;
+            if (currentStep == OrderAssistantStep.product) max = _lastFilteredProducts.length;
+            if (max > 0) _suggestionIndex = (_suggestionIndex + 1) % max;
+          });
+          return KeyEventResult.handled;
+        }
+        if (logical == LogicalKeyboardKey.arrowUp) {
+          setState(() {
+            int max = 0;
+            if (currentStep == OrderAssistantStep.waiter) max = _lastFilteredWaiters.length;
+            if (currentStep == OrderAssistantStep.table) max = _lastFilteredTables.length;
+            if (currentStep == OrderAssistantStep.product) max = _lastFilteredProducts.length;
+            if (max > 0) _suggestionIndex = (_suggestionIndex - 1 + max) % max;
+          });
+          return KeyEventResult.handled;
+        }
+
+        if (_assistantFocusNode.hasFocus) {
           return KeyEventResult.ignored;
         }
-        final logical = event.logicalKey;
-        // Escape → clear search
-        if (logical == LogicalKeyboardKey.escape) {
-          _searchController.clear();
-          node.requestFocus(); // return focus to the screen
-          return KeyEventResult.handled;
-        }
-        // Ctrl+F → focus search
-        if (logical == LogicalKeyboardKey.keyF &&
+        // Ctrl+F / Ctrl+W → focus assistant bar
+        if ((logical == LogicalKeyboardKey.keyF || logical == LogicalKeyboardKey.keyW) &&
             HardwareKeyboard.instance.isControlPressed) {
-          _focusItemSearch();
-          return KeyEventResult.handled;
-        }
-        // Ctrl+W → focus waiter
-        if (logical == LogicalKeyboardKey.keyW &&
-            HardwareKeyboard.instance.isControlPressed) {
-          _focusWaiterSearch();
+          _assistantFocusNode.requestFocus();
           return KeyEventResult.handled;
         }
         // Ctrl+Enter / F9 → send to kitchen
@@ -424,16 +580,16 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           );
           return KeyEventResult.handled;
         }
-        // Printable single character → route to item search
+        // Printable single character → route to assistant bar
         final label = logical.keyLabel;
         if (label.length == 1 && !HardwareKeyboard.instance.isControlPressed) {
-          _searchFocusNode.requestFocus();
+          _assistantFocusNode.requestFocus();
           // Append the typed character
-          final current = _searchController.text;
+          final current = _assistantController.text;
           final char = HardwareKeyboard.instance.isShiftPressed
               ? label.toUpperCase()
               : label.toLowerCase();
-          _searchController.value = TextEditingValue(
+          _assistantController.value = TextEditingValue(
             text: current + char,
             selection: TextSelection.collapsed(offset: current.length + 1),
           );
@@ -451,11 +607,11 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         child: Actions(
           actions: {
             SearchIntent: CallbackAction<SearchIntent>(onInvoke: (_) {
-              _focusItemSearch();
+              _assistantFocusNode.requestFocus();
               return null;
             }),
             WaiterSearchIntent: CallbackAction<WaiterSearchIntent>(onInvoke: (_) {
-              _focusWaiterSearch();
+              _assistantFocusNode.requestFocus();
               return null;
             }),
             SendToKitchenIntent: CallbackAction<SendToKitchenIntent>(onInvoke: (_) {
@@ -474,7 +630,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           child: Row(
             children: [
               Text(
-                '${selectedTable?.name ?? 'NEW'} — ORDER',
+                selectedTable != null ? '${selectedTable!.name} — ORDER' : 'NEW ORDER',
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -487,10 +643,15 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                   icon: const Icon(Icons.close),
                   onPressed: () {
                     ref.read(selectedTableProvider.notifier).set(null);
-                    ref.read(dashboardViewProvider.notifier).state =
-                        DashboardView.home;
+                    setState(() {
+                      localItems = [];
+                      currentStep = OrderAssistantStep.waiter;
+                      selectedWaiter = null;
+                      _discountAmount = 0;
+                      _assistantController.clear();
+                    });
                   },
-                  tooltip: 'Close Order View',
+                  tooltip: 'Clear & Start New Order',
                 ),
             ],
           ),
@@ -498,230 +659,355 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         Expanded(
           child: Row(
             children: [
-              // ── Left Sidebar (Categories) ──────────────────────────────
-              SizedBox(
-                width: 140,
-                child: GlassContainer(
-                  opacity: 0.03,
-                  borderRadius: 0,
-                  border: const Border(right: BorderSide(color: Colors.white10)),
-                  child: categoriesAsync.when(
-                    data: (cats) => ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      itemCount: cats.length + 1,
-                      itemBuilder: (_, i) {
-                        final isSelected = i == 0 ? selectedCategoryId == null : selectedCategoryId == cats[i - 1].id;
-                        final name = i == 0 ? ref.t('common.all') : cats[i - 1].name;
-                        final icon = i == 0 ? Icons.grid_view : Icons.restaurant_menu;
-
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          child: InkWell(
-                            onTap: () => setState(() => selectedCategoryId = i == 0 ? null : cats[i - 1].id),
-                            borderRadius: BorderRadius.circular(12),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                              decoration: BoxDecoration(
-                                color: isSelected ? const Color(0xFFD4AF37).withOpacity(0.2) : Colors.transparent,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: isSelected ? const Color(0xFFD4AF37).withOpacity(0.5) : Colors.transparent,
-                                ),
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    icon,
-                                    size: 20,
-                                    color: isSelected ? const Color(0xFFD4AF37) : Colors.white38,
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    name,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                      color: isSelected ? Colors.white : Colors.white54,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                    error: (e, _) => Center(child: Text('$e', style: const TextStyle(fontSize: 10))),
-                  ),
-                ),
-              ),
-            // ── Menu panel ──────────────────────────────────────────────
+            // ── Main Menu Panel ──────────────────────────────────────────────
             Expanded(
               flex: 3,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(30),
-                              border: Border.all(
-                                color: _searchFocusNode.hasFocus
-                                    ? const Color(0xFFD4AF37).withOpacity(0.7)
-                                    : Colors.transparent,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: GlassContainer(
-                              opacity: 0.05,
-                              borderRadius: 30,
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: TextField(
-                                controller: _searchController,
-                                focusNode: _searchFocusNode,
-                                decoration: InputDecoration(
-                                  hintText: 'Search items... (Ctrl+F)',
-                                  hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
-                                  border: InputBorder.none,
-                                  icon: const Icon(Icons.search, color: Colors.white38, size: 18),
-                                  suffixIcon: searchQuery.isNotEmpty
-                                      ? IconButton(
-                                          icon: const Icon(Icons.close, size: 16, color: Colors.white38),
-                                          onPressed: () => _searchController.clear(),
-                                        )
-                                      : null,
-                                ),
-                                onChanged: (v) => setState(() => searchQuery = v),
-                                onSubmitted: (_) => _addFirstFilteredItem(),
-                              ),
-                            ),
-                          ),
+                    // ── Assistant Bar ──────────────────────────────────────────
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 4),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: _assistantFocusNode.hasFocus
+                              ? const Color(0xFFD4AF37)
+                              : Colors.white10,
+                          width: 1.5,
                         ),
-                        const SizedBox(width: 12),
-                        GlassContainer(
-                          opacity: 0.05,
-                          borderRadius: 30,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _sortOption,
-                              dropdownColor: const Color(0xFF121212),
-                              icon: const Icon(Icons.sort, color: Color(0xFFD4AF37)),
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
-                              items: const [
-                                DropdownMenuItem(value: 'alpha', child: Text('A - Z')),
-                                DropdownMenuItem(value: 'priceAsc', child: Text('Price \u2191')),
-                                DropdownMenuItem(value: 'priceDesc', child: Text('Price \u2193')),
-                              ],
-                              onChanged: (v) => setState(() => _sortOption = v!),
+                        borderRadius: BorderRadius.zero,
+                      ),
+                      child: GlassContainer(
+                        opacity: 0.08,
+                        child: TextField(
+                          controller: _assistantController,
+                          focusNode: _assistantFocusNode,
+                          style: const TextStyle(color: Colors.white, fontSize: 15),
+                          decoration: InputDecoration(
+                            prefixIcon: Icon(
+                              currentStep == OrderAssistantStep.waiter
+                                  ? Icons.person_search
+                                  : currentStep == OrderAssistantStep.table
+                                      ? Icons.table_bar
+                                      : Icons.search,
+                              color: const Color(0xFFD4AF37),
+                              size: 20,
                             ),
+                            hintText: currentStep == OrderAssistantStep.waiter
+                                ? 'Type waiter name…  (Enter or tap to select)'
+                                : currentStep == OrderAssistantStep.table
+                                    ? 'Type table name…  (Enter or tap to select)'
+                                    : 'Search item…  (Enter when empty = Send to Kitchen)',
+                            hintStyle:
+                                TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13),
+                            border: InputBorder.none,
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 14),
+                            suffixIcon: _assistantController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.close,
+                                        size: 16, color: Colors.white30),
+                                    onPressed: () {
+                                      _assistantController.clear();
+                                      _assistantFocusNode.requestFocus();
+                                    },
+                                  )
+                                : null,
                           ),
+                          onSubmitted: _handleAssistantSubmit,
                         ),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                          child: productsAsync.when(
-                            data: (products) {
-                              final filtered = products
-                                  .where((p) => p.name.toLowerCase().contains(searchQuery.toLowerCase()))
-                                  .toList();
-                              if (_sortOption == 'alpha') {
-                                filtered.sort((a, b) => a.name.compareTo(b.name));
-                              } else if (_sortOption == 'priceAsc') {
-                                filtered.sort((a, b) => a.price.compareTo(b.price));
-                              } else if (_sortOption == 'priceDesc') {
-                                filtered.sort((a, b) => b.price.compareTo(a.price));
-                              }
-                              // Store for Enter-to-add
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (mounted) _lastFilteredProducts = filtered;
-                              });
 
-                              return GridView.builder(
-                                  padding: EdgeInsets.zero,
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 3,
-                                    childAspectRatio: 3.2,
-                                    crossAxisSpacing: 10,
-                                    mainAxisSpacing: 10,
+                    // ── Manual Selection Dropdowns (Added for Cashier convenience) ──
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          // Waiter Dropdown
+                          Expanded(
+                            child: waitersAsync.when(
+                              data: (ws) => DropdownButtonFormField<int>(
+                                value: activeOrderAsync.value?.waiterId ?? selectedWaiter?.id,
+                                decoration: InputDecoration(
+                                  labelText: 'WAITER',
+                                  labelStyle: const TextStyle(color: Color(0xFFD4AF37), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                                  prefixIcon: const Icon(Icons.person, color: Color(0xFFD4AF37), size: 16),
+                                  filled: true,
+                                  fillColor: Colors.white.withOpacity(0.05),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.zero,
+                                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
                                   ),
-                                  itemCount: filtered.length,
-                                  itemBuilder: (_, i) {
-                                    final p = filtered[i];
-                                    final isFirstMatch = i == 0 && searchQuery.isNotEmpty;
-                                    return AnimatedContainer(
-                                      duration: const Duration(milliseconds: 150),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: isFirstMatch
-                                            ? Border.all(color: const Color(0xFFD4AF37), width: 1.5)
-                                            : null,
-                                      ),
-                                      child: GlassContainer(
-                                        opacity: isFirstMatch ? 0.12 : 0.05,
-                                        border: Border.all(color: Colors.white.withOpacity(0.08)),
-                                        child: InkWell(
-                                          onTap: () => _addItem(p),
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                            child: Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.restaurant_menu,
-                                                  size: 16,
-                                                  color: isFirstMatch ? const Color(0xFFD4AF37) : const Color(0xFFD4AF37).withOpacity(0.6),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: Column(
-                                                    mainAxisAlignment: MainAxisAlignment.center,
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      Text(
-                                                        p.name,
-                                                        style: TextStyle(
-                                                          fontWeight: FontWeight.bold,
-                                                          fontSize: 13,
-                                                          color: isFirstMatch ? Colors.white : Colors.white70,
-                                                        ),
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                      Text(
-                                                        '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                                        style: const TextStyle(
-                                                          color: Color(0xFFD4AF37),
-                                                          fontWeight: FontWeight.w600,
-                                                          fontSize: 11,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                if (isFirstMatch)
-                                                  const Icon(Icons.keyboard_return, size: 14, color: Color(0xFFD4AF37)),
-                                              ],
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.zero,
+                                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                ),
+                                dropdownColor: const Color(0xFF1A1A1A),
+                                style: const TextStyle(color: Colors.white, fontSize: 13),
+                                items: ws.map((w) => DropdownMenuItem(
+                                  value: w.id,
+                                  child: Text(w.name),
+                                )).toList(),
+                                onChanged: activeOrderAsync.value != null ? null : (id) {
+                                  if (id != null) {
+                                    final waiter = ws.firstWhere((w) => w.id == id);
+                                    _onWaiterSelected(waiter);
+                                  }
+                                },
+                              ),
+                              loading: () => const LinearProgressIndicator(),
+                              error: (_, __) => const Text('Error'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Table Dropdown
+                          Expanded(
+                            child: tablesAsync.when(
+                              data: (ts) => DropdownButtonFormField<int>(
+                                value: selectedTable?.id,
+                                decoration: InputDecoration(
+                                  labelText: 'TABLE',
+                                  labelStyle: const TextStyle(color: Color(0xFFD4AF37), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                                  prefixIcon: const Icon(Icons.table_bar, color: Color(0xFFD4AF37), size: 16),
+                                  filled: true,
+                                  fillColor: Colors.white.withOpacity(0.05),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.zero,
+                                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.zero,
+                                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                ),
+                                dropdownColor: const Color(0xFF1A1A1A),
+                                style: const TextStyle(color: Colors.white, fontSize: 13),
+                                items: ts.map((t) => DropdownMenuItem(
+                                  value: t.id,
+                                  child: Text(t.name),
+                                )).toList(),
+                                onChanged: activeOrderAsync.value != null ? null : (id) {
+                                  if (id != null) {
+                                    final table = ts.firstWhere((t) => t.id == id);
+                                    _onTableSelected(table);
+                                  }
+                                },
+                              ),
+                              loading: () => const LinearProgressIndicator(),
+                              error: (_, __) => const Text('Error'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // ── Suggestion Dropdown (Waiter / Table / Product) ─────────
+                    if (currentStep == OrderAssistantStep.waiter &&
+                        _lastFilteredWaiters.isNotEmpty)
+                      _SuggestionDropdown(
+                        children: _lastFilteredWaiters
+                            .take(6)
+                            .toList()
+                            .asMap()
+                            .entries
+                            .map((e) => _SuggestionItem(
+                                  icon: Icons.person,
+                                  title: e.value.name,
+                                  subtitle: 'Code: ${e.value.code}',
+                                  isHighlighted: e.key == _suggestionIndex,
+                                  onTap: () => _onWaiterSelected(e.value),
+                                ))
+                            .toList(),
+                      )
+                    else if (currentStep == OrderAssistantStep.table &&
+                        _lastFilteredTables.isNotEmpty)
+                      _SuggestionDropdown(
+                        children: _lastFilteredTables
+                            .take(8)
+                            .toList()
+                            .asMap()
+                            .entries
+                            .map((e) => _SuggestionItem(
+                                  icon: Icons.table_bar,
+                                  title: e.value.name,
+                                  subtitle: e.value.status ==
+                                          TableStatus.occupied
+                                      ? 'OCCUPIED'
+                                      : 'AVAILABLE',
+                                  accentColor: e.value.status ==
+                                          TableStatus.occupied
+                                      ? Colors.redAccent
+                                      : Colors.greenAccent,
+                                  isHighlighted: e.key == _suggestionIndex,
+                                  onTap: () => _onTableSelected(e.value),
+                                ))
+                            .toList(),
+                      )
+                    else if (currentStep == OrderAssistantStep.product &&
+                        searchQuery.isNotEmpty &&
+                        _lastFilteredProducts.isNotEmpty)
+                      _SuggestionDropdown(
+                        children: _lastFilteredProducts
+                            .take(6)
+                            .toList()
+                            .asMap()
+                            .entries
+                            .map((e) => _SuggestionItem(
+                                  icon: Icons.restaurant_menu,
+                                  title: e.value.name,
+                                  subtitle:
+                                      '${e.value.price.toStringAsFixed(2)} ETB',
+                                  isHighlighted: e.key == _suggestionIndex,
+                                  onTap: () => _onProductSelected(e.value),
+                                ))
+                            .toList(),
+                      ),
+                    const SizedBox(height: 8),
+
+                    // ── Horizontal Categories ──────────────────────────────────
+                    categoriesAsync.when(
+                      data: (cats) => Container(
+                        height: 40,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: cats.length + 1,
+                          itemBuilder: (ctx, i) {
+                            final isSelected = i == 0 ? selectedCategoryId == null : selectedCategoryId == cats[i - 1].id;
+                            final name = i == 0 ? ref.t('common.all') : cats[i - 1].name;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: InkWell(
+                                onTap: () => setState(() => selectedCategoryId = i == 0 ? null : cats[i - 1].id),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? const Color(0xFFD4AF37) : Colors.white.withOpacity(0.05),
+                                    borderRadius: BorderRadius.zero,
+                                    border: Border.all(color: isSelected ? Colors.transparent : Colors.white10),
+                                  ),
+                                  child: Text(
+                                    name.toUpperCase(),
+                                    style: TextStyle(
+                                      color: isSelected ? Colors.black : Colors.white70,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+
+                    // ── Product Grid ──────────────────────────────────────────
+                    Expanded(
+                      child: productsAsync.when(
+                        data: (products) {
+                          final filtered = products
+                              .where((p) => p.name.toLowerCase().contains(searchQuery.toLowerCase()))
+                              .toList();
+                          if (_sortOption == 'alpha') {
+                            filtered.sort((a, b) => a.name.compareTo(b.name));
+                          } else if (_sortOption == 'priceAsc') {
+                            filtered.sort((a, b) => a.price.compareTo(b.price));
+                          } else if (_sortOption == 'priceDesc') {
+                            filtered.sort((a, b) => b.price.compareTo(a.price));
+                          }
+                          
+                          // Track for assistant bar
+                          _lastFilteredProducts = filtered;
+
+                          return GridView.builder(
+                              padding: EdgeInsets.zero,
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 4,
+                                childAspectRatio: 2.8,
+                                crossAxisSpacing: 10,
+                                mainAxisSpacing: 10,
+                              ),
+                              itemCount: filtered.length,
+                              itemBuilder: (_, i) {
+                                final p = filtered[i];
+                                final isFirstMatch = i == 0 && searchQuery.isNotEmpty && currentStep == OrderAssistantStep.product;
+                                return AnimatedContainer(
+                                  duration: const Duration(milliseconds: 150),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.zero,
+                                    border: isFirstMatch
+                                        ? Border.all(color: const Color(0xFFD4AF37), width: 1.5)
+                                        : null,
+                                  ),
+                                  child: GlassContainer(
+                                    opacity: isFirstMatch ? 0.12 : 0.05,
+                                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                    child: InkWell(
+                                      onTap: () => _onProductSelected(p),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.restaurant_menu,
+                                              size: 16,
+                                              color: isFirstMatch ? const Color(0xFFD4AF37) : const Color(0xFFD4AF37).withOpacity(0.6),
                                             ),
-                                          ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    p.name,
+                                                    style: TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 13,
+                                                      color: isFirstMatch ? Colors.white : Colors.white70,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  Text(
+                                                    '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                                    style: const TextStyle(
+                                                      color: Color(0xFFD4AF37),
+                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 11,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    );
-                                  },
-                              );
-                            },
-                            loading: () => const Center(child: CircularProgressIndicator()),
-                            error: (e, _) => Text('$e'),
-                          ),
+                                    ),
+                                  ),
+                                );
+                              },
+                          );
+                        },
+                        loading: () => const Center(child: CircularProgressIndicator()),
+                        error: (e, _) => Text('$e'),
+                      ),
                     ),
+
+                    // ── Held Orders Panel (shown when no table selected) ──────
+                    if (selectedTable == null)
+                      const Flexible(child: _HeldOrdersInlinePanel()),
                   ],
                 ),
               ),
@@ -730,10 +1016,11 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             Container(
               width: 460,
               margin: const EdgeInsets.only(bottom: 16, right: 16),
-              child: GlassContainer(
-                opacity: 0.15,
-                borderRadius: 24,
-                child: Column(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.08),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Column(
                   children: [
                     // Header
                     Padding(
@@ -753,209 +1040,123 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                               letterSpacing: 1,
                             ),
                           ),
-                          const Spacer(),
-                          SizedBox(
-                            width: 150,
-                            child: Consumer(
-                              builder: (context, ref, _) {
-                                final tablesAsync = ref.watch(tablesProvider);
-                                return tablesAsync.when(
-                                  data: (tables) => DropdownButtonHideUnderline(
-                                    child: DropdownButton<TableModel>(
-                                      value: tables.where((t) => t.id == selectedTable?.id).firstOrNull,
-                                      dropdownColor: const Color(0xFF1A1A1A),
-                                      isExpanded: true,
-                                      hint: const Text('SELECT TABLE', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 12)),
-                                      items: tables.map((t) => DropdownMenuItem(
-                                        value: t,
-                                        child: Text(t.name, style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 12, fontWeight: FontWeight.bold)),
-                                      )).toList(),
-                                      onChanged: (t) {
-                                        if (t != null) ref.read(selectedTableProvider.notifier).set(t);
-                                      },
-                                    ),
-                                  ),
-                                  loading: () => const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                                  error: (_, __) => const Text('Error', style: TextStyle(fontSize: 10)),
-                                );
-                              },
-                            ),
-                          ),
+                          const SizedBox(width: 8),
                         ],
                       ),
                     ),
-                    // Waiter inline search
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                       child: Consumer(
                         builder: (context, ref, _) {
                           final waitersAsync = ref.watch(waitersProvider);
+                          final tablesAsync = ref.watch(tablesProvider);
+                          
+                          // Populate filtering for assistant bar
+                          waitersAsync.whenData((ws) {
+                            _lastFilteredWaiters = ws.where((w) => w.name.toLowerCase().contains(waiterSearchQuery.toLowerCase())).toList();
+                          });
+                          tablesAsync.whenData((ts) {
+                            _lastFilteredTables = ts.where((t) => t.name.toLowerCase().contains(_assistantController.text.toLowerCase())).toList();
+                          });
+
                           final activeOrder = activeOrderAsync.value;
                           final isLocked = activeOrder != null;
 
                           return waitersAsync.when(
-                            data: (allWaiters) {
-                              final filteredWaiters = allWaiters
-                                  .where((w) => w.name.toLowerCase().contains(waiterSearchQuery.toLowerCase()))
-                                  .toList();
-                              final currentWaiter = allWaiters
-                                  .where((w) => w.id == (activeOrder?.waiterId ?? selectedWaiter?.id))
-                                  .firstOrNull;
-
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Waiter search field
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: _waiterSearchFocusNode.hasFocus
-                                            ? const Color(0xFFD4AF37).withOpacity(0.7)
-                                            : Colors.white.withOpacity(0.1),
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const SizedBox(width: 12),
-                                        Icon(
-                                          Icons.person,
-                                          size: 18,
-                                          color: currentWaiter != null
-                                              ? const Color(0xFFD4AF37)
-                                              : Colors.white38,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: isLocked
-                                              ? Padding(
-                                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                                  child: Text(
-                                                    currentWaiter?.name ?? '—',
-                                                    style: const TextStyle(
-                                                      color: Colors.white70,
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 14,
-                                                    ),
-                                                  ),
-                                                )
-                                              : TextField(
-                                                  controller: _waiterSearchController,
-                                                  focusNode: _waiterSearchFocusNode,
-                                                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                                                  decoration: InputDecoration(
-                                                    hintText: currentWaiter != null
-                                                        ? currentWaiter.name
-                                                        : 'Waiter... (Ctrl+W)',
-                                                    hintStyle: TextStyle(
-                                                      color: currentWaiter != null
-                                                          ? const Color(0xFFD4AF37)
-                                                          : Colors.white38,
-                                                      fontSize: 14,
-                                                    ),
-                                                    border: InputBorder.none,
-                                                    isDense: true,
-                                                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                                                  ),
-                                                  onChanged: (_) => setState(() {}),
-                                                  onSubmitted: (_) {
-                                                    if (filteredWaiters.isNotEmpty) {
-                                                      setState(() {
-                                                        selectedWaiter = filteredWaiters.first;
-                                                        _waiterSearchController.clear();
-                                                        _waiterSearchActive = false;
-                                                      });
-                                                      _waiterSearchFocusNode.unfocus();
-                                                    }
-                                                  },
-                                                ),
-                                        ),
-                                        if (!isLocked && currentWaiter != null)
-                                          IconButton(
-                                            icon: const Icon(Icons.close, size: 14, color: Colors.white38),
-                                            onPressed: () => setState(() {
-                                              selectedWaiter = null;
-                                              _waiterSearchController.clear();
-                                            }),
-                                          ),
-                                      ],
-                                    ),
+                            data: (allWaiters) => Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Waiter Dropdown
+                                DropdownButtonFormField<int>(
+                                  value: activeOrder?.waiterId ?? selectedWaiter?.id,
+                                  decoration: InputDecoration(
+                                    prefixIcon: const Icon(Icons.person, color: Color(0xFFD4AF37), size: 18),
+                                    labelText: ref.t('bill.waiter'),
+                                    labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
+                                    border: const OutlineInputBorder(borderRadius: BorderRadius.zero),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                   ),
-                                  // Filtered waiter list (shown when searching)
-                                  if (!isLocked && _waiterSearchFocusNode.hasFocus && filteredWaiters.isNotEmpty)
-                                    Container(
-                                      margin: const EdgeInsets.only(top: 4),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF1A1A1A),
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: Colors.white10),
-                                      ),
-                                      constraints: const BoxConstraints(maxHeight: 180),
-                                      child: ListView.builder(
-                                        padding: EdgeInsets.zero,
-                                        shrinkWrap: true,
-                                        itemCount: filteredWaiters.length,
-                                        itemBuilder: (_, i) {
-                                          final w = filteredWaiters[i];
-                                          final isHighlighted = i == 0;
-                                          return InkWell(
-                                            onTap: () {
-                                              setState(() {
-                                                selectedWaiter = w;
-                                                _waiterSearchController.clear();
-                                                _waiterSearchActive = false;
-                                              });
-                                              _waiterSearchFocusNode.unfocus();
-                                            },
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                              decoration: BoxDecoration(
-                                                color: isHighlighted
-                                                    ? const Color(0xFFD4AF37).withOpacity(0.12)
-                                                    : Colors.transparent,
-                                                borderRadius: BorderRadius.circular(10),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.person_outline,
-                                                    size: 16,
-                                                    color: isHighlighted
-                                                        ? const Color(0xFFD4AF37)
-                                                        : Colors.white38,
-                                                  ),
-                                                  const SizedBox(width: 10),
-                                                  Expanded(
-                                                    child: Text(
-                                                      w.name,
-                                                      style: TextStyle(
-                                                        color: isHighlighted ? Colors.white : Colors.white70,
-                                                        fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
-                                                        fontSize: 13,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  if (isHighlighted)
-                                                    const Icon(Icons.keyboard_return, size: 13, color: Color(0xFFD4AF37)),
-                                                ],
+                                  dropdownColor: const Color(0xFF1A1A1A),
+                                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                                  items: allWaiters.map((w) => DropdownMenuItem(
+                                    value: w.id,
+                                    child: Text(w.name),
+                                  )).toList(),
+                                  onChanged: isLocked ? null : (id) {
+                                    final waiter = allWaiters.firstWhere((w) => w.id == id);
+                                    _onWaiterSelected(waiter);
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                // Table Dropdown
+                                tablesAsync.when(
+                                  data: (allTables) => DropdownButtonFormField<int>(
+                                    value: selectedTable?.id,
+                                    decoration: InputDecoration(
+                                      prefixIcon: const Icon(Icons.table_bar, color: Color(0xFFD4AF37), size: 18),
+                                      labelText: ref.t('management.tables'),
+                                      labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
+                                      border: const OutlineInputBorder(borderRadius: BorderRadius.zero),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    ),
+                                    dropdownColor: const Color(0xFF1A1A1A),
+                                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                                    items: allTables.map((t) => DropdownMenuItem(
+                                      value: t.id,
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              t.name,
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
+                                              style: const TextStyle(color: Colors.white, fontSize: 14),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: (t.status == TableStatus.occupied
+                                                      ? Colors.redAccent
+                                                      : Colors.greenAccent)
+                                                  .withOpacity(0.15),
+                                              borderRadius: BorderRadius.zero,
+                                            ),
+                                            child: Text(
+                                              t.status == TableStatus.occupied ? 'OCC' : 'FREE',
+                                              style: TextStyle(
+                                                color: t.status == TableStatus.occupied
+                                                    ? Colors.redAccent
+                                                    : Colors.greenAccent,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
                                               ),
                                             ),
-                                          );
-                                        },
+                                          ),
+                                        ],
                                       ),
-                                    ),
-                                ],
-                              );
-                            },
-                            loading: () => const SizedBox(height: 44, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-                            error: (_, __) => const Text('Error', style: TextStyle(fontSize: 10)),
+                                    )).toList(),
+                                    onChanged: isLocked ? null : (id) {
+                                      final table = allTables.firstWhere((t) => t.id == id);
+                                      _onTableSelected(table);
+                                    },
+                                  ),
+                                  loading: () => const LinearProgressIndicator(),
+                                  error: (_, __) => const Text('Error loading tables'),
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                            ),
+                            loading: () => const LinearProgressIndicator(),
+                            error: (_, __) => const Text('Error loading waiters'),
                           );
                         },
                       ),
                     ),
+                    const SizedBox(height: 10),
                     const Divider(color: Colors.white10, height: 1),
+                    const SizedBox(height: 10),
                     // Items list
                     Expanded(
                       child: activeOrderAsync.when(
@@ -965,6 +1166,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                             padding: const EdgeInsets.all(14),
                             children: [
                               if (savedItems.isNotEmpty) ...[
+                                const SizedBox(height: 8),
                                 Text(
                                   ref.t('order.sentToKitchen'),
                                   style: const TextStyle(
@@ -998,6 +1200,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                 const SizedBox(height: 16),
                               ],
                               if (localItems.isNotEmpty) ...[
+                                const SizedBox(height: 12),
                                 Text(
                                   ref.t('order.newItems'),
                                   style: const TextStyle(
@@ -1186,16 +1389,15 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                     ),
                   ],
                 ),
-              ),
             ),
-          ],       // Row.children
-        ),         // Row
-      ),           // Expanded
-    ],             // Column.children
-  ),               // Column
-),                 // Actions
-),                 // Shortcuts
-);                 // Focus
+          ],
+        ),
+      ),
+    ],
+  ),
+),
+),
+);
 }
 }
 
@@ -1549,4 +1751,432 @@ class WaiterSearchIntent extends Intent {
 
 class SendToKitchenIntent extends Intent {
   const SendToKitchenIntent();
+}
+
+// ── Held Orders Inline Panel ──────────────────────────────────────────────
+
+class _HeldOrdersInlinePanel extends ConsumerWidget {
+  const _HeldOrdersInlinePanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ordersAsync = ref.watch(ordersProvider);
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 160),
+      child: Container(
+        margin: const EdgeInsets.only(top: 12),
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(color: const Color(0xFFD4AF37).withOpacity(0.2)),
+          ),
+        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
+            child: Row(
+              children: [
+                const Icon(Icons.layers_outlined, color: Color(0xFFD4AF37), size: 16),
+                const SizedBox(width: 8),
+                const Text(
+                  'HELD ORDERS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.5,
+                    color: Colors.white54,
+                  ),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () => ref.invalidate(ordersProvider),
+                  icon: const Icon(Icons.refresh, size: 13),
+                  label: const Text('REFRESH', style: TextStyle(fontSize: 10)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white24,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // List
+          Expanded(
+            child: ordersAsync.when(
+              data: (orders) {
+                final pending = orders
+                    .where((o) => o.status == OrderStatus.pending)
+                    .toList();
+
+                if (pending.isEmpty) {
+                  return Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.inbox_outlined,
+                            size: 18, color: Colors.white.withOpacity(0.08)),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'No pending orders',
+                          style: TextStyle(color: Colors.white12, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: EdgeInsets.zero,
+                  itemCount: pending.length,
+                  itemBuilder: (context, index) {
+                    final order = pending[index];
+                    final diff = DateTime.now().difference(order.createdAt);
+                    final timerColor = diff.inMinutes > 30 
+                        ? Colors.redAccent 
+                        : diff.inMinutes > 15 ? Colors.orangeAccent : Colors.greenAccent;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: InkWell(
+                        onTap: () {
+                          final table = TableModel(
+                            id: order.tableId,
+                            name: order.tableName,
+                            status: TableStatus.occupied,
+                          );
+                          ref.read(selectedTableProvider.notifier).set(table);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.03),
+                            border: Border.all(color: Colors.white.withOpacity(0.07)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: timerColor.withOpacity(0.08),
+                                  borderRadius: BorderRadius.zero,
+                                ),
+                                child: Icon(Icons.table_bar, color: timerColor, size: 18),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      order.tableName.toUpperCase(),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 13,
+                                        letterSpacing: 0.8,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${order.waiterName}  •  ${order.items.length} items',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.white38,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '${diff.inMinutes}m',
+                                    style: TextStyle(
+                                      color: timerColor,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${order.totalAmount.toStringAsFixed(2)} ETB',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFFD4AF37),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.chevron_right, color: Colors.white12, size: 16),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+              loading: () => const Center(child: LinearProgressIndicator()),
+              error: (e, _) => Text('Error: $e'),
+            ),
+          ),
+        ],
+      ),
+     ),
+    );
+  }
+}
+// ── Quick Quantity Picker Dialog ──────────────────────────────────────────
+
+class _QuickQtyDialog extends StatefulWidget {
+  final Product product;
+  const _QuickQtyDialog({required this.product});
+
+  @override
+  State<_QuickQtyDialog> createState() => _QuickQtyDialogState();
+}
+
+class _QuickQtyDialogState extends State<_QuickQtyDialog> {
+  int qty = 1;
+  late TextEditingController _ctrl;
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: '1');
+    _ctrl.addListener(() {
+      final v = int.tryParse(_ctrl.text);
+      if (v != null && v > 0 && v != qty) {
+        setState(() => qty = v);
+      }
+    });
+    Future.microtask(() {
+      _ctrl.selection =
+          TextSelection(baseOffset: 0, extentOffset: _ctrl.text.length);
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _setQty(int q) {
+    setState(() => qty = q);
+    _ctrl.text = '$q';
+    _ctrl.selection =
+        TextSelection(baseOffset: 0, extentOffset: _ctrl.text.length);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      child: Container(
+        width: 300,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              widget.product.name,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${widget.product.price.toStringAsFixed(2)} ETB',
+              style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 14),
+            ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: _ctrl,
+              focusNode: _focusNode,
+              textAlign: TextAlign.center,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: const TextStyle(
+                color: Color(0xFFD4AF37),
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+              ),
+              decoration: const InputDecoration(
+                hintText: 'Enter Quantity',
+                hintStyle: TextStyle(color: Colors.white10, fontSize: 16),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white10),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFD4AF37)),
+                ),
+              ),
+              onSubmitted: (v) {
+                final n = int.tryParse(v) ?? 1;
+                if (n > 0) Navigator.pop(context, n);
+              },
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD4AF37),
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.zero),
+                ),
+                onPressed: () {
+                  final n = int.tryParse(_ctrl.text) ?? 1;
+                  if (n > 0) Navigator.pop(context, n);
+                },
+                child: const Text(
+                  'CONFIRM',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Suggestion Dropdown ───────────────────────────────────────────────────
+
+class _SuggestionDropdown extends StatelessWidget {
+  final List<Widget> children;
+  const _SuggestionDropdown({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111111),
+        border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.6),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 200),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: children,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Suggestion Item ───────────────────────────────────────────────────────
+
+class _SuggestionItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool isHighlighted;
+  final Color? accentColor;
+  final VoidCallback onTap;
+
+  const _SuggestionItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.isHighlighted,
+    required this.onTap,
+    this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = accentColor ?? const Color(0xFFD4AF37);
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        decoration: BoxDecoration(
+          color: isHighlighted ? accent.withOpacity(0.07) : Colors.transparent,
+          border: Border(
+            left: BorderSide(
+              color: isHighlighted ? accent : Colors.transparent,
+              width: 3,
+            ),
+            bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon,
+                color: isHighlighted ? accent : Colors.white38, size: 18),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isHighlighted ? Colors.white : Colors.white70,
+                      fontWeight:
+                          isHighlighted ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isHighlighted
+                          ? accent.withOpacity(0.8)
+                          : Colors.white38,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isHighlighted)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  border:
+                      Border.all(color: accent.withOpacity(0.4)),
+                ),
+                child: Text('↵ Enter',
+                    style: TextStyle(
+                        color: accent, fontSize: 11)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }

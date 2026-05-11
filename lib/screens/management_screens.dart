@@ -12,9 +12,11 @@ import 'package:st_george_pos/core/database_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:st_george_pos/models/table_model.dart';
 import 'package:st_george_pos/screens/order_screen.dart';
+import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/models/charge.dart';
 import 'package:st_george_pos/models/shift.dart';
 import 'package:st_george_pos/models/z_report.dart';
+import 'package:st_george_pos/screens/table_management_screen.dart';
 
 // ── Menu Management ───────────────────────────────────────────────────────
 
@@ -40,50 +42,53 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
           flex: 1,
           child: GlassContainer(
             opacity: 0.05,
-            child: Column(
-              children: [
-                _Header(
-                  title: ref.t('management.categories'),
-                  onAdd: () => _showCategoryDialog(context, null),
-                ),
-                Expanded(
-                  child: categoriesAsync.when(
-                    data: (cats) => ListView.builder(
-                      itemCount: cats.length,
-                      itemBuilder: (_, i) {
-                        final cat = cats[i];
-                        return ListTile(
-                          title: Text(
-                            cat.name,
-                            style: TextStyle(
-                              color: selectedCategoryId == cat.id
-                                  ? const Color(0xFFD4AF37)
-                                  : Colors.white,
-                              fontWeight: selectedCategoryId == cat.id
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                          selected: selectedCategoryId == cat.id,
-                          onTap: () =>
-                              setState(() => selectedCategoryId = cat.id),
-                          trailing: IconButton(
-                            icon: const Icon(
-                              Icons.delete_outline,
-                              color: Colors.redAccent,
-                              size: 20,
-                            ),
-                            onPressed: () => _deleteCategory(cat.id!),
-                          ),
-                        );
-                      },
-                    ),
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => Text('${ref.t('common.error')}: $e'),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  _Header(
+                    title: ref.t('management.categories'),
+                    onAdd: () => _showCategoryDialog(context, null),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: categoriesAsync.when(
+                      data: (cats) => ListView.builder(
+                        itemCount: cats.length,
+                        itemBuilder: (_, i) {
+                          final cat = cats[i];
+                          return ListTile(
+                            title: Text(
+                              cat.name,
+                              style: TextStyle(
+                                color: selectedCategoryId == cat.id
+                                    ? const Color(0xFFD4AF37)
+                                    : Colors.white,
+                                fontWeight: selectedCategoryId == cat.id
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                            selected: selectedCategoryId == cat.id,
+                            onTap: () =>
+                                setState(() => selectedCategoryId = cat.id),
+                            trailing: IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.redAccent,
+                                size: 20,
+                              ),
+                              onPressed: () => _deleteCategory(cat.id!),
+                            ),
+                          );
+                        },
+                      ),
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Text('${ref.t('common.error')}: $e'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -92,78 +97,81 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
           flex: 2,
           child: GlassContainer(
             opacity: 0.05,
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _Header(
-                      title: ref.t('management.products'),
-                      onAdd: selectedCategoryId == null
-                          ? null
-                          : () => _showProductDialog(context, null),
-                    ),
-                    if (selectedCategoryId != null)
-                      TextButton.icon(
-                        icon: const Icon(Icons.library_add_check, size: 18),
-                        label: const Text('Bulk Assign'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFFD4AF37),
-                        ),
-                        onPressed: () => _showBulkAssignDialog(context, selectedCategoryId!),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _Header(
+                        title: ref.t('management.products'),
+                        onAdd: selectedCategoryId == null
+                            ? null
+                            : () => _showProductDialog(context, null),
                       ),
-                  ],
-                ),
-                Expanded(
-                  child: productsAsync.when(
-                    data: (products) => ListView.builder(
-                      itemCount: products.length,
-                      itemBuilder: (_, i) {
-                        final p = products[i];
-                        return ListTile(
-                          leading: Container(
-                            width: 40,
-                            height: 40,
-                            color: Colors.white10,
-                            child: const Icon(
-                              Icons.fastfood,
-                              color: Color(0xFFD4AF37),
-                            ),
+                      if (selectedCategoryId != null)
+                        TextButton.icon(
+                          icon: const Icon(Icons.library_add_check, size: 18),
+                          label: const Text('Bulk Assign'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFFD4AF37),
                           ),
-                          title: Text(p.name),
-                          subtitle: Text(
-                            '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.edit_outlined,
-                                  color: Colors.white54,
-                                  size: 20,
-                                ),
-                                onPressed: () => _showProductDialog(context, p),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.redAccent,
-                                  size: 20,
-                                ),
-                                onPressed: () => _deleteProduct(p.id!),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => Text('${ref.t('common.error')}: $e'),
+                          onPressed: () => _showBulkAssignDialog(context, selectedCategoryId!),
+                        ),
+                    ],
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: productsAsync.when(
+                      data: (products) => ListView.builder(
+                        itemCount: products.length,
+                        itemBuilder: (_, i) {
+                          final p = products[i];
+                          return ListTile(
+                            leading: Container(
+                              width: 40,
+                              height: 40,
+                              color: Colors.white10,
+                              child: const Icon(
+                                Icons.fastfood,
+                                color: Color(0xFFD4AF37),
+                              ),
+                            ),
+                            title: Text(p.name),
+                            subtitle: Text(
+                              '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    color: Colors.white54,
+                                    size: 20,
+                                  ),
+                                  onPressed: () => _showProductDialog(context, p),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.redAccent,
+                                    size: 20,
+                                  ),
+                                  onPressed: () => _deleteProduct(p.id!),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Text('${ref.t('common.error')}: $e'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -185,6 +193,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         title: Text(
           existing == null
               ? 'ADD CATEGORIES (Batch)'
@@ -444,56 +453,105 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
 
 // ── Waiter Management ─────────────────────────────────────────────────────
 
-class WaiterManagementScreen extends ConsumerWidget {
+class WaiterManagementScreen extends ConsumerStatefulWidget {
   const WaiterManagementScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WaiterManagementScreen> createState() => _WaiterManagementScreenState();
+}
+
+class _WaiterManagementScreenState extends ConsumerState<WaiterManagementScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     ref.watch(languageProvider);
+    return Column(
+      children: [
+        TabBar(
+          controller: _tabController,
+          labelColor: const Color(0xFFD4AF37),
+          unselectedLabelColor: Colors.white38,
+          indicatorColor: const Color(0xFFD4AF37),
+          tabs: [
+            Tab(text: ref.t('management.waiters').toUpperCase()),
+            Tab(text: ref.t('tables.tables').toUpperCase()),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildWaitersList(),
+              const TableManagementScreen(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWaitersList() {
     final waitersAsync = ref.watch(waitersProvider);
     return GlassContainer(
       opacity: 0.05,
-      child: Column(
-        children: [
-          _Header(
-            title: ref.t('management.waiters'),
-            onAdd: () => _showAddWaiterDialog(context, ref),
-          ),
-          Expanded(
-            child: waitersAsync.when(
-              data: (waiters) => ListView.builder(
-                itemCount: waiters.length,
-                itemBuilder: (_, i) {
-                  final w = waiters[i];
-                  return ListTile(
-                    leading: Container(
-                      width: 40,
-                      height: 40,
-                      color: const Color(0xFFD4AF37),
-                      child: const Icon(Icons.person, color: Colors.black),
-                    ),
-                    title: Text(w.name),
-                    subtitle: Text('${ref.t('management.code')}: ${w.code}'),
-                    trailing: IconButton(
-                      icon: const Icon(
-                        Icons.delete_outline,
-                        color: Colors.redAccent,
-                      ),
-                      onPressed: () async {
-                        await ref
-                            .read(posRepositoryProvider)
-                            .deleteWaiter(w.id!);
-                        ref.refresh(waitersProvider);
-                      },
-                    ),
-                  );
-                },
-              ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Text('${ref.t('common.error')}: $e'),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            _Header(
+              title: ref.t('management.waiters'),
+              onAdd: () => _showAddWaiterDialog(context, ref),
             ),
-          ),
-        ],
+            Expanded(
+              child: waitersAsync.when(
+                data: (waiters) => ListView.builder(
+                  itemCount: waiters.length,
+                  itemBuilder: (_, i) {
+                    final w = waiters[i];
+                    return ListTile(
+                      leading: Container(
+                        width: 40,
+                        height: 40,
+                        color: const Color(0xFFD4AF37),
+                        child: const Icon(Icons.person, color: Colors.black),
+                      ),
+                      title: Text(w.name),
+                      subtitle: Text('${ref.t('management.code')}: ${w.code}'),
+                      trailing: IconButton(
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.redAccent,
+                        ),
+                        onPressed: () async {
+                          await ref
+                              .read(posRepositoryProvider)
+                              .deleteWaiter(w.id!);
+                          ref.refresh(waitersProvider);
+                        },
+                      ),
+                    );
+                  },
+                ),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Text('${ref.t('common.error')}: $e'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -589,7 +647,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                     height: 40,
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.zero,
                     ),
                     child: TextField(
                       controller: _searchCtrl,
@@ -723,12 +781,26 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
 
 // ── Held Orders (Pending Invoices) ────────────────────────────────────────
 
-class HeldOrdersScreen extends ConsumerWidget {
+class HeldOrdersScreen extends ConsumerStatefulWidget {
   const HeldOrdersScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final orders = ref.watch(ordersProvider);
+  ConsumerState<HeldOrdersScreen> createState() => _HeldOrdersScreenState();
+}
+
+class _HeldOrdersScreenState extends ConsumerState<HeldOrdersScreen> {
+  String _searchQuery = '';
+  final TextEditingController _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ordersAsync = ref.watch(ordersProvider);
 
     return GlassContainer(
       opacity: 0.05,
@@ -746,26 +818,66 @@ class HeldOrdersScreen extends ConsumerWidget {
                 const SizedBox(width: 12),
                 Text(
                   ref.t('held.title'),
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(width: 24),
+                // Search Bar
+                Expanded(
+                  child: Container(
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.zero,
+                    ),
+                    child: TextField(
+                      controller: _searchCtrl,
+                      onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                      style: const TextStyle(fontSize: 13, color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Search waiter, table or item...',
+                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13),
+                        prefixIcon: Icon(Icons.search, size: 16, color: Colors.white.withOpacity(0.3)),
+                        suffixIcon: _searchQuery.isNotEmpty 
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 16),
+                                onPressed: () {
+                                  _searchCtrl.clear();
+                                  setState(() => _searchQuery = '');
+                                },
+                              )
+                            : null,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
           Expanded(
-            child: orders.when(
+            child: ordersAsync.when(
               data: (list) {
                 final pending = list
                     .where((o) => o.status == OrderStatus.pending)
+                    .where((o) {
+                      if (_searchQuery.isEmpty) return true;
+                      final matchesWaiter = o.waiterName.toLowerCase().contains(_searchQuery);
+                      final matchesTable = o.tableName.toLowerCase().contains(_searchQuery);
+                      final matchesItem = o.items.any((it) => it.productName.toLowerCase().contains(_searchQuery));
+                      return matchesWaiter || matchesTable || matchesItem;
+                    })
                     .toList();
+
                 if (pending.isEmpty) {
                   return Center(
                     child: Opacity(
                       opacity: 0.4,
-                      child: Text(ref.t('held.noHeldOrders')),
+                      child: Text(_searchQuery.isEmpty ? ref.t('held.noHeldOrders') : 'No matching orders found'),
                     ),
                   );
                 }
@@ -774,10 +886,19 @@ class HeldOrdersScreen extends ConsumerWidget {
                   itemCount: pending.length,
                   itemBuilder: (_, i) {
                     final o = pending[i];
+
+                    // Find matched item if searching by product
+                    OrderItem? matchedItem;
+                    if (_searchQuery.isNotEmpty) {
+                      try {
+                        matchedItem = o.items.firstWhere((it) => it.productName.toLowerCase().contains(_searchQuery));
+                      } catch (_) {}
+                    }
+
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
                       color: Colors.white.withOpacity(0.05),
-                      shape: RoundedRectangleBorder(
+                      shape: const RoundedRectangleBorder(
                         borderRadius: BorderRadius.zero,
                       ),
                       child: ListTile(
@@ -791,15 +912,34 @@ class HeldOrdersScreen extends ConsumerWidget {
                           ref.read(selectedTableProvider.notifier).set(table);
                           ref.read(dashboardViewProvider.notifier).state = DashboardView.pos;
                         },
-                        title: Text(
-                          ref.t(
-                            'management.order',
-                            replacements: {
-                              'id': '${o.id}',
-                              'table': o.tableName,
-                            },
-                          ),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        title: Row(
+                          children: [
+                            Text(
+                              ref.t(
+                                'management.order',
+                                replacements: {
+                                  'id': '${o.id}',
+                                  'table': o.tableName,
+                                },
+                              ),
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            if (matchedItem != null) ...[
+                              const SizedBox(width: 12),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                color: const Color(0xFFD4AF37).withOpacity(0.15),
+                                child: Text(
+                                  '${matchedItem.productName} ×${matchedItem.quantity}',
+                                  style: const TextStyle(
+                                    color: Color(0xFFD4AF37),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         subtitle: Text(
                           '${ref.t('bill.waiter')}: ${o.waiterName}  |  ${ref.t('order.items')}: ${o.items.length}  |  ${ref.t('held.started')}: ${DateFormat('HH:mm').format(o.createdAt)}',
@@ -2159,7 +2299,7 @@ class _ReportMetricCard extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.zero,
             ),
             child: Icon(icon, color: const Color(0xFFD4AF37), size: 24),
           ),
@@ -2385,7 +2525,7 @@ class _ChargeCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: (isAddition ? Colors.green : Colors.red).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.zero,
                 ),
                 child: Text(
                   charge.type.toUpperCase(),

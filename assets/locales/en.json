@@ -15,7 +15,7 @@
     "posMenu": "POS/Menu",
     "orders": "Orders",
     "menu": "Menu",
-    "waiters": "Waiters",
+    "waiters": "Waiters & Tables",
     "manage": "Manage",
     "reports": "Reports",
     "users": "Users",
@@ -97,7 +97,7 @@
   "management": {
     "categories": "Categories",
     "products": "Products",
-    "waiters": "Waiters",
+    "waiters": "Waiters & Tables",
     "orders": "Orders",
     "reports": "Reports",
     "addCategory": "Add Category",

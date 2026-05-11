@@ -73,15 +73,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: Center(
           child: SizedBox(
             width: 420,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
+            child: ClipRect(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: Container(
                   padding: const EdgeInsets.all(48),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.07),
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.zero,
                     border: Border.all(color: Colors.white.withOpacity(0.12)),
                   ),
                   child: Column(
@@ -220,7 +219,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: Colors.redAccent.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.zero,
                             border: Border.all(
                               color: Colors.redAccent.withOpacity(0.3),
                             ),
@@ -257,8 +256,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFD4AF37),
                             foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.zero,
                             ),
                             elevation: 0,
                           ),
@@ -300,17 +299,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       prefixIcon: Icon(icon, color: Colors.white38, size: 20),
       filled: true,
       fillColor: Colors.white.withOpacity(0.06),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+      border: const OutlineInputBorder(
+        borderRadius: BorderRadius.zero,
+        borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.zero,
         borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
       ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 1.5),
+      focusedBorder: const OutlineInputBorder(
+        borderRadius: BorderRadius.zero,
+        borderSide: BorderSide(color: Color(0xFFD4AF37), width: 1.5),
       ),
     );
   }
