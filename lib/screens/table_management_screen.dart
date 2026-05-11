@@ -80,8 +80,8 @@ class _TablesTab extends ConsumerWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD4AF37),
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.zero,
                 ),
               ),
               onPressed: () =>
@@ -139,7 +139,7 @@ class _TablesTab extends ConsumerWidget {
                             color: isOccupied
                                 ? const Color(0xFF006B3C).withOpacity(0.2)
                                 : Colors.white10,
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.zero,
                           ),
                           child: Text(
                             t.status == TableStatus.available
@@ -354,8 +354,8 @@ class _ZonesTab extends ConsumerWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD4AF37),
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.zero,
                 ),
               ),
               onPressed: () =>

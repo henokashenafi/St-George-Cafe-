@@ -20,7 +20,9 @@ class BillService {
     final now = DateTime.now();
     final timeStr = DateFormat('HH:mm').format(now);
     final dateStr = DateFormat('dd/MM/yyyy').format(now);
-    final font = await PdfGoogleFonts.robotoMonoRegular();
+    
+    // Use Helvetica as fallback (Ethiopic requires bundled TTF)
+    final font = pw.Font.helvetica();
 
     pdf.addPage(
       pw.Page(
@@ -113,6 +115,13 @@ class BillService {
                 style: const pw.TextStyle(fontSize: 11),
               ),
             ),
+            pw.SizedBox(height: 10),
+            pw.Center(
+              child: pw.Text(
+                'Powered by Askuala',
+                style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+              ),
+            ),
           ],
         ),
       ),
@@ -139,7 +148,9 @@ class BillService {
     final dateStr = DateFormat('dd/MM/yyyy').format(now);
     final voucherNo =
         'RCS-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${(order.id ?? 0).toString().padLeft(3, '0')}';
-    final font = await PdfGoogleFonts.robotoMonoRegular();
+    
+    // Use Helvetica as fallback (Ethiopic requires bundled TTF)
+    final font = pw.Font.helvetica();
 
     final subtotal = items.fold(0.0, (s, i) => s + i.subtotal);
     
@@ -375,7 +386,7 @@ class BillService {
             pw.SizedBox(height: 4),
             pw.Center(
               child: pw.Text(
-                'Powered by Askualink',
+                'Powered by Askuala',
                 style: pw.TextStyle(fontSize: 12, color: PdfColors.grey900, fontWeight: pw.FontWeight.bold),
               ),
             ),
@@ -436,9 +447,9 @@ class BillService {
     final int cents = ((amount - whole) * 100).round();
     final words = _intToWords(whole, t);
     final centsStr = cents > 0
-        ? ' ${t('numbers.and')} ${_intToWords(cents, t)} ${t('numbers.cents')}'
-        : ' ${t('numbers.and')} ${t('numbers.zero')} ${t('numbers.cents')}';
-    return '$words$centsStr ${t('numbers.only')}';
+        ? ' ${t('common.numbers.and')} ${_intToWords(cents, t)} ${t('common.numbers.cents')}'
+        : ' ${t('common.numbers.and')} ${t('common.numbers.zero')} ${t('common.numbers.cents')}';
+    return '$words $centsStr ${t('common.numbers.only')}';
   }
 
   static String _intToWords(int n, String Function(String key, {Map<String, String>? replacements}) t) {
@@ -480,24 +491,24 @@ class BillService {
 
     String result = '';
     if (n >= 1000000) {
-      result += '${_intToWords(n ~/ 1000000, t)} ${t('numbers.million')} ';
+      result += '${_intToWords(n ~/ 1000000, t)} ${t('common.numbers.million')} ';
       n %= 1000000;
     }
     if (n >= 1000) {
-      result += '${_intToWords(n ~/ 1000, t)} ${t('numbers.thousand')} ';
+      result += '${_intToWords(n ~/ 1000, t)} ${t('common.numbers.thousand')} ';
       n %= 1000;
     }
     if (n >= 100) {
-      result += '${t('numbers.' + ones[n ~/ 100])} ${t('numbers.hundred')} ';
+      result += '${t('common.numbers.' + ones[n ~/ 100])} ${t('common.numbers.hundred')} ';
       n %= 100;
     }
     if (n > 19) {
-      result += '${t('numbers.' + tens[n ~/ 10])} ';
+      result += '${t('common.numbers.' + tens[n ~/ 10])} ';
       if (n % 10 > 0) {
-        result += t('numbers.' + ones[n % 10]);
+        result += t('common.numbers.' + ones[n % 10]);
       }
     } else if (n > 0) {
-      result += t('numbers.' + ones[n]);
+      result += t('common.numbers.' + ones[n]);
     }
     return result.trim();
   }

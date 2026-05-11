@@ -279,17 +279,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     hintStyle: const TextStyle(color: Colors.white38),
     filled: true,
     fillColor: Colors.white.withOpacity(0.06),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+    border: const OutlineInputBorder(
+      borderRadius: BorderRadius.zero,
+      borderSide: BorderSide.none,
     ),
     enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.zero,
       borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
     ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: const BorderSide(color: Color(0xFFD4AF37)),
+    focusedBorder: const OutlineInputBorder(
+      borderRadius: BorderRadius.zero,
+      borderSide: BorderSide(color: Color(0xFFD4AF37)),
     ),
   );
 }
@@ -317,8 +317,8 @@ class UserManagementScreen extends ConsumerWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD4AF37),
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.zero,
                 ),
               ),
               onPressed: () => _showUserDialog(context, ref, null),
@@ -379,7 +379,7 @@ class UserManagementScreen extends ConsumerWidget {
                             color: u.isActive
                                 ? const Color(0xFF006B3C).withOpacity(0.2)
                                 : Colors.white10,
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.zero,
                           ),
                           child: Text(
                             u.isActive
