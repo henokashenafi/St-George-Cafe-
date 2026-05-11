@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # Opt into Node.js 24 now
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build-windows:
@@ -19,34 +19,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Set up Flutter — use latest stable, no pinned version
+      # 2. Set up Flutter — latest stable
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'   # Always picks the latest stable Flutter
+          channel: 'stable'
           cache: true
 
-      # 3. Print Flutter version for debugging
-      - name: Flutter version info
-        run: flutter --version
-
-      # 4. Install dependencies
+      # 3. Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # 5. Analyze code (non-fatal — shows warnings but won't stop build)
-      - name: Analyze code
-        run: flutter analyze --no-fatal-infos
-        continue-on-error: true
-
-      # 6. Build the Windows release
+      # 4. Build the Windows release
       - name: Build Windows release
-        run: flutter build windows --release --verbose
+        run: flutter build windows --release
 
-      # 7. Upload the built .exe folder as a downloadable artifact
+      # 5. Upload the built .exe folder as a downloadable artifact
       - name: Upload Windows build artifact
         uses: actions/upload-artifact@v4
         with:
           name: st-george-pos-windows
           path: build/windows/x64/runner/Release/
           retention-days: 30
+
