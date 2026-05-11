@@ -12,6 +12,8 @@ import 'package:st_george_pos/models/order_item.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:st_george_pos/models/settings.dart';
+import 'package:st_george_pos/models/shift.dart';
+import 'package:st_george_pos/models/z_report.dart';
 
 class PosRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper();
@@ -38,6 +40,8 @@ class PosRepository {
       {'id': 2, 'name': 'Service Charge', 'type': 'addition', 'value': 5.0, 'is_active': 1},
     ],
     'audit_logs': [],
+    'shifts': [],
+    'z_reports': [],
   };
 
   PosRepository();
@@ -106,7 +110,8 @@ class PosRepository {
         final requiredKeys = [
           'categories', 'products', 'tables', 'table_zones', 
           'orders', 'order_items', 'waiters', 'users', 
-          'app_settings', 'pos_charges', 'audit_logs'
+          'app_settings', 'pos_charges', 'audit_logs',
+          'shifts', 'z_reports'
         ];
         for (final key in requiredKeys) {
           _webStorage.putIfAbsent(key, () => []);
@@ -610,13 +615,14 @@ class PosRepository {
     });
   }
 
-  Future<void> completeOrder(int orderId, int tableId, {int? cashierId, double serviceCharge = 0, double discountAmount = 0}) async {
+  Future<void> completeOrder(int orderId, int tableId, {int? cashierId, double serviceCharge = 0, double discountAmount = 0, String paymentMethod = 'cash'}) async {
     if (kIsWeb) {
       final oIndex = _webStorage['orders']!.indexWhere((o) => o['id'] == orderId);
       if (oIndex != -1) {
         _webStorage['orders']![oIndex]['status'] = 'completed';
         _webStorage['orders']![oIndex]['service_charge'] = serviceCharge;
         _webStorage['orders']![oIndex]['discount_amount'] = discountAmount;
+        _webStorage['orders']![oIndex]['payment_method'] = paymentMethod;
         if (cashierId != null) {
           _webStorage['orders']![oIndex]['cashier_id'] = cashierId;
           final user = _webStorage['users']!.firstWhere((u) => u['id'] == cashierId, orElse: () => {});
@@ -633,6 +639,7 @@ class PosRepository {
         'status': 'completed',
         'service_charge': serviceCharge,
         'discount_amount': discountAmount,
+        'payment_method': paymentMethod,
         'updated_at': DateTime.now().toIso8601String()
       };
       if (cashierId != null) updateData['cashier_id'] = cashierId;
@@ -769,5 +776,349 @@ class PosRepository {
     }
     final db = await _dbHelper.database;
     return await db.delete('pos_charges', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ── Shift Management ──────────────────────────────────────────────────────
+
+  Future<int> startShift(int cashierId, double startingCash) async {
+    final shift = ShiftModel(
+      cashierId: cashierId,
+      startTime: DateTime.now(),
+      startingCash: startingCash,
+    );
+
+    if (kIsWeb) {
+      final id = (_webStorage['shifts']!.isEmpty ? 0 : _webStorage['shifts']!.map((s) => s['id'] as int).reduce((a, b) => a > b ? a : b)) + 1;
+      final map = shift.toMap();
+      map['id'] = id;
+      _webStorage['shifts']!.add(map);
+      await _saveWebData();
+      return id;
+    }
+    final db = await _dbHelper.database;
+    return await db.insert('shifts', shift.toMap());
+  }
+
+  Future<ShiftModel?> getActiveShift(int cashierId) async {
+    if (kIsWeb) {
+      final map = _webStorage['shifts']!.firstWhere(
+        (s) => s['cashier_id'] == cashierId && s['status'] == 'open',
+        orElse: () => {},
+      );
+      if (map.isEmpty) return null;
+      final user = _webStorage['users']!.firstWhere((u) => u['id'] == map['cashier_id'], orElse: () => {});
+      final enriched = Map<String, dynamic>.from(map);
+      enriched['cashier_name'] = user['username'] ?? '';
+      return ShiftModel.fromMap(enriched);
+    }
+    final db = await _dbHelper.database;
+    final maps = await db.rawQuery('''
+      SELECT s.*, u.username as cashier_name 
+      FROM shifts s 
+      JOIN users u ON s.cashier_id = u.id 
+      WHERE s.cashier_id = ? AND s.status = 'open' 
+      LIMIT 1
+    ''', [cashierId]);
+    if (maps.isEmpty) return null;
+    return ShiftModel.fromMap(maps.first);
+  }
+
+  Future<void> endShift(int shiftId, double actualCash) async {
+    final now = DateTime.now();
+    if (kIsWeb) {
+      final index = _webStorage['shifts']!.indexWhere((s) => s['id'] == shiftId);
+      if (index != -1) {
+        _webStorage['shifts']![index]['end_time'] = now.toIso8601String();
+        _webStorage['shifts']![index]['actual_cash_declared'] = actualCash;
+        _webStorage['shifts']![index]['status'] = 'closed';
+      }
+      await _saveWebData();
+      return;
+    }
+    final db = await _dbHelper.database;
+    await db.update(
+      'shifts',
+      {
+        'end_time': now.toIso8601String(),
+        'actual_cash_declared': actualCash,
+        'status': 'closed',
+      },
+      where: 'id = ?',
+      whereArgs: [shiftId],
+    );
+  }
+
+  // ── Reporting Logic ───────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getShiftReportData(int shiftId) async {
+    // 1. Fetch Shift
+    ShiftModel? shift;
+    if (kIsWeb) {
+      final map = _webStorage['shifts']!.firstWhere((s) => s['id'] == shiftId, orElse: () => {});
+      if (map.isNotEmpty) {
+        final user = _webStorage['users']!.firstWhere((u) => u['id'] == map['cashier_id'], orElse: () => {});
+        final enriched = Map<String, dynamic>.from(map);
+        enriched['cashier_name'] = user['username'] ?? '';
+        shift = ShiftModel.fromMap(enriched);
+      }
+    } else {
+      final db = await _dbHelper.database;
+      final maps = await db.rawQuery('''
+        SELECT s.*, u.username as cashier_name 
+        FROM shifts s 
+        JOIN users u ON s.cashier_id = u.id 
+        WHERE s.id = ? 
+        LIMIT 1
+      ''', [shiftId]);
+      if (maps.isNotEmpty) shift = ShiftModel.fromMap(maps.first);
+    }
+
+    // 2. Fetch Open Tables
+    int openTables = 0;
+    if (kIsWeb) {
+      openTables = _webStorage['tables']!.where((t) => t['status'] == 'occupied').length;
+    } else {
+      final db = await _dbHelper.database;
+      final res = await db.rawQuery("SELECT COUNT(*) as c FROM tables WHERE status = 'occupied'");
+      openTables = res.first['c'] as int;
+    }
+
+    // 3. Fetch Audit Logs for the shift
+    List<Map<String, dynamic>> shiftAuditLogs = [];
+    if (shift != null) {
+      final startTime = shift.startTime;
+      final endTime = shift.endTime ?? DateTime.now();
+      if (kIsWeb) {
+        shiftAuditLogs = (_webStorage['audit_logs'] ?? []).where((l) {
+          final time = DateTime.parse(l['created_at']);
+          return time.isAfter(startTime) && time.isBefore(endTime);
+        }).toList();
+      } else {
+        final db = await _dbHelper.database;
+        shiftAuditLogs = await db.rawQuery('SELECT * FROM audit_logs WHERE created_at BETWEEN ? AND ?', 
+            [startTime.toIso8601String(), endTime.toIso8601String()]);
+      }
+    }
+
+    final orders = await getOrdersByShift(shiftId);
+    final completed = orders.where((o) => o.status == OrderStatus.completed).toList();
+    final cancelled = orders.where((o) => o.status == OrderStatus.cancelled).toList();
+
+    double totalGrossSales = 0;
+    double totalServiceCharge = 0;
+    double totalDiscount = 0;
+    
+    final paymentMethodBreakdown = <String, double>{};
+    final waiterStats = <String, Map<String, dynamic>>{};
+    final itemSales = <String, Map<String, dynamic>>{};
+    final categoryBreakdown = <String, double>{};
+    final orderTypeBreakdown = <String, double>{'Dine-in': 0, 'Takeaway': 0, 'Delivery': 0};
+    final hourlySales = <int, int>{}; // hour -> count
+    
+    final settings = await getCafeSettings();
+
+    for (final o in completed) {
+      totalGrossSales += o.totalAmount;
+      totalServiceCharge += o.serviceCharge;
+      totalDiscount += o.discountAmount;
+
+      paymentMethodBreakdown[o.paymentMethod] = (paymentMethodBreakdown[o.paymentMethod] ?? 0) + o.grandTotal;
+
+      // Order Type (heuristic based on table name)
+      final tName = o.tableName.toLowerCase();
+      if (tName.contains('takeaway')) {
+        orderTypeBreakdown['Takeaway'] = orderTypeBreakdown['Takeaway']! + o.grandTotal;
+      } else if (tName.contains('delivery')) {
+        orderTypeBreakdown['Delivery'] = orderTypeBreakdown['Delivery']! + o.grandTotal;
+      } else {
+        orderTypeBreakdown['Dine-in'] = orderTypeBreakdown['Dine-in']! + o.grandTotal;
+      }
+
+      // Time Analytics
+      final hour = o.createdAt.hour;
+      hourlySales[hour] = (hourlySales[hour] ?? 0) + 1;
+
+      // Waiter performance
+      if (!waiterStats.containsKey(o.waiterName)) {
+        waiterStats[o.waiterName] = {'orders': 0, 'sales': 0.0};
+      }
+      waiterStats[o.waiterName]!['orders']++;
+      waiterStats[o.waiterName]!['sales'] += o.grandTotal;
+
+      // Item Sales
+      for (final item in o.items) {
+        if (!itemSales.containsKey(item.productName)) {
+          itemSales[item.productName] = {'qty': 0, 'revenue': 0.0};
+        }
+        itemSales[item.productName]!['qty'] += item.quantity;
+        itemSales[item.productName]!['revenue'] += item.subtotal;
+
+        final product = await getProductById(item.productId);
+        if (product != null) {
+          final catId = product.categoryIds.isNotEmpty ? product.categoryIds.first : 0;
+          final catName = await getCategoryName(catId);
+          categoryBreakdown[catName] = (categoryBreakdown[catName] ?? 0) + item.subtotal;
+        }
+      }
+    }
+
+    final vatRate = settings.vatRate;
+    final totalNetSales = totalGrossSales + totalServiceCharge - totalDiscount;
+    // Assuming prices are VAT exclusive. If inclusive, this math changes.
+    final totalVat = totalNetSales * (vatRate / 100); 
+
+    int peakHour = 0;
+    int maxOrders = 0;
+    hourlySales.forEach((hour, count) {
+      if (count > maxOrders) {
+        maxOrders = count;
+        peakHour = hour;
+      }
+    });
+
+    final expectedCash = (shift?.startingCash ?? 0) + (paymentMethodBreakdown['cash'] ?? 0);
+    final actualCash = shift?.actualCashDeclared ?? 0;
+    
+    // Find voids in audit logs
+    int voidCount = cancelled.length;
+    final voidLogs = shiftAuditLogs.where((l) => l['action'].toString().toLowerCase().contains('void')).toList();
+    voidCount += voidLogs.length;
+
+    return {
+      'report_header': {
+        'restaurant_name': settings.name,
+        'branch': 'Main Branch',
+        'address': settings.address,
+        'report_type': 'Z REPORT',
+        'shift_number': shiftId,
+        'cashier_name': shift?.cashierName ?? 'Unknown',
+        'opening_time': shift?.startTime.toIso8601String(),
+        'closing_time': shift?.endTime?.toIso8601String() ?? DateTime.now().toIso8601String(),
+        'generated_timestamp': DateTime.now().toIso8601String(),
+      },
+      'shift_summary': {
+        'total_orders': orders.length,
+        'completed_orders': completed.length,
+        'canceled_orders': cancelled.length,
+        'refund_count': voidLogs.length,
+        'open_tables_remaining': openTables,
+        'closed_tables': completed.length, // approximation
+      },
+      'sales_totals': {
+        'gross_sales': totalGrossSales,
+        'discounts': totalDiscount,
+        'service_charge': totalServiceCharge,
+        'vat': totalVat,
+        'net_sales': totalNetSales,
+        'grand_total': totalNetSales + totalVat, // if VAT was exclusive
+        'refunds': 0, // Implement if refund system exists
+        'void_totals': cancelled.fold<double>(0.0, (sum, o) => sum + o.grandTotal),
+      },
+      'payment_methods': paymentMethodBreakdown,
+      'cash_reconciliation': {
+        'opening_float': shift?.startingCash ?? 0,
+        'expected_cash': expectedCash,
+        'actual_counted': actualCash,
+        'difference': actualCash - expectedCash,
+      },
+      'waiters': waiterStats,
+      'items': itemSales,
+      'categories': categoryBreakdown,
+      'cancellations': {
+        'total_canceled_items': voidCount,
+        'details': cancelled.map((o) => {
+          'canceled_item': 'Order #${o.id}',
+          'by': o.cashierName,
+          'reason': 'Order Cancelled',
+          'approval_manager': 'Manager', // Add to model if needed
+        }).toList(),
+      },
+      'discounts_summary': {
+        'total': totalDiscount,
+      },
+      'tax_information': {
+        'vat_totals': totalVat,
+        'taxable_sales': totalNetSales,
+        'exempt_sales': 0.0,
+      },
+      'order_type_breakdown': orderTypeBreakdown,
+      'time_analytics': {
+        'peak_hour': "${peakHour.toString().padLeft(2, '0')}:00 - ${(peakHour + 1).toString().padLeft(2, '0')}:00",
+        'average_order_value': completed.isNotEmpty ? totalNetSales / completed.length : 0,
+      },
+      'audit_log_summary': shiftAuditLogs.map((l) => {
+        'action': l['action'],
+        'details': l['details'],
+        'time': l['created_at'],
+      }).toList(),
+    };
+  }
+
+  Future<List<OrderModel>> getOrdersByShift(int shiftId) async {
+    if (kIsWeb) {
+      final list = _webStorage['orders']!.where((o) => o['shift_id'] == shiftId).toList();
+      return list.map((o) {
+        final items = _webStorage['order_items']!.where((i) => i['order_id'] == o['id']).map((i) => OrderItem.fromMap(i)).toList();
+        return OrderModel.fromMap(o, items: items);
+      }).toList();
+    }
+    final db = await _dbHelper.database;
+    final maps = await db.rawQuery('SELECT o.*, t.name as table_name, w.name as waiter_name, u.username as cashier_name FROM orders o JOIN tables t ON o.table_id = t.id JOIN waiters w ON o.waiter_id = w.id LEFT JOIN users u ON o.cashier_id = u.id WHERE o.shift_id = ? ORDER BY o.created_at DESC', [shiftId]);
+    List<OrderModel> orders = [];
+    for (var map in maps) {
+      final itemMaps = await db.rawQuery('SELECT oi.*, p.name as product_name FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?', [map['id']]);
+      orders.add(OrderModel.fromMap(map, items: itemMaps.map((i) => OrderItem.fromMap(i)).toList()));
+    }
+    return orders;
+  }
+
+  Future<Product?> getProductById(int id) async {
+    if (kIsWeb) {
+      final map = _webStorage['products']!.firstWhere((p) => p['id'] == id, orElse: () => {});
+      return map.isEmpty ? null : Product.fromMap(map);
+    }
+    final db = await _dbHelper.database;
+    final maps = await db.query('products', where: 'id = ?', whereArgs: [id]);
+    return maps.isEmpty ? null : Product.fromMap(maps.first);
+  }
+
+  Future<String> getCategoryName(int id) async {
+    if (kIsWeb) {
+      final map = _webStorage['categories']!.firstWhere((c) => c['id'] == id, orElse: () => {});
+      return map['name'] ?? 'Uncategorized';
+    }
+    final db = await _dbHelper.database;
+    final maps = await db.query('categories', where: 'id = ?', whereArgs: [id]);
+    return maps.isEmpty ? 'Uncategorized' : maps.first['name'] as String;
+  }
+
+  Future<void> createZReport(int shiftId, Map<String, dynamic> reportData) async {
+    final db = await _dbHelper.database;
+    final zCountResult = await db.rawQuery('SELECT COUNT(*) as count FROM z_reports');
+    final zCount = (zCountResult.first['count'] as int) + 1;
+
+    final report = ZReportModel(
+      shiftId: shiftId,
+      zCount: zCount,
+      reportData: reportData,
+      createdAt: DateTime.now(),
+    );
+
+    if (kIsWeb) {
+      final id = (_webStorage['z_reports']!.isEmpty ? 0 : _webStorage['z_reports']!.map((r) => r['id'] as int).reduce((a, b) => a > b ? a : b)) + 1;
+      final map = report.toMap();
+      map['id'] = id;
+      _webStorage['z_reports']!.add(map);
+      await _saveWebData();
+      return;
+    }
+    await db.insert('z_reports', report.toMap());
+  }
+
+  Future<List<ZReportModel>> getZReports() async {
+    if (kIsWeb) return _webStorage['z_reports']!.map((r) => ZReportModel.fromMap(r)).toList().reversed.toList();
+    final db = await _dbHelper.database;
+    final maps = await db.query('z_reports', orderBy: 'created_at DESC');
+    return maps.map((m) => ZReportModel.fromMap(m)).toList();
   }
 }

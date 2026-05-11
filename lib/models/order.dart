@@ -16,6 +16,8 @@ class OrderModel {
   final double totalAmount;   // subtotal (items only, no charges)
   final double serviceCharge; // computed at bill time
   final double discountAmount;
+  final String paymentMethod;
+  final int? shiftId;
   final List<OrderItem> items;
 
   OrderModel({
@@ -32,6 +34,8 @@ class OrderModel {
     this.totalAmount = 0.0,
     this.serviceCharge = 0.0,
     this.discountAmount = 0.0,
+    this.paymentMethod = 'cash',
+    this.shiftId,
     this.items = const [],
   });
 
@@ -46,6 +50,8 @@ class OrderModel {
     double? totalAmount,
     double? serviceCharge,
     double? discountAmount,
+    String? paymentMethod,
+    int? shiftId,
     List<OrderItem>? items,
   }) {
     return OrderModel(
@@ -62,6 +68,8 @@ class OrderModel {
       totalAmount: totalAmount ?? this.totalAmount,
       serviceCharge: serviceCharge ?? this.serviceCharge,
       discountAmount: discountAmount ?? this.discountAmount,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      shiftId: shiftId ?? this.shiftId,
       items: items ?? this.items,
     );
   }
@@ -89,6 +97,8 @@ class OrderModel {
       totalAmount: (map['total_amount'] as num? ?? 0).toDouble(),
       serviceCharge: (map['service_charge'] as num? ?? 0).toDouble(),
       discountAmount: (map['discount_amount'] as num? ?? 0).toDouble(),
+      paymentMethod: map['payment_method'] ?? 'cash',
+      shiftId: map['shift_id'],
       items: items,
     );
   }
@@ -105,6 +115,8 @@ class OrderModel {
       'total_amount': totalAmount,
       'service_charge': serviceCharge,
       'discount_amount': discountAmount,
+      'payment_method': paymentMethod,
+      'shift_id': shiftId,
       'table_name': tableName,
       'waiter_name': waiterName,
       'cashier_name': cashierName,

@@ -11,6 +11,8 @@ import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/services/pos_repository.dart';
 import 'package:st_george_pos/models/settings.dart';
+import 'package:st_george_pos/models/shift.dart';
+import 'package:st_george_pos/models/z_report.dart';
 
 enum DashboardView { home, tables, orders, heldOrders, menu, waiters, reports, settings, users, auditLogs, pos, charges }
 
@@ -140,6 +142,31 @@ class DateFilterNotifier extends Notifier<DateFilter> {
 final reportDateFilterProvider =
     NotifierProvider<DateFilterNotifier, DateFilter>(DateFilterNotifier.new);
 
+enum DateFilterType { today, week, month, all, custom }
+
+class DateTypeNotifier extends Notifier<DateFilterType> {
+  @override
+  DateFilterType build() => DateFilterType.today;
+  void set(DateFilterType t) => state = t;
+}
+
+final reportDateTypeProvider =
+    NotifierProvider<DateTypeNotifier, DateFilterType>(DateTypeNotifier.new);
+
+class WaiterFilterNotifier extends Notifier<int?> {
+  @override
+  int? build() => null;
+  void set(int? id) => state = id;
+}
+
+final reportWaiterFilterProvider =
+    NotifierProvider<WaiterFilterNotifier, int?>(WaiterFilterNotifier.new);
+
+final zReportsProvider = FutureProvider.autoDispose<List<ZReportModel>>((ref) async {
+  final repo = ref.watch(posRepositoryProvider);
+  return await repo.getZReports();
+});
+
 final activeOrderProvider = FutureProvider.autoDispose.family<OrderModel?, int?>((ref, tableId) async {
   if (tableId == null) return null;
   final repo = ref.watch(posRepositoryProvider);
@@ -154,6 +181,13 @@ final usersProvider = FutureProvider.autoDispose<List<AppUser>>((ref) async {
 final auditLogsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
   final repo = ref.watch(posRepositoryProvider);
   return await repo.getAuditLogs();
+});
+
+final currentShiftProvider = FutureProvider.autoDispose<ShiftModel?>((ref) async {
+  final user = ref.watch(authProvider);
+  if (user == null) return null;
+  final repo = ref.watch(posRepositoryProvider);
+  return await repo.getActiveShift(user.id!);
 });
 
 // ── Active Order Service ──────────────────────────────────────────────────
@@ -173,7 +207,15 @@ class ActiveOrderService {
   }
 
   Future<OrderModel?> createNewOrder(OrderModel order) async {
-    final id = await repo.createOrder(order);
+    // Inject current shift ID if available
+    final user = ref.read(authProvider);
+    int? shiftId;
+    if (user != null) {
+      final shift = await repo.getActiveShift(user.id!);
+      shiftId = shift?.id;
+    }
+    
+    final id = await repo.createOrder(order.copyWith(shiftId: shiftId));
     await refreshTableData(order.tableId);
     // Fetch the newly created order
     return await repo.getActiveOrderForTable(order.tableId);
@@ -188,6 +230,21 @@ class ActiveOrderService {
   Future<void> saveSettings(CafeSettings settings) async {
     await repo.saveSettings(settings);
     ref.invalidate(cafeSettingsProvider);
+  }
+
+  Future<void> startShift(double startingCash) async {
+    final user = ref.read(authProvider);
+    if (user != null) {
+      await repo.startShift(user.id!, startingCash);
+      ref.invalidate(currentShiftProvider);
+    }
+  }
+
+  Future<void> endShift(int shiftId, double actualCash) async {
+    final reportData = await repo.getShiftReportData(shiftId);
+    await repo.createZReport(shiftId, reportData);
+    await repo.endShift(shiftId, actualCash);
+    ref.invalidate(currentShiftProvider);
   }
 }
 

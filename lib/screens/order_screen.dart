@@ -325,7 +325,9 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         charges: charges,
         discountEnabled: discountEnabled,
         initialDiscount: discount,
+        initialPaymentMethod: order.paymentMethod,
         onDiscountChanged: (v) => discount = v,
+        onPaymentMethodChanged: (v) => order = order.copyWith(paymentMethod: v),
       ),
     );
 
@@ -360,6 +362,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             cashierId: ref.read(authProvider)?.id,
             serviceCharge: totalAdditions,
             discountAmount: discount + totalDeductions,
+            paymentMethod: order.paymentMethod,
           );
       
       await ref.read(auditServiceProvider).log(
@@ -1233,7 +1236,9 @@ class _BillConfirmDialog extends ConsumerStatefulWidget {
   final List<ChargeModel> charges;
   final bool discountEnabled;
   final double initialDiscount;
+  final String initialPaymentMethod;
   final ValueChanged<double> onDiscountChanged;
+  final ValueChanged<String> onPaymentMethodChanged;
 
   const _BillConfirmDialog({
     required this.order,
@@ -1241,7 +1246,9 @@ class _BillConfirmDialog extends ConsumerStatefulWidget {
     required this.charges,
     required this.discountEnabled,
     required this.initialDiscount,
+    this.initialPaymentMethod = 'cash',
     required this.onDiscountChanged,
+    required this.onPaymentMethodChanged,
   });
 
   @override
@@ -1251,11 +1258,13 @@ class _BillConfirmDialog extends ConsumerStatefulWidget {
 class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
   late TextEditingController _discountCtrl;
   double _discount = 0;
+  String _paymentMethod = 'cash';
 
   @override
   void initState() {
     super.initState();
     _discount = widget.initialDiscount;
+    _paymentMethod = widget.initialPaymentMethod;
     _discountCtrl = TextEditingController(
       text: _discount > 0 ? _discount.toString() : '',
     );
@@ -1311,6 +1320,29 @@ class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
                     _discount = double.tryParse(v) ?? 0;
                     widget.onDiscountChanged(_discount);
                   });
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: _paymentMethod,
+                dropdownColor: const Color(0xFF1A1A1A),
+                decoration: InputDecoration(
+                  labelText: 'Payment Method',
+                  labelStyle: const TextStyle(color: Colors.white54),
+                  prefixIcon: const Icon(Icons.payments_outlined, color: Colors.white38),
+                  border: const OutlineInputBorder(),
+                ),
+                items: [
+                  DropdownMenuItem(value: 'cash', child: Text('CASH', style: TextStyle(color: Colors.white))),
+                  DropdownMenuItem(value: 'card', child: Text('CREDIT CARD', style: TextStyle(color: Colors.white))),
+                  DropdownMenuItem(value: 'mobile', child: Text('MOBILE MONEY', style: TextStyle(color: Colors.white))),
+                  DropdownMenuItem(value: 'other', child: Text('OTHER', style: TextStyle(color: Colors.white))),
+                ],
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() => _paymentMethod = v);
+                    widget.onPaymentMethodChanged(v);
+                  }
                 },
               ),
               const SizedBox(height: 8),
