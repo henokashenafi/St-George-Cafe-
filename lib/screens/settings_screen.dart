@@ -24,6 +24,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _cafePhoneController = TextEditingController();
   final _cafeVatController = TextEditingController();
   final _cafeCurrencyController = TextEditingController();
+  final _vatRateController = TextEditingController();
   
   bool _discountEnabled = true;
   bool _saving = false;
@@ -37,6 +38,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _cafePhoneController.dispose();
     _cafeVatController.dispose();
     _cafeCurrencyController.dispose();
+    _vatRateController.dispose();
     super.dispose();
   }
 
@@ -54,6 +56,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _cafePhoneController.text = cafe.phone;
     _cafeVatController.text = cafe.vatNumber;
     _cafeCurrencyController.text = cafe.currency;
+    _vatRateController.text = cafe.vatRate.toString();
     
     setState(() => _initialized = true);
   }
@@ -80,9 +83,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       phone: _cafePhoneController.text,
       vatNumber: _cafeVatController.text,
       currency: _cafeCurrencyController.text,
-      vatRate: charge, // Use service charge as vat rate placeholder or separate it?
+      vatRate: double.tryParse(_vatRateController.text) ?? 0.0,
     );
     await repo.saveSettings(newCafe);
+    
+    // Sync VAT with pos_charges
+    final charges = await ref.read(chargesProvider.future);
+    try {
+      final vatCharge = charges.firstWhere((c) => c.name.toUpperCase() == 'VAT');
+      await repo.updateCharge(vatCharge.id!, vatCharge.copyWith(value: newCafe.vatRate).toMap());
+    } catch (e) {
+      await repo.addCharge({'name': 'VAT', 'type': 'addition', 'value': newCafe.vatRate, 'is_active': 1});
+    }
+    ref.invalidate(chargesProvider);
     
     await ref.read(auditServiceProvider).log(
       'Settings Updated',
@@ -142,6 +155,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           decoration: _inputDec(
                             ref.t('settings.serviceChargeHint'),
                           ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'VAT Rate (%)',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: 200,
+                        child: TextFormField(
+                          controller: _vatRateController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d*'),
+                            ),
+                          ],
+                          style: const TextStyle(color: Colors.white),
+                          decoration: _inputDec('e.g. 15.0'),
                         ),
                       ),
                       const SizedBox(height: 24),

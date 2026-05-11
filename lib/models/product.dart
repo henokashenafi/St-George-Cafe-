@@ -13,6 +13,22 @@ class Product {
     this.imagePath,
   });
 
+  Product copyWith({
+    int? id,
+    List<int>? categoryIds,
+    String? name,
+    double? price,
+    String? imagePath,
+  }) {
+    return Product(
+      id: id ?? this.id,
+      categoryIds: categoryIds ?? this.categoryIds,
+      name: name ?? this.name,
+      price: price ?? this.price,
+      imagePath: imagePath ?? this.imagePath,
+    );
+  }
+
   factory Product.fromMap(Map<String, dynamic> map) {
     return Product(
       id: map['id'],

@@ -20,10 +20,12 @@ class BillService {
     final now = DateTime.now();
     final timeStr = DateFormat('HH:mm').format(now);
     final dateStr = DateFormat('dd/MM/yyyy').format(now);
+    final font = await PdfGoogleFonts.robotoMonoRegular();
 
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a5,
+        theme: pw.ThemeData.withFont(base: font),
         margin: const pw.EdgeInsets.all(24),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -137,6 +139,7 @@ class BillService {
     final dateStr = DateFormat('dd/MM/yyyy').format(now);
     final voucherNo =
         'RCS-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${(order.id ?? 0).toString().padLeft(3, '0')}';
+    final font = await PdfGoogleFonts.robotoMonoRegular();
 
     final subtotal = items.fold(0.0, (s, i) => s + i.subtotal);
     
@@ -170,6 +173,7 @@ class BillService {
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
+        theme: pw.ThemeData.withFont(base: font),
         margin: const pw.EdgeInsets.fromLTRB(40, 36, 40, 36),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -400,22 +404,6 @@ class BillService {
         style: pw.TextStyle(fontSize: fontSize, fontWeight: pw.FontWeight.bold),
       ),
     ],
-  );
-
-  static pw.Widget _cell(
-    String text, {
-    bool bold = false,
-    double fontSize = 11,
-    pw.TextAlign align = pw.TextAlign.left,
-  }) => pw.Padding(
-    padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-    child: pw.Text(
-      text,
-      style: bold
-          ? pw.TextStyle(fontSize: fontSize, fontWeight: pw.FontWeight.bold)
-          : pw.TextStyle(fontSize: fontSize),
-      textAlign: align,
-    ),
   );
 
   static pw.Widget _totalRow(String label, double value, {bool bold = false}) =>

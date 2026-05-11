@@ -49,6 +49,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   ethiopian_datetime: ^1.0.5
+  toastification: ^3.2.0
 
 dev_dependencies:
   flutter_test:

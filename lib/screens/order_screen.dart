@@ -25,7 +25,18 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   int? selectedCategoryId;
   List<OrderItem> localItems = [];
   String searchQuery = '';
+  String waiterSearchQuery = '';
+  bool _waiterSearchActive = false;
+
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _waiterSearchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  final FocusNode _waiterSearchFocusNode = FocusNode();
+
+  // Track latest visible filtered products for Enter-to-add
+  List<Product> _lastFilteredProducts = [];
+
+  String _sortOption = 'alpha';
   Waiter? selectedWaiter;
   double _discountAmount = 0;
   TableModel? get selectedTable => ref.watch(selectedTableProvider);
@@ -36,12 +47,41 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     _searchController.addListener(() {
       setState(() => searchQuery = _searchController.text);
     });
+    _waiterSearchController.addListener(() {
+      setState(() => waiterSearchQuery = _waiterSearchController.text);
+    });
+    _searchFocusNode.addListener(() => setState(() {}));
+    _waiterSearchFocusNode.addListener(() {
+      setState(() => _waiterSearchActive = _waiterSearchFocusNode.hasFocus);
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _waiterSearchController.dispose();
+    _searchFocusNode.dispose();
+    _waiterSearchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _focusItemSearch() {
+    _searchFocusNode.requestFocus();
+  }
+
+  void _focusWaiterSearch() {
+    setState(() => _waiterSearchActive = true);
+    Future.delayed(const Duration(milliseconds: 50), () {
+      _waiterSearchFocusNode.requestFocus();
+    });
+  }
+
+  void _addFirstFilteredItem() {
+    if (_lastFilteredProducts.isNotEmpty) {
+      _addItem(_lastFilteredProducts.first);
+      // Clear search after adding so cashier sees full menu again
+      _searchController.clear();
+    }
   }
 
   void _addItem(Product product) {
@@ -178,8 +218,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     if (localItems.isEmpty) return;
 
     if (selectedTable == null) {
-      await _showTableSelectionDialog(context);
-      if (selectedTable == null) return;
+      TopToaster.show(context, ref.t('dashboard.selectTable'), isError: true);
+      return;
     }
 
     OrderModel? order = existingOrder;
@@ -342,8 +382,89 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     final waitersAsync = ref.watch(waitersProvider);
     final settingsAsync = ref.watch(appSettingsProvider);
 
-    return Column(
-      children: [
+    // Top-level Focus captures ALL key presses when nothing else has focus.
+    // Any printable char → auto-routes to item search field.
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        // Only react on key-down, ignore if any text field is already focused
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        if (_searchFocusNode.hasFocus || _waiterSearchFocusNode.hasFocus) {
+          return KeyEventResult.ignored;
+        }
+        final logical = event.logicalKey;
+        // Escape → clear search
+        if (logical == LogicalKeyboardKey.escape) {
+          _searchController.clear();
+          node.requestFocus(); // return focus to the screen
+          return KeyEventResult.handled;
+        }
+        // Ctrl+F → focus search
+        if (logical == LogicalKeyboardKey.keyF &&
+            HardwareKeyboard.instance.isControlPressed) {
+          _focusItemSearch();
+          return KeyEventResult.handled;
+        }
+        // Ctrl+W → focus waiter
+        if (logical == LogicalKeyboardKey.keyW &&
+            HardwareKeyboard.instance.isControlPressed) {
+          _focusWaiterSearch();
+          return KeyEventResult.handled;
+        }
+        // Ctrl+Enter / F9 → send to kitchen
+        if ((logical == LogicalKeyboardKey.enter &&
+                HardwareKeyboard.instance.isControlPressed) ||
+            logical == LogicalKeyboardKey.f9) {
+          settingsAsync.maybeWhen(
+            data: (s) => _sendToKitchen(activeOrderAsync.value, s),
+            orElse: () => null,
+          );
+          return KeyEventResult.handled;
+        }
+        // Printable single character → route to item search
+        final label = logical.keyLabel;
+        if (label.length == 1 && !HardwareKeyboard.instance.isControlPressed) {
+          _searchFocusNode.requestFocus();
+          // Append the typed character
+          final current = _searchController.text;
+          final char = HardwareKeyboard.instance.isShiftPressed
+              ? label.toUpperCase()
+              : label.toLowerCase();
+          _searchController.value = TextEditingValue(
+            text: current + char,
+            selection: TextSelection.collapsed(offset: current.length + 1),
+          );
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Shortcuts(
+        shortcuts: {
+          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyF): const SearchIntent(),
+          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyW): const WaiterSearchIntent(),
+          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.enter): const SendToKitchenIntent(),
+          LogicalKeySet(LogicalKeyboardKey.f9): const SendToKitchenIntent(),
+        },
+        child: Actions(
+          actions: {
+            SearchIntent: CallbackAction<SearchIntent>(onInvoke: (_) {
+              _focusItemSearch();
+              return null;
+            }),
+            WaiterSearchIntent: CallbackAction<WaiterSearchIntent>(onInvoke: (_) {
+              _focusWaiterSearch();
+              return null;
+            }),
+            SendToKitchenIntent: CallbackAction<SendToKitchenIntent>(onInvoke: (_) {
+              settingsAsync.maybeWhen(
+                data: (s) => _sendToKitchen(activeOrderAsync.value, s),
+                orElse: () => null,
+              );
+              return null;
+            }),
+          },
+          child: Column(
+            children: [
         // Header matching dashboard style
         Padding(
           padding: const EdgeInsets.only(bottom: 20),
@@ -371,153 +492,232 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             ],
           ),
         ),
-        if (selectedTable == null)
-          Expanded(
-            child: _TableSelectorView(
-              onTableSelected: (t) {
-                ref.read(selectedTableProvider.notifier).set(t);
-              },
-            ),
-          )
-        else
-          Expanded(
-            child: Row(
-              children: [
+        Expanded(
+          child: Row(
+            children: [
+              // ── Left Sidebar (Categories) ──────────────────────────────
+              SizedBox(
+                width: 140,
+                child: GlassContainer(
+                  opacity: 0.03,
+                  borderRadius: 0,
+                  border: const Border(right: BorderSide(color: Colors.white10)),
+                  child: categoriesAsync.when(
+                    data: (cats) => ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      itemCount: cats.length + 1,
+                      itemBuilder: (_, i) {
+                        final isSelected = i == 0 ? selectedCategoryId == null : selectedCategoryId == cats[i - 1].id;
+                        final name = i == 0 ? ref.t('common.all') : cats[i - 1].name;
+                        final icon = i == 0 ? Icons.grid_view : Icons.restaurant_menu;
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          child: InkWell(
+                            onTap: () => setState(() => selectedCategoryId = i == 0 ? null : cats[i - 1].id),
+                            borderRadius: BorderRadius.circular(12),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: isSelected ? const Color(0xFFD4AF37).withOpacity(0.2) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected ? const Color(0xFFD4AF37).withOpacity(0.5) : Colors.transparent,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    icon,
+                                    size: 20,
+                                    color: isSelected ? const Color(0xFFD4AF37) : Colors.white38,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    name,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      color: isSelected ? Colors.white : Colors.white54,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    error: (e, _) => Center(child: Text('$e', style: const TextStyle(fontSize: 10))),
+                  ),
+                ),
+              ),
             // ── Menu panel ──────────────────────────────────────────────
             Expanded(
               flex: 3,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(0, 0, 16, 0),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                 child: Column(
                   children: [
-                    GlassContainer(
-                      opacity: 0.05,
-                      borderRadius: 30,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: ref.t('common.search'),
-                          border: InputBorder.none,
-                          icon: const Icon(Icons.search, color: Colors.white54),
-                        ),
-                        onChanged: (v) => setState(() => searchQuery = v),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 44,
-                      child: categoriesAsync.when(
-                        data: (cats) => ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: cats.length + 1,
-                          itemBuilder: (_, i) {
-                            if (i == 0) {
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: ChoiceChip(
-                                  label: Text(ref.t('common.all')),
-                                  selected: selectedCategoryId == null,
-                                  selectedColor: const Color(0xFFD4AF37),
-                                  onSelected: (_) =>
-                                      setState(() => selectedCategoryId = null),
-                                ),
-                              );
-                            }
-                            final cat = cats[i - 1];
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                label: Text(cat.name),
-                                selected: selectedCategoryId == cat.id,
-                                selectedColor: const Color(0xFFD4AF37),
-                                onSelected: (s) => setState(
-                                  () => selectedCategoryId = s ? cat.id : null,
-                                ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(30),
+                              border: Border.all(
+                                color: _searchFocusNode.hasFocus
+                                    ? const Color(0xFFD4AF37).withOpacity(0.7)
+                                    : Colors.transparent,
+                                width: 1.5,
                               ),
-                            );
-                          },
+                            ),
+                            child: GlassContainer(
+                              opacity: 0.05,
+                              borderRadius: 30,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: TextField(
+                                controller: _searchController,
+                                focusNode: _searchFocusNode,
+                                decoration: InputDecoration(
+                                  hintText: 'Search items... (Ctrl+F)',
+                                  hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                                  border: InputBorder.none,
+                                  icon: const Icon(Icons.search, color: Colors.white38, size: 18),
+                                  suffixIcon: searchQuery.isNotEmpty
+                                      ? IconButton(
+                                          icon: const Icon(Icons.close, size: 16, color: Colors.white38),
+                                          onPressed: () => _searchController.clear(),
+                                        )
+                                      : null,
+                                ),
+                                onChanged: (v) => setState(() => searchQuery = v),
+                                onSubmitted: (_) => _addFirstFilteredItem(),
+                              ),
+                            ),
+                          ),
                         ),
-                        loading: () => const SizedBox(),
-                        error: (e, _) => Text('$e'),
-                      ),
+                        const SizedBox(width: 12),
+                        GlassContainer(
+                          opacity: 0.05,
+                          borderRadius: 30,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _sortOption,
+                              dropdownColor: const Color(0xFF121212),
+                              icon: const Icon(Icons.sort, color: Color(0xFFD4AF37)),
+                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                              items: const [
+                                DropdownMenuItem(value: 'alpha', child: Text('A - Z')),
+                                DropdownMenuItem(value: 'priceAsc', child: Text('Price \u2191')),
+                                DropdownMenuItem(value: 'priceDesc', child: Text('Price \u2193')),
+                              ],
+                              onChanged: (v) => setState(() => _sortOption = v!),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     Expanded(
-                      child: productsAsync.when(
-                        data: (products) {
-                          final filtered = products
-                              .where(
-                                (p) => p.name.toLowerCase().contains(
-                                  searchQuery.toLowerCase(),
-                                ),
-                              )
-                              .toList();
-                          filtered.sort((a, b) => a.name.compareTo(b.name));
-                          return GridView.builder(
-                            padding: EdgeInsets.zero,
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 3,
-                                  childAspectRatio: 3.2,
-                                  crossAxisSpacing: 10,
-                                  mainAxisSpacing: 10,
-                                ),
-                            itemCount: filtered.length,
-                            itemBuilder: (_, i) {
-                              final p = filtered[i];
-                              return GlassContainer(
-                                opacity: 0.05,
-                                border: Border.all(color: Colors.white.withOpacity(0.08)),
-                                child: InkWell(
-                                  onTap: () => _addItem(p),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.restaurant_menu,
-                                          size: 16,
-                                          color: Color(0xFFD4AF37),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                p.name,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 13,
+                          child: productsAsync.when(
+                            data: (products) {
+                              final filtered = products
+                                  .where((p) => p.name.toLowerCase().contains(searchQuery.toLowerCase()))
+                                  .toList();
+                              if (_sortOption == 'alpha') {
+                                filtered.sort((a, b) => a.name.compareTo(b.name));
+                              } else if (_sortOption == 'priceAsc') {
+                                filtered.sort((a, b) => a.price.compareTo(b.price));
+                              } else if (_sortOption == 'priceDesc') {
+                                filtered.sort((a, b) => b.price.compareTo(a.price));
+                              }
+                              // Store for Enter-to-add
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) _lastFilteredProducts = filtered;
+                              });
+
+                              return GridView.builder(
+                                  padding: EdgeInsets.zero,
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    childAspectRatio: 3.2,
+                                    crossAxisSpacing: 10,
+                                    mainAxisSpacing: 10,
+                                  ),
+                                  itemCount: filtered.length,
+                                  itemBuilder: (_, i) {
+                                    final p = filtered[i];
+                                    final isFirstMatch = i == 0 && searchQuery.isNotEmpty;
+                                    return AnimatedContainer(
+                                      duration: const Duration(milliseconds: 150),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: isFirstMatch
+                                            ? Border.all(color: const Color(0xFFD4AF37), width: 1.5)
+                                            : null,
+                                      ),
+                                      child: GlassContainer(
+                                        opacity: isFirstMatch ? 0.12 : 0.05,
+                                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                        child: InkWell(
+                                          onTap: () => _addItem(p),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.restaurant_menu,
+                                                  size: 16,
+                                                  color: isFirstMatch ? const Color(0xFFD4AF37) : const Color(0xFFD4AF37).withOpacity(0.6),
                                                 ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              Text(
-                                                '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                                style: const TextStyle(
-                                                  color: Color(0xFFD4AF37),
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 11,
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        p.name,
+                                                        style: TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 13,
+                                                          color: isFirstMatch ? Colors.white : Colors.white70,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                      Text(
+                                                        '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                                        style: const TextStyle(
+                                                          color: Color(0xFFD4AF37),
+                                                          fontWeight: FontWeight.w600,
+                                                          fontSize: 11,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
-                                              ),
-                                            ],
+                                                if (isFirstMatch)
+                                                  const Icon(Icons.keyboard_return, size: 14, color: Color(0xFFD4AF37)),
+                                              ],
+                                            ),
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                                      ),
+                                    );
+                                  },
                               );
                             },
-                          );
-                        },
-                        loading: () =>
-                            const Center(child: CircularProgressIndicator()),
-                        error: (e, _) => Text('$e'),
-                      ),
+                            loading: () => const Center(child: CircularProgressIndicator()),
+                            error: (e, _) => Text('$e'),
+                          ),
                     ),
                   ],
                 ),
@@ -551,72 +751,205 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                             ),
                           ),
                           const Spacer(),
-                          if (selectedTable != null)
-                            Text(
-                              selectedTable!.name,
-                              style: const TextStyle(
-                                color: Color(0xFFD4AF37),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          else
-                            TextButton.icon(
-                              onPressed: () =>
-                                  _showTableSelectionDialog(context),
-                              icon: const Icon(
-                                Icons.table_restaurant,
-                                size: 16,
-                                color: Color(0xFFD4AF37),
-                              ),
-                              label: const Text(
-                                'SELECT TABLE',
-                                style: TextStyle(
-                                  color: Color(0xFFD4AF37),
-                                  fontSize: 12,
-                                ),
-                              ),
+                          SizedBox(
+                            width: 150,
+                            child: Consumer(
+                              builder: (context, ref, _) {
+                                final tablesAsync = ref.watch(tablesProvider);
+                                return tablesAsync.when(
+                                  data: (tables) => DropdownButtonHideUnderline(
+                                    child: DropdownButton<TableModel>(
+                                      value: tables.where((t) => t.id == selectedTable?.id).firstOrNull,
+                                      dropdownColor: const Color(0xFF1A1A1A),
+                                      isExpanded: true,
+                                      hint: const Text('SELECT TABLE', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 12)),
+                                      items: tables.map((t) => DropdownMenuItem(
+                                        value: t,
+                                        child: Text(t.name, style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 12, fontWeight: FontWeight.bold)),
+                                      )).toList(),
+                                      onChanged: (t) {
+                                        if (t != null) ref.read(selectedTableProvider.notifier).set(t);
+                                      },
+                                    ),
+                                  ),
+                                  loading: () => const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                                  error: (_, __) => const Text('Error', style: TextStyle(fontSize: 10)),
+                                );
+                              },
                             ),
+                          ),
                         ],
                       ),
                     ),
-                    // Waiter selector
+                    // Waiter inline search
                     Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 4,
-                      ),
-                      child: waitersAsync.when(
-                        data: (waiters) => DropdownButtonHideUnderline(
-                          child: DropdownButton<Waiter>(
-                            hint: Text(
-                              ref.t('order.selectWaiter'),
-                              style: TextStyle(color: Colors.white54),
-                            ),
-                            value: selectedWaiter,
-                            dropdownColor: const Color(0xFF121212),
-                            style: const TextStyle(color: Colors.white),
-                            isExpanded: true,
-                            icon: const Icon(
-                              Icons.person,
-                              color: Colors.white38,
-                              size: 20,
-                            ),
-                            items: waiters
-                                .map(
-                                  (w) => DropdownMenuItem(
-                                    value: w,
-                                    child: Text(w.name),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      child: Consumer(
+                        builder: (context, ref, _) {
+                          final waitersAsync = ref.watch(waitersProvider);
+                          final activeOrder = activeOrderAsync.value;
+                          final isLocked = activeOrder != null;
+
+                          return waitersAsync.when(
+                            data: (allWaiters) {
+                              final filteredWaiters = allWaiters
+                                  .where((w) => w.name.toLowerCase().contains(waiterSearchQuery.toLowerCase()))
+                                  .toList();
+                              final currentWaiter = allWaiters
+                                  .where((w) => w.id == (activeOrder?.waiterId ?? selectedWaiter?.id))
+                                  .firstOrNull;
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Waiter search field
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: _waiterSearchFocusNode.hasFocus
+                                            ? const Color(0xFFD4AF37).withOpacity(0.7)
+                                            : Colors.white.withOpacity(0.1),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const SizedBox(width: 12),
+                                        Icon(
+                                          Icons.person,
+                                          size: 18,
+                                          color: currentWaiter != null
+                                              ? const Color(0xFFD4AF37)
+                                              : Colors.white38,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: isLocked
+                                              ? Padding(
+                                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                                  child: Text(
+                                                    currentWaiter?.name ?? '—',
+                                                    style: const TextStyle(
+                                                      color: Colors.white70,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                )
+                                              : TextField(
+                                                  controller: _waiterSearchController,
+                                                  focusNode: _waiterSearchFocusNode,
+                                                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                                                  decoration: InputDecoration(
+                                                    hintText: currentWaiter != null
+                                                        ? currentWaiter.name
+                                                        : 'Waiter... (Ctrl+W)',
+                                                    hintStyle: TextStyle(
+                                                      color: currentWaiter != null
+                                                          ? const Color(0xFFD4AF37)
+                                                          : Colors.white38,
+                                                      fontSize: 14,
+                                                    ),
+                                                    border: InputBorder.none,
+                                                    isDense: true,
+                                                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                                  ),
+                                                  onChanged: (_) => setState(() {}),
+                                                  onSubmitted: (_) {
+                                                    if (filteredWaiters.isNotEmpty) {
+                                                      setState(() {
+                                                        selectedWaiter = filteredWaiters.first;
+                                                        _waiterSearchController.clear();
+                                                        _waiterSearchActive = false;
+                                                      });
+                                                      _waiterSearchFocusNode.unfocus();
+                                                    }
+                                                  },
+                                                ),
+                                        ),
+                                        if (!isLocked && currentWaiter != null)
+                                          IconButton(
+                                            icon: const Icon(Icons.close, size: 14, color: Colors.white38),
+                                            onPressed: () => setState(() {
+                                              selectedWaiter = null;
+                                              _waiterSearchController.clear();
+                                            }),
+                                          ),
+                                      ],
+                                    ),
                                   ),
-                                )
-                                .toList(),
-                            onChanged: (w) =>
-                                setState(() => selectedWaiter = w),
-                          ),
-                        ),
-                        loading: () => const LinearProgressIndicator(),
-                        error: (_, __) => Text(
-                          '${ref.t('common.error')}: ${ref.t('order.loadingWaiters')}',
-                        ),
+                                  // Filtered waiter list (shown when searching)
+                                  if (!isLocked && _waiterSearchFocusNode.hasFocus && filteredWaiters.isNotEmpty)
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF1A1A1A),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: Colors.white10),
+                                      ),
+                                      constraints: const BoxConstraints(maxHeight: 180),
+                                      child: ListView.builder(
+                                        padding: EdgeInsets.zero,
+                                        shrinkWrap: true,
+                                        itemCount: filteredWaiters.length,
+                                        itemBuilder: (_, i) {
+                                          final w = filteredWaiters[i];
+                                          final isHighlighted = i == 0;
+                                          return InkWell(
+                                            onTap: () {
+                                              setState(() {
+                                                selectedWaiter = w;
+                                                _waiterSearchController.clear();
+                                                _waiterSearchActive = false;
+                                              });
+                                              _waiterSearchFocusNode.unfocus();
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                              decoration: BoxDecoration(
+                                                color: isHighlighted
+                                                    ? const Color(0xFFD4AF37).withOpacity(0.12)
+                                                    : Colors.transparent,
+                                                borderRadius: BorderRadius.circular(10),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.person_outline,
+                                                    size: 16,
+                                                    color: isHighlighted
+                                                        ? const Color(0xFFD4AF37)
+                                                        : Colors.white38,
+                                                  ),
+                                                  const SizedBox(width: 10),
+                                                  Expanded(
+                                                    child: Text(
+                                                      w.name,
+                                                      style: TextStyle(
+                                                        color: isHighlighted ? Colors.white : Colors.white70,
+                                                        fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
+                                                        fontSize: 13,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  if (isHighlighted)
+                                                    const Icon(Icons.keyboard_return, size: 13, color: Color(0xFFD4AF37)),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
+                            loading: () => const SizedBox(height: 44, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                            error: (_, __) => const Text('Error', style: TextStyle(fontSize: 10)),
+                          );
+                        },
                       ),
                     ),
                     const Divider(color: Colors.white10, height: 1),
@@ -803,10 +1136,12 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                               borderRadius: BorderRadius.zero,
                                             ),
                                           ),
-                                          onPressed: () => appSettingsAsync.maybeWhen(
-                                            data: (s) => _sendToKitchen(activeOrderAsync.value, s),
-                                            orElse: () => null,
-                                          ),
+                                          onPressed: (localItems.isEmpty || selectedTable == null || (activeOrderAsync.value == null && selectedWaiter == null))
+                                              ? null
+                                              : () => appSettingsAsync.maybeWhen(
+                                                    data: (s) => _sendToKitchen(activeOrderAsync.value, s),
+                                                    orElse: () => null,
+                                                  ),
                                           child: Text(
                                             ref.t('order.sendToKitchen'),
                                             style: const TextStyle(fontWeight: FontWeight.bold),
@@ -824,7 +1159,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                               borderRadius: BorderRadius.zero,
                                             ),
                                           ),
-                                          onPressed: activeOrderAsync.value == null
+                                          onPressed: (activeOrderAsync.value == null || selectedTable == null)
                                               ? null
                                               : () => appSettingsAsync.maybeWhen(
                                                     data: (s) => _printBill(activeOrderAsync.value!, s),
@@ -850,50 +1185,15 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-    ],
-  );
+          ],       // Row.children
+        ),         // Row
+      ),           // Expanded
+    ],             // Column.children
+  ),               // Column
+),                 // Actions
+),                 // Shortcuts
+);                 // Focus
 }
-
-  Future<void> _showTableSelectionDialog(BuildContext context) async {
-    final tables = await ref.read(posRepositoryProvider).getTables();
-    final availableTables = tables.toList();
-
-    if (!mounted) return;
-
-    final result = await showDialog<TableModel>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('Select Table'),
-        content: SizedBox(
-          width: 400,
-          height: 300,
-          child: availableTables.isEmpty
-              ? const Center(child: Text('No available tables'))
-              : ListView.builder(
-                  itemCount: availableTables.length,
-                  itemBuilder: (ctx, i) => ListTile(
-                    title: Text(availableTables[i].name),
-                    subtitle: Text(availableTables[i].zoneName ?? 'No Zone'),
-                    onTap: () => Navigator.pop(ctx, availableTables[i]),
-                  ),
-                ),
-        ),
-      ),
-    );
-
-    if (result != null) {
-      setState(() {
-      if (result != null) {
-        ref.read(selectedTableProvider.notifier).set(result);
-      }
-      });
-      ref.read(activeOrderServiceProvider).refreshTableData(result.id!);
-    }
-  }
 }
 
 // ── Summary row helper ────────────────────────────────────────────────────
@@ -1207,111 +1507,14 @@ class _IconBtn extends StatelessWidget {
   }
 }
 
-class _TableSelectorView extends ConsumerWidget {
-  final Function(TableModel) onTableSelected;
+class SearchIntent extends Intent {
+  const SearchIntent();
+}
 
-  const _TableSelectorView({required this.onTableSelected});
+class WaiterSearchIntent extends Intent {
+  const WaiterSearchIntent();
+}
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tablesAsync = ref.watch(tablesProvider);
-    final zonesAsync = ref.watch(tableZonesProvider);
-    final selectedZoneId = ref.watch(selectedZoneFilterProvider);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              ref.t('dashboard.selectTable'),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const Spacer(),
-            zonesAsync.when(
-              data: (zones) => Row(
-                children: [
-                  ChoiceChip(
-                    label: Text(ref.t('common.all')),
-                    selected: selectedZoneId == null,
-                    onSelected: (_) =>
-                        ref.read(selectedZoneFilterProvider.notifier).set(null),
-                  ),
-                  ...zones.map((z) => Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: ChoiceChip(
-                          label: Text(z.name),
-                          selected: selectedZoneId == z.id,
-                          onSelected: (_) => ref
-                              .read(selectedZoneFilterProvider.notifier)
-                              .set(z.id),
-                        ),
-                      )),
-                ],
-              ),
-              loading: () => const SizedBox(),
-              error: (_, __) => const SizedBox(),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Expanded(
-          child: tablesAsync.when(
-            data: (tables) => GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 5,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.1,
-              ),
-              itemCount: tables.length,
-              itemBuilder: (ctx, i) {
-                final table = tables[i];
-                final isOccupied = table.status == TableStatus.occupied;
-                return InkWell(
-                  onTap: () => onTableSelected(table),
-                  child: GlassContainer(
-                    opacity: 0.05,
-                    border: Border.all(
-                      color: isOccupied
-                          ? Colors.redAccent.withOpacity(0.5)
-                          : Colors.white10,
-                      width: isOccupied ? 2 : 1,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.table_restaurant,
-                          color: isOccupied ? Colors.redAccent : Colors.white70,
-                          size: 32,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          table.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Text(
-                          isOccupied ? 'OCCUPIED' : 'FREE',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: isOccupied ? Colors.redAccent : Colors.green,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: ')),
-          ),
-        ),
-      ],
-    );
-  }
+class SendToKitchenIntent extends Intent {
+  const SendToKitchenIntent();
 }

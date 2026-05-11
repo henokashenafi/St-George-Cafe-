@@ -92,11 +92,25 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             opacity: 0.05,
             child: Column(
               children: [
-                _Header(
-                  title: ref.t('management.products'),
-                  onAdd: selectedCategoryId == null
-                      ? null
-                      : () => _showProductDialog(context, null),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _Header(
+                      title: ref.t('management.products'),
+                      onAdd: selectedCategoryId == null
+                          ? null
+                          : () => _showProductDialog(context, null),
+                    ),
+                    if (selectedCategoryId != null)
+                      TextButton.icon(
+                        icon: const Icon(Icons.library_add_check, size: 18),
+                        label: const Text('Bulk Assign'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFFD4AF37),
+                        ),
+                        onPressed: () => _showBulkAssignDialog(context, selectedCategoryId!),
+                      ),
+                  ],
                 ),
                 Expanded(
                   child: productsAsync.when(
@@ -350,6 +364,79 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
     await ref.read(posRepositoryProvider).deleteProduct(id);
     ref.invalidate(productsProvider(selectedCategoryId));
     ref.invalidate(productsProvider(null));
+  }
+
+  void _showBulkAssignDialog(BuildContext context, int categoryId) async {
+    final allProducts = await ref.read(productsProvider(null).future);
+    final categoryProducts = allProducts.where((p) => p.categoryIds.contains(categoryId)).map((e) => e.id!).toSet();
+    Set<int> selectedProductIds = Set.from(categoryProducts);
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text('Bulk Assign to Category'),
+          content: SizedBox(
+            width: 400,
+            height: 400,
+            child: ListView.builder(
+              itemCount: allProducts.length,
+              itemBuilder: (_, i) {
+                final p = allProducts[i];
+                final isSelected = selectedProductIds.contains(p.id!);
+                return CheckboxListTile(
+                  value: isSelected,
+                  title: Text(p.name, style: const TextStyle(color: Colors.white)),
+                  activeColor: const Color(0xFFD4AF37),
+                  checkColor: Colors.black,
+                  side: const BorderSide(color: Colors.white54),
+                  onChanged: (val) {
+                    setDialogState(() {
+                      if (val == true) selectedProductIds.add(p.id!);
+                      else selectedProductIds.remove(p.id!);
+                    });
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(ref.t('common.cancel')),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD4AF37),
+                foregroundColor: Colors.black,
+              ),
+              onPressed: () async {
+                final repo = ref.read(posRepositoryProvider);
+                for (final p in allProducts) {
+                  final shouldBeInCategory = selectedProductIds.contains(p.id!);
+                  final isInCategory = p.categoryIds.contains(categoryId);
+                  
+                  if (shouldBeInCategory && !isInCategory) {
+                    final newIds = List<int>.from(p.categoryIds)..add(categoryId);
+                    await repo.updateProduct(p.copyWith(categoryIds: newIds));
+                  } else if (!shouldBeInCategory && isInCategory) {
+                    final newIds = List<int>.from(p.categoryIds)..remove(categoryId);
+                    await repo.updateProduct(p.copyWith(categoryIds: newIds));
+                  }
+                }
+                ref.invalidate(productsProvider(categoryId));
+                ref.invalidate(productsProvider(null));
+                if (mounted) Navigator.pop(ctx);
+              },
+              child: Text(ref.t('management.save')),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
