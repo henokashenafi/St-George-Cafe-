@@ -3,39 +3,50 @@ name: Build Windows Release
 on:
   push:
     branches:
-      - main        # Triggers on every push to main
-  workflow_dispatch: # Allows you to trigger manually from GitHub UI
+      - main
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # Opt into Node.js 24 now
 
 jobs:
   build-windows:
     name: Build Flutter Windows App
-    runs-on: windows-latest  # GitHub's free Windows virtual machine
+    runs-on: windows-latest
 
     steps:
       # 1. Check out your source code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Set up Flutter (matches your SDK requirement: ^3.10.4)
+      # 2. Set up Flutter — use latest stable, no pinned version
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.32.0'  # Latest stable — compatible with ^3.10.4
-          channel: 'stable'
+          channel: 'stable'   # Always picks the latest stable Flutter
           cache: true
 
-      # 3. Install dependencies
+      # 3. Print Flutter version for debugging
+      - name: Flutter version info
+        run: flutter --version
+
+      # 4. Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # 4. Build the Windows release
-      - name: Build Windows release
-        run: flutter build windows --release
+      # 5. Analyze code (non-fatal — shows warnings but won't stop build)
+      - name: Analyze code
+        run: flutter analyze --no-fatal-infos
+        continue-on-error: true
 
-      # 5. Upload the built .exe folder as a downloadable artifact
+      # 6. Build the Windows release
+      - name: Build Windows release
+        run: flutter build windows --release --verbose
+
+      # 7. Upload the built .exe folder as a downloadable artifact
       - name: Upload Windows build artifact
         uses: actions/upload-artifact@v4
         with:
           name: st-george-pos-windows
           path: build/windows/x64/runner/Release/
-          retention-days: 30  # Keep the artifact for 30 days
+          retention-days: 30
