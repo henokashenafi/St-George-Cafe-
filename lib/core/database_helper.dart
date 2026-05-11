@@ -42,7 +42,7 @@ class DatabaseHelper {
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 7,
+        version: 8,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -124,6 +124,34 @@ class DatabaseHelper {
       // Migrate existing category_id to category_ids
       await db.execute('UPDATE products SET category_ids = category_id');
     }
+    if (oldVersion < 8) {
+      await db.execute('ALTER TABLE orders ADD COLUMN payment_method TEXT DEFAULT \'cash\'');
+      await db.execute('ALTER TABLE orders ADD COLUMN shift_id INTEGER');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS shifts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          cashier_id INTEGER,
+          start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+          end_time DATETIME,
+          starting_cash REAL DEFAULT 0.0,
+          actual_cash_declared REAL,
+          status TEXT DEFAULT 'open',
+          FOREIGN KEY (cashier_id) REFERENCES users (id)
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS z_reports (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          shift_id INTEGER,
+          z_count INTEGER,
+          report_data TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (shift_id) REFERENCES shifts (id)
+        )
+      ''');
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -186,9 +214,36 @@ class DatabaseHelper {
         total_amount REAL DEFAULT 0.0,
         service_charge REAL DEFAULT 0.0,
         discount_amount REAL DEFAULT 0.0,
+        payment_method TEXT DEFAULT 'cash',
+        shift_id INTEGER,
         FOREIGN KEY (table_id) REFERENCES tables (id),
         FOREIGN KEY (waiter_id) REFERENCES waiters (id),
+        FOREIGN KEY (cashier_id) REFERENCES users (id),
+        FOREIGN KEY (shift_id) REFERENCES shifts (id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE shifts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cashier_id INTEGER,
+        start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+        end_time DATETIME,
+        starting_cash REAL DEFAULT 0.0,
+        actual_cash_declared REAL,
+        status TEXT DEFAULT 'open',
         FOREIGN KEY (cashier_id) REFERENCES users (id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE z_reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        shift_id INTEGER,
+        z_count INTEGER,
+        report_data TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (shift_id) REFERENCES shifts (id)
       )
     ''');
 

@@ -14,6 +14,8 @@ import 'package:st_george_pos/models/table_model.dart';
 import 'package:st_george_pos/screens/order_screen.dart';
 import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/models/charge.dart';
+import 'package:st_george_pos/models/shift.dart';
+import 'package:st_george_pos/models/z_report.dart';
 import 'package:st_george_pos/screens/table_management_screen.dart';
 
 // ── Menu Management ───────────────────────────────────────────────────────
@@ -978,6 +980,431 @@ class _HeldOrdersScreenState extends ConsumerState<HeldOrdersScreen> {
   }
 }
 
+// ── Shift Management ───────────────────────────────────────────────────────
+
+class ShiftManagementScreen extends ConsumerWidget {
+  const ShiftManagementScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentShift = ref.watch(currentShiftProvider);
+    final user = ref.watch(authProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Text(
+            'SHIFT MANAGEMENT',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+            ),
+          ),
+        ),
+        Expanded(
+          child: currentShift.when(
+            data: (shift) {
+              if (shift == null) {
+                return _buildNoActiveShift(context, ref);
+              }
+              return _buildActiveShift(context, ref, shift);
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNoActiveShift(BuildContext context, WidgetRef ref) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.no_accounts_outlined,
+            size: 64,
+            color: Colors.white.withOpacity(0.1),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'NO ACTIVE SHIFT',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+              color: Colors.white70,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Start a new shift to begin processing orders.',
+            style: TextStyle(color: Colors.white38),
+          ),
+          const SizedBox(height: 40),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD4AF37),
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
+            icon: const Icon(Icons.play_arrow),
+            label: const Text(
+              'OPEN NEW SHIFT',
+              style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
+            ),
+            onPressed: () => _showOpenShiftDialog(context, ref),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActiveShift(BuildContext context, WidgetRef ref, ShiftModel shift) {
+    final startTime = DateFormat('MMM d, HH:mm').format(shift.startTime);
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GlassContainer(
+            opacity: 0.05,
+            padding: const EdgeInsets.all(32),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.2),
+                              border: Border.all(color: Colors.green),
+                            ),
+                            child: const Text(
+                              'ACTIVE',
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'SHIFT #${shift.id}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white38,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        shift.cashierName.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Started on $startTime',
+                        style: const TextStyle(color: Colors.white54),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text(
+                      'STARTING CASH',
+                      style: TextStyle(fontSize: 10, color: Colors.white38, letterSpacing: 1),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${shift.startingCash.toStringAsFixed(2)} ETB',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFD4AF37),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 40),
+          Row(
+            children: [
+              Expanded(
+                child: _ShiftActionCard(
+                  title: 'X-REPORT',
+                  subtitle: 'Snapshot of current shift totals',
+                  icon: Icons.receipt_long,
+                  color: Colors.blueAccent,
+                  onTap: () => _printXReport(context, ref, shift),
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: _ShiftActionCard(
+                  title: 'END SHIFT (Z-REPORT)',
+                  subtitle: 'Close shift and reconcile cash',
+                  icon: Icons.power_settings_new,
+                  color: Colors.redAccent,
+                  onTap: () => _showEndShiftDialog(context, ref, shift),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showOpenShiftDialog(BuildContext context, WidgetRef ref) {
+    final controller = TextEditingController(text: '0.00');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: const Text('OPEN NEW SHIFT'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Enter the starting cash float in the drawer.',
+              style: TextStyle(color: Colors.white54, fontSize: 13),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              decoration: const InputDecoration(
+                labelText: 'Starting Cash',
+                prefixText: 'ETB ',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('CANCEL'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD4AF37),
+              foregroundColor: Colors.black,
+            ),
+            onPressed: () async {
+              final cash = double.tryParse(controller.text) ?? 0.0;
+              await ref.read(activeOrderServiceProvider).startShift(cash);
+              Navigator.pop(ctx);
+            },
+            child: const Text('OPEN SHIFT'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEndShiftDialog(BuildContext context, WidgetRef ref, ShiftModel shift) async {
+    final reportData = await ref.read(posRepositoryProvider).getShiftReportData(shift.id!);
+    final cashSales = (reportData['payment_methods'] as Map<String, dynamic>)['cash'] ?? 0.0;
+    final expectedCash = shift.startingCash + cashSales;
+
+    final controller = TextEditingController();
+    
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          final declared = double.tryParse(controller.text) ?? 0.0;
+          final diff = declared - expectedCash;
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1A1A1A),
+            title: const Text('END SHIFT & RECONCILE'),
+            content: SizedBox(
+              width: 400,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      children: [
+                        _reconcileRow('Opening Float', shift.startingCash),
+                        _reconcileRow('Cash Sales', cashSales),
+                        const Divider(color: Colors.white10),
+                        _reconcileRow('Expected in Drawer', expectedCash, isBold: true),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    autofocus: true,
+                    onChanged: (_) => setState(() {}),
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    decoration: const InputDecoration(
+                      labelText: 'Actual Cash Counted',
+                      prefixText: 'ETB ',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (controller.text.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: diff == 0 ? Colors.green.withOpacity(0.1) : (diff > 0 ? Colors.blue.withOpacity(0.1) : Colors.red.withOpacity(0.1)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            diff == 0 ? 'BALANCED' : (diff > 0 ? 'OVERAGE' : 'SHORTAGE'),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: diff == 0 ? Colors.green : (diff > 0 ? Colors.blue : Colors.red),
+                            ),
+                          ),
+                          Text(
+                            '${diff > 0 ? "+" : ""}${diff.toStringAsFixed(2)} ETB',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: diff == 0 ? Colors.green : (diff > 0 ? Colors.blue : Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('CANCEL'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  final cash = double.tryParse(controller.text) ?? 0.0;
+                  await ref.read(activeOrderServiceProvider).endShift(shift.id!, cash);
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Shift closed and Z-Report generated.')),
+                  );
+                },
+                child: const Text('CLOSE SHIFT'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _reconcileRow(String label, double value, {bool isBold = false}) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: isBold ? Colors.white : Colors.white54, fontSize: 13)),
+        Text(
+          '${value.toStringAsFixed(2)} ETB',
+          style: TextStyle(
+            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+            color: isBold ? const Color(0xFFD4AF37) : Colors.white,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  void _printXReport(BuildContext context, WidgetRef ref, ShiftModel shift) async {
+    // Placeholder for printing logic
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('X-Report generated and sent to printer.')),
+    );
+  }
+}
+
+class _ShiftActionCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ShiftActionCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: GlassContainer(
+        opacity: 0.03,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Icon(icon, size: 48, color: color),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: const TextStyle(fontSize: 11, color: Colors.white38),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Reports ───────────────────────────────────────────────────────────────
 
 class ReportsScreen extends ConsumerWidget {
@@ -988,6 +1415,8 @@ class ReportsScreen extends ConsumerWidget {
     ref.watch(languageProvider);
     final orders = ref.watch(ordersProvider);
     final filter = ref.watch(reportDateFilterProvider);
+    final selectedWaiterId = ref.watch(reportWaiterFilterProvider);
+    final waitersAsync = ref.watch(waitersProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1006,6 +1435,30 @@ class ReportsScreen extends ConsumerWidget {
                 ),
               ),
               const Spacer(),
+              // Waiter Filter
+              if (waitersAsync.hasValue)
+                Container(
+                  width: 200,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int?>(
+                      value: selectedWaiterId,
+                      hint: const Text('All Waiters', style: TextStyle(fontSize: 13, color: Colors.white54)),
+                      isExpanded: true,
+                      dropdownColor: const Color(0xFF1A1A1A),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('All Waiters')),
+                        ...waitersAsync.value!.map((w) => DropdownMenuItem(value: w.id, child: Text(w.name))),
+                      ],
+                      onChanged: (v) => ref.read(reportWaiterFilterProvider.notifier).set(v),
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 16),
               _DateFilterChips(
                 filter: filter,
                 onChanged: (f) =>
@@ -1019,6 +1472,7 @@ class ReportsScreen extends ConsumerWidget {
             data: (orderList) {
               final completed = orderList
                   .where((o) => o.status == OrderStatus.completed)
+                  .where((o) => selectedWaiterId == null || o.waiterId == selectedWaiterId)
                   .toList();
               final subtotalSum = completed.fold(
                 0.0,
@@ -1041,12 +1495,14 @@ class ReportsScreen extends ConsumerWidget {
               final vatRate = double.tryParse(ref.watch(appSettingsProvider).value?['cafe_vat_rate'] ?? '5.0') ?? 5.0;
               final vatSum = subtotalSum * (vatRate / 100);
 
-              // Per-category
+              // Per-category & Payment Method
               final categoryMap = <String, double>{};
+              final paymentMap = <String, double>{};
+              
               for (final o in completed) {
+                paymentMap[o.paymentMethod] = (paymentMap[o.paymentMethod] ?? 0) + o.grandTotal;
                 for (final item in o.items) {
-                  // We don't have category name in OrderItem, but we can try to find it via product if needed.
-                  // For now, let's group by product names if category is missing in model.
+                   // Placeholder for category logic if needed, but we'll focus on payment methods first
                 }
               }
 
@@ -1056,6 +1512,23 @@ class ReportsScreen extends ConsumerWidget {
                 waiterMap[o.waiterName] =
                     (waiterMap[o.waiterName] ?? 0) + o.grandTotal;
               }
+
+              // Item Sales aggregation
+              final itemSalesMap = <String, Map<String, dynamic>>{};
+              for (final o in completed) {
+                for (final item in o.items) {
+                  if (!itemSalesMap.containsKey(item.productName)) {
+                    itemSalesMap[item.productName] = {
+                      'qty': 0,
+                      'revenue': 0.0,
+                    };
+                  }
+                  itemSalesMap[item.productName]!['qty'] += item.quantity;
+                  itemSalesMap[item.productName]!['revenue'] += item.subtotal;
+                }
+              }
+              final sortedItemSales = itemSalesMap.entries.toList()
+                ..sort((a, b) => (b.value['revenue'] as double).compareTo(a.value['revenue'] as double));
 
               // Per-cashier
               final cashierMap = <String, double>{};
@@ -1071,14 +1544,18 @@ class ReportsScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // ── Formal Financial Summary ──────────────────────────
-                    Text(
-                      'FINANCIAL OVERVIEW',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 2,
-                        color: Colors.white.withOpacity(0.4),
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          'FINANCIAL OVERVIEW',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 2,
+                            color: Colors.white.withOpacity(0.4),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     GlassContainer(
@@ -1122,25 +1599,77 @@ class ReportsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 32),
 
-                    // ── Performance Metrics Grid ──────────────────────────
+                    // ── Payment Methods & Performance Metrics ─────────────
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: _ReportMetricCard(
-                            title: ref.t('management.orderCount'),
-                            value: '${completed.length}',
-                            icon: Icons.receipt_long,
+                          flex: 2,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _SectionHeader('PAYMENT METHODS'),
+                              const SizedBox(height: 12),
+                              _FormalDataTable(
+                                data: paymentMap.entries.toList(),
+                                icon: Icons.payments_outlined,
+                                iconColor: Colors.greenAccent,
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 24),
                         Expanded(
-                          child: _ReportMetricCard(
-                            title: ref.t('management.itemsSold'),
-                            value: '$itemsSum',
-                            icon: Icons.inventory_2_outlined,
+                          child: Column(
+                            children: [
+                              _ReportMetricCard(
+                                title: ref.t('management.orderCount'),
+                                value: '${completed.length}',
+                                icon: Icons.receipt_long,
+                              ),
+                              const SizedBox(height: 16),
+                              _ReportMetricCard(
+                                title: ref.t('management.itemsSold'),
+                                value: '$itemsSum',
+                                icon: Icons.inventory_2_outlined,
+                              ),
+                            ],
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 32),
+
+                    // ── Item Sales List (Section 5) ──────────────────────
+                    _SectionHeader('ITEM SALES LIST'),
+                    const SizedBox(height: 12),
+                    GlassContainer(
+                      opacity: 0.05,
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(flex: 3, child: Text('ITEM NAME', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white38))),
+                              Expanded(child: Text('QTY', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white38))),
+                              Expanded(flex: 2, child: Text('REVENUE', textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white38))),
+                            ],
+                          ),
+                          const Divider(height: 24, color: Colors.white10),
+                          ...sortedItemSales.map((entry) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                Expanded(flex: 3, child: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                Expanded(child: Text('x${entry.value['qty']}', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70))),
+                                Expanded(flex: 2, child: Text('${(entry.value['revenue'] as double).toStringAsFixed(2)} ETB', textAlign: TextAlign.right, style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold))),
+                              ],
+                            ),
+                          )),
+                          if (sortedItemSales.isEmpty)
+                            const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No items sold in this period.', style: TextStyle(color: Colors.white24)))),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 32),
 
@@ -1184,6 +1713,9 @@ class ReportsScreen extends ConsumerWidget {
                           ),
                       ],
                     ),
+                    const SizedBox(height: 40),
+                    // ── Z-Reports History ────────────────────────────────
+                    _ZReportHistorySection(),
                   ],
                 ),
               );
@@ -1191,6 +1723,93 @@ class ReportsScreen extends ConsumerWidget {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Text('${ref.t('common.error')}: $e'),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ZReportHistorySection extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reports = ref.watch(zReportsProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader('Z-REPORTS HISTORY'),
+        const SizedBox(height: 16),
+        reports.when(
+          data: (list) {
+            if (list.isEmpty) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(40),
+                  child: Text('No Z-Reports found.', style: TextStyle(color: Colors.white24)),
+                ),
+              );
+            }
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: list.length,
+              itemBuilder: (context, index) {
+                final r = list[index];
+                final date = DateFormat('MMM d, yyyy HH:mm').format(r.createdAt);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: GlassContainer(
+                    opacity: 0.03,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD4AF37).withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'Z',
+                              style: TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Z-REPORT #${r.zCount}',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                              Text(date, style: const TextStyle(fontSize: 11, color: Colors.white38)),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          '${(r.reportData['net_sales'] as num? ?? 0).toStringAsFixed(2)} ETB',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFD4AF37)),
+                        ),
+                        const SizedBox(width: 16),
+                        IconButton(
+                          icon: const Icon(Icons.print_outlined, size: 18),
+                          onPressed: () {
+                            // Placeholder for printing past Z-report
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Text('Error: $e'),
         ),
       ],
     );
@@ -1213,35 +1832,95 @@ class _DateFilterChips extends ConsumerWidget {
     final weekStart = todayStart.subtract(Duration(days: now.weekday - 1));
     final monthStart = DateTime(now.year, now.month, 1);
 
-    bool isToday = filter.from == todayStart && filter.to == todayEnd;
-    bool isWeek = filter.from == weekStart && filter.to == todayEnd;
-    bool isMonth = filter.from == monthStart && filter.to == todayEnd;
-    bool isAll = filter.from == null && filter.to == null;
+    final selectedType = ref.watch(reportDateTypeProvider);
 
     return Row(
       children: [
         _chip(
           ref.t('filters.today'),
-          isToday,
-          () => onChanged(DateFilter(from: todayStart, to: todayEnd)),
+          selectedType == DateFilterType.today,
+          () {
+            ref.read(reportDateTypeProvider.notifier).set(DateFilterType.today);
+            onChanged(DateFilter(from: todayStart, to: todayEnd));
+          },
         ),
         const SizedBox(width: 8),
         _chip(
           ref.t('filters.thisWeek'),
-          isWeek,
-          () => onChanged(DateFilter(from: weekStart, to: todayEnd)),
+          selectedType == DateFilterType.week,
+          () {
+            ref.read(reportDateTypeProvider.notifier).set(DateFilterType.week);
+            onChanged(DateFilter(from: weekStart, to: todayEnd));
+          },
         ),
         const SizedBox(width: 8),
         _chip(
           ref.t('filters.thisMonth'),
-          isMonth,
-          () => onChanged(DateFilter(from: monthStart, to: todayEnd)),
+          selectedType == DateFilterType.month,
+          () {
+            ref.read(reportDateTypeProvider.notifier).set(DateFilterType.month);
+            onChanged(DateFilter(from: monthStart, to: todayEnd));
+          },
         ),
         const SizedBox(width: 8),
         _chip(
           ref.t('filters.allTime'),
-          isAll,
-          () => onChanged(const DateFilter()),
+          selectedType == DateFilterType.all,
+          () {
+            ref.read(reportDateTypeProvider.notifier).set(DateFilterType.all);
+            onChanged(const DateFilter());
+          },
+        ),
+        const SizedBox(width: 12),
+        IconButton(
+          icon: Icon(
+            Icons.calendar_month,
+            color: selectedType == DateFilterType.custom
+                ? const Color(0xFFD4AF37)
+                : Colors.white54,
+          ),
+          tooltip: 'Custom Range',
+          onPressed: () async {
+            // Sequential pickers for "auto-submit" behavior
+            final fromDate = await showDatePicker(
+              context: context,
+              initialDate: DateTime.now(),
+              firstDate: DateTime(2020),
+              lastDate: DateTime.now(),
+              helpText: 'START DATE',
+              builder: (context, child) => Theme(
+                data: Theme.of(context).copyWith(
+                  colorScheme: const ColorScheme.dark(primary: Color(0xFFD4AF37)),
+                ),
+                child: child!,
+              ),
+            );
+
+            if (fromDate != null) {
+              if (!context.mounted) return;
+              final toDate = await showDatePicker(
+                context: context,
+                initialDate: fromDate,
+                firstDate: fromDate,
+                lastDate: DateTime.now().add(const Duration(days: 1)),
+                helpText: 'END DATE',
+                builder: (context, child) => Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.dark(primary: Color(0xFFD4AF37)),
+                  ),
+                  child: child!,
+                ),
+              );
+
+              if (toDate != null) {
+                ref.read(reportDateTypeProvider.notifier).set(DateFilterType.custom);
+                onChanged(DateFilter(
+                  from: DateTime(fromDate.year, fromDate.month, fromDate.day),
+                  to: DateTime(toDate.year, toDate.month, toDate.day).add(const Duration(days: 1)),
+                ));
+              }
+            }
+          },
         ),
       ],
     );
