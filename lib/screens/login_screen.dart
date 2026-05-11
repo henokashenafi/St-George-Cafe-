@@ -196,13 +196,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Icons.lock_outline,
                             ).copyWith(
                               suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscure
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                  color: Colors.white38,
-                                  size: 20,
-                                ),
+                                  icon: Icon(
+                                    _obscure
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    color: Colors.white38,
+                                    size: 20,
+                                  ),
                                 onPressed: () =>
                                     setState(() => _obscure = !_obscure),
                               ),

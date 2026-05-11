@@ -92,11 +92,25 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             opacity: 0.05,
             child: Column(
               children: [
-                _Header(
-                  title: ref.t('management.products'),
-                  onAdd: selectedCategoryId == null
-                      ? null
-                      : () => _showProductDialog(context, null),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _Header(
+                      title: ref.t('management.products'),
+                      onAdd: selectedCategoryId == null
+                          ? null
+                          : () => _showProductDialog(context, null),
+                    ),
+                    if (selectedCategoryId != null)
+                      TextButton.icon(
+                        icon: const Icon(Icons.library_add_check, size: 18),
+                        label: const Text('Bulk Assign'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFFD4AF37),
+                        ),
+                        onPressed: () => _showBulkAssignDialog(context, selectedCategoryId!),
+                      ),
+                  ],
                 ),
                 Expanded(
                   child: productsAsync.when(
@@ -171,16 +185,18 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
         backgroundColor: const Color(0xFF1A1A1A),
         title: Text(
           existing == null
-              ? ref.t('management.addCategory')
+              ? 'ADD CATEGORIES (Batch)'
               : ref.t('common.edit'),
         ),
         content: TextField(
           controller: ctrl,
           autofocus: true,
+          maxLines: existing == null ? 5 : 1,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            labelText: ref.t('management.name'),
+            labelText: existing == null ? 'Category Names (One per line)' : ref.t('management.name'),
             labelStyle: const TextStyle(color: Colors.white54),
+            hintText: existing == null ? 'Coffee\nTea\nJuice' : null,
           ),
           onSubmitted: (_) => doSave(ctx),
         ),
@@ -194,7 +210,19 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
               backgroundColor: const Color(0xFFD4AF37),
               foregroundColor: Colors.black,
             ),
-            onPressed: () => doSave(ctx),
+            onPressed: () async {
+              if (existing == null) {
+                final names = ctrl.text.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty);
+                for (final name in names) {
+                  await ref.read(posRepositoryProvider).addCategory(name);
+                }
+              } else {
+                // Update logic if needed (repo needs update for category edit)
+                await ref.read(posRepositoryProvider).addCategory(ctrl.text.trim());
+              }
+              ref.invalidate(categoriesProvider);
+              Navigator.pop(ctx);
+            },
             child: Text(ref.t('management.save')),
           ),
         ],
@@ -208,15 +236,16 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
       text: existing != null ? existing.price.toString() : '',
     );
     final priceFocus = FocusNode();
+    List<int> selectedIds = existing?.categoryIds ?? (selectedCategoryId != null ? [selectedCategoryId!] : []);
 
     Future<void> doSave(BuildContext ctx) async {
       final price = double.tryParse(priceCtrl.text);
-      if (nameCtrl.text.trim().isEmpty || price == null) return;
+      if (nameCtrl.text.trim().isEmpty || price == null || selectedIds.isEmpty) return;
       final repo = ref.read(posRepositoryProvider);
       if (existing == null) {
         await repo.addProduct(
           Product(
-            categoryId: selectedCategoryId!,
+            categoryIds: selectedIds,
             name: nameCtrl.text.trim(),
             price: price,
           ),
@@ -225,7 +254,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
         await repo.updateProduct(
           Product(
             id: existing.id,
-            categoryId: existing.categoryId,
+            categoryIds: selectedIds,
             name: nameCtrl.text.trim(),
             price: price,
           ),
@@ -245,44 +274,65 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
               ? ref.t('management.addProduct')
               : ref.t('common.edit'),
         ),
-        content: SizedBox(
-          width: 300,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white),
-                textInputAction: TextInputAction.next,
-                decoration: InputDecoration(
-                  labelText: ref.t('management.productName'),
-                  labelStyle: const TextStyle(color: Colors.white54),
-                ),
-                onSubmitted: (_) => priceFocus.requestFocus(),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: priceCtrl,
-                focusNode: priceFocus,
-                style: const TextStyle(color: Colors.white),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                textInputAction: TextInputAction.done,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-                ],
-                decoration: InputDecoration(
-                  labelText: ref.t(
-                    'management.priceLabel',
-                    replacements: {'currency': ref.t('common.currency')},
+        content: StatefulBuilder(
+          builder: (context, setDialogState) => SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  autofocus: true,
+                  style: const TextStyle(color: Colors.white),
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    labelText: ref.t('management.productName'),
+                    labelStyle: const TextStyle(color: Colors.white54),
                   ),
-                  labelStyle: const TextStyle(color: Colors.white54),
+                  onSubmitted: (_) => priceFocus.requestFocus(),
                 ),
-                onSubmitted: (_) => doSave(ctx),
-              ),
-            ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: priceCtrl,
+                  focusNode: priceFocus,
+                  style: const TextStyle(color: Colors.white),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  textInputAction: TextInputAction.done,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                  ],
+                  decoration: InputDecoration(
+                    labelText: ref.t(
+                      'management.priceLabel',
+                      replacements: {'currency': ref.t('common.currency')},
+                    ),
+                    labelStyle: const TextStyle(color: Colors.white54),
+                  ),
+                  onSubmitted: (_) => doSave(ctx),
+                ),
+                const SizedBox(height: 20),
+                const Text('CATEGORIES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white38)),
+                const SizedBox(height: 8),
+                Consumer(builder: (context, ref, _) {
+                  final cats = ref.watch(categoriesProvider).value ?? [];
+                  return Wrap(
+                    spacing: 8,
+                    children: cats.map((c) => FilterChip(
+                      label: Text(c.name, style: const TextStyle(fontSize: 11)),
+                      selected: selectedIds.contains(c.id),
+                      onSelected: (val) {
+                        setDialogState(() {
+                          if (val) selectedIds.add(c.id!);
+                          else selectedIds.remove(c.id);
+                        });
+                      },
+                    )).toList(),
+                  );
+                }),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -314,6 +364,79 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
     await ref.read(posRepositoryProvider).deleteProduct(id);
     ref.invalidate(productsProvider(selectedCategoryId));
     ref.invalidate(productsProvider(null));
+  }
+
+  void _showBulkAssignDialog(BuildContext context, int categoryId) async {
+    final allProducts = await ref.read(productsProvider(null).future);
+    final categoryProducts = allProducts.where((p) => p.categoryIds.contains(categoryId)).map((e) => e.id!).toSet();
+    Set<int> selectedProductIds = Set.from(categoryProducts);
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text('Bulk Assign to Category'),
+          content: SizedBox(
+            width: 400,
+            height: 400,
+            child: ListView.builder(
+              itemCount: allProducts.length,
+              itemBuilder: (_, i) {
+                final p = allProducts[i];
+                final isSelected = selectedProductIds.contains(p.id!);
+                return CheckboxListTile(
+                  value: isSelected,
+                  title: Text(p.name, style: const TextStyle(color: Colors.white)),
+                  activeColor: const Color(0xFFD4AF37),
+                  checkColor: Colors.black,
+                  side: const BorderSide(color: Colors.white54),
+                  onChanged: (val) {
+                    setDialogState(() {
+                      if (val == true) selectedProductIds.add(p.id!);
+                      else selectedProductIds.remove(p.id!);
+                    });
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(ref.t('common.cancel')),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD4AF37),
+                foregroundColor: Colors.black,
+              ),
+              onPressed: () async {
+                final repo = ref.read(posRepositoryProvider);
+                for (final p in allProducts) {
+                  final shouldBeInCategory = selectedProductIds.contains(p.id!);
+                  final isInCategory = p.categoryIds.contains(categoryId);
+                  
+                  if (shouldBeInCategory && !isInCategory) {
+                    final newIds = List<int>.from(p.categoryIds)..add(categoryId);
+                    await repo.updateProduct(p.copyWith(categoryIds: newIds));
+                  } else if (!shouldBeInCategory && isInCategory) {
+                    final newIds = List<int>.from(p.categoryIds)..remove(categoryId);
+                    await repo.updateProduct(p.copyWith(categoryIds: newIds));
+                  }
+                }
+                ref.invalidate(productsProvider(categoryId));
+                ref.invalidate(productsProvider(null));
+                if (mounted) Navigator.pop(ctx);
+              },
+              child: Text(ref.t('management.save')),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -419,13 +542,26 @@ class WaiterManagementScreen extends ConsumerWidget {
 
 // ── Order History ─────────────────────────────────────────────────────────
 
-class OrderHistoryScreen extends ConsumerWidget {
+class OrderHistoryScreen extends ConsumerStatefulWidget {
   const OrderHistoryScreen({super.key});
+  @override
+  ConsumerState<OrderHistoryScreen> createState() => _OrderHistoryScreenState();
+}
+
+class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
+  String searchQuery = '';
+  final TextEditingController _searchCtrl = TextEditingController();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     ref.watch(languageProvider);
-    final orders = ref.watch(ordersProvider);
+    final ordersAsync = ref.watch(ordersProvider);
     final filter = ref.watch(reportDateFilterProvider);
 
     return GlassContainer(
@@ -438,13 +574,36 @@ class OrderHistoryScreen extends ConsumerWidget {
               children: [
                 Text(
                   ref.t('management.orders'),
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.5,
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 24),
+                // Waiter Search Bar
+                Expanded(
+                  child: Container(
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: TextField(
+                      controller: _searchCtrl,
+                      onChanged: (v) => setState(() => searchQuery = v),
+                      style: const TextStyle(fontSize: 13, color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Search by Waiter...',
+                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13),
+                        prefixIcon: Icon(Icons.search, size: 16, color: Colors.white.withOpacity(0.3)),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 24),
                 _DateFilterChips(
                   filter: filter,
                   onChanged: (f) {
@@ -455,77 +614,76 @@ class OrderHistoryScreen extends ConsumerWidget {
             ),
           ),
           Expanded(
-            child: orders.when(
-              data: (list) => list.isEmpty
-                  ? Center(
-                      child: Opacity(
-                        opacity: 0.4,
-                        child: Text(ref.t('management.noOrdersInRange')),
+            child: ordersAsync.when(
+              data: (list) {
+                final filtered = list.where((o) => o.waiterName.toLowerCase().contains(searchQuery.toLowerCase())).toList();
+                
+                if (filtered.isEmpty) {
+                  return Center(
+                    child: Opacity(
+                      opacity: 0.4,
+                      child: Text(searchQuery.isEmpty ? ref.t('management.noOrdersInRange') : 'No matching orders for this waiter'),
+                    ),
+                  );
+                }
+                
+                return ListView.builder(
+                  itemCount: filtered.length,
+                  itemBuilder: (_, i) {
+                    final o = filtered[i];
+                    return ExpansionTile(
+                      title: Text(
+                        ref.t(
+                          'management.order',
+                          replacements: {
+                            'id': '${o.id}',
+                            'table': o.tableName,
+                          },
+                        ),
                       ),
-                    )
-                  : ListView.builder(
-                      itemCount: list.length,
-                      itemBuilder: (_, i) {
-                        final o = list[i];
-                        final settings =
-                            ref.watch(appSettingsProvider).value ?? {};
-                        final scPercent =
-                            double.tryParse(
-                              settings['service_charge_percent'] ?? '5',
-                            ) ??
-                            5;
-                        return ExpansionTile(
-                          title: Text(
-                            ref.t(
-                              'management.order',
-                              replacements: {
-                                'id': '${o.id}',
-                                'table': o.tableName,
-                              },
+                      subtitle: Text(
+                        '${ref.t('bill.waiter')}: ${o.waiterName}  |  ${ref.t('bill.cashier')}: ${o.cashierName}  |  ${DateFormat('dd/MM HH:mm').format(o.createdAt)}',
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${o.grandTotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                            style: const TextStyle(
+                              color: Color(0xFFD4AF37),
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          subtitle: Text(
-                            '${ref.t('bill.waiter')}: ${o.waiterName}  |  ${ref.t('bill.cashier')}: ${o.cashierName}  |  ${DateFormat('dd/MM HH:mm').format(o.createdAt)}',
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '${o.grandTotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                style: const TextStyle(
-                                  color: Color(0xFFD4AF37),
-                                  fontWeight: FontWeight.bold,
-                                ),
+                          const SizedBox(width: 8),
+                          if (o.status == OrderStatus.completed)
+                            IconButton(
+                              icon: const Icon(
+                                Icons.print_outlined,
+                                size: 20,
+                                color: Colors.white54,
                               ),
-                              const SizedBox(width: 8),
-                              if (o.status == OrderStatus.completed)
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.print_outlined,
-                                    size: 20,
-                                    color: Colors.white54,
-                                  ),
-                                  tooltip: ref.t('management.reprintBill'),
-                                  onPressed: () async {
-                                    final settings = await ref.read(
-                                      cafeSettingsProvider.future,
-                                    );
-                                    final charges = (await ref.read(chargesProvider.future))
-                                        .where((c) => c.isActive)
-                                        .toList();
-                                    BillService.generateAndDownloadBill(
-                                      order: o,
-                                      items: o.items,
-                                      settings: settings,
-                                      cashierName: o.cashierName,
-                                      activeCharges: charges,
-                                      t: ref.t,
-                                    );
-                                  },
-                                ),
-                            ],
-                          ),
-                          children: o.items
+                              tooltip: ref.t('management.reprintBill'),
+                              onPressed: () async {
+                                final settings = await ref.read(
+                                  cafeSettingsProvider.future,
+                                );
+                                final charges = (await ref.read(chargesProvider.future))
+                                    .where((c) => c.isActive)
+                                    .toList();
+                                await BillService.generateAndDownloadBill(
+                                  order: o,
+                                  items: o.items,
+                                  settings: settings,
+                                  cashierName: o.cashierName,
+                                  activeCharges: charges,
+                                  t: (key, {replacements}) =>
+                                      AppLocalizations.getEnglish(key, replacements: replacements),
+                                );
+                              },
+                            ),
+                        ],
+                      ),
+                      children: o.items
                               .map(
                                 (item) => ListTile(
                                   dense: true,
@@ -547,9 +705,10 @@ class OrderHistoryScreen extends ConsumerWidget {
                                 ),
                               )
                               .toList(),
-                        );
-                      },
-                    ),
+                    );
+                  },
+                );
+              },
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Text('$e'),
             ),

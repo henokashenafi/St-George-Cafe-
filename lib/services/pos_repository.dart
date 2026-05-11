@@ -34,7 +34,7 @@ class PosRepository {
       {'key': 'discount_enabled', 'value': 'true', 'updated_by': null},
     ],
     'pos_charges': [
-      {'id': 1, 'name': 'VAT', 'type': 'addition', 'value': 15.0, 'is_active': 1},
+      {'id': 1, 'name': 'VAT', 'type': 'addition', 'value': 0.0, 'is_active': 1},
       {'id': 2, 'name': 'Service Charge', 'type': 'addition', 'value': 5.0, 'is_active': 1},
     ],
     'audit_logs': [],
@@ -62,11 +62,11 @@ class PosRepository {
 
     // Products
     _webStorage['products'] = [
-      {'id': 1, 'category_id': 1, 'name': 'Macchiato', 'price': 35.0},
-      {'id': 2, 'category_id': 1, 'name': 'Black Coffee', 'price': 25.0},
-      {'id': 3, 'category_id': 2, 'name': 'Black Tea', 'price': 15.0},
-      {'id': 4, 'category_id': 3, 'name': 'Croissant', 'price': 55.0},
-      {'id': 5, 'category_id': 4, 'name': 'Coca Cola', 'price': 30.0},
+      {'id': 1, 'category_ids': '1', 'name': 'Macchiato', 'price': 35.0},
+      {'id': 2, 'category_ids': '1', 'name': 'Black Coffee', 'price': 25.0},
+      {'id': 3, 'category_ids': '2', 'name': 'Black Tea', 'price': 15.0},
+      {'id': 4, 'category_ids': '3', 'name': 'Croissant', 'price': 55.0},
+      {'id': 5, 'category_ids': '4', 'name': 'Coca Cola', 'price': 30.0},
     ];
 
     // Tables
@@ -115,7 +115,7 @@ class PosRepository {
         // Seed charges if empty
         if (_webStorage['pos_charges']!.isEmpty) {
           _webStorage['pos_charges'] = [
-            {'id': 1, 'name': 'VAT', 'type': 'addition', 'value': 15.0, 'is_active': 1},
+            {'id': 1, 'name': 'VAT', 'type': 'addition', 'value': 0.0, 'is_active': 1},
             {'id': 2, 'name': 'Service Charge', 'type': 'addition', 'value': 5.0, 'is_active': 1},
           ];
         }
@@ -407,14 +407,26 @@ class PosRepository {
   Future<List<Product>> getProducts({int? categoryId}) async {
     if (kIsWeb) {
       final list = _webStorage['products']!;
-      final filtered = categoryId != null ? list.where((e) => e['category_id'] == categoryId).toList() : list;
+      final filtered = categoryId != null 
+          ? list.where((e) {
+              final ids = (e['category_ids'] as String? ?? '').split(',').map((id) => int.tryParse(id)).whereType<int>();
+              return ids.contains(categoryId);
+            }).toList() 
+          : list;
       return filtered.map((p) => Product.fromMap(p)).toList();
     }
     final db = await _dbHelper.database;
     final maps = await db.query('products',
-        where: categoryId != null ? 'category_id = ?' : null,
-        whereArgs: categoryId != null ? [categoryId] : null);
-    return maps.map((m) => Product.fromMap(m)).toList();
+        where: categoryId != null ? "category_ids LIKE ?" : null,
+        whereArgs: categoryId != null ? ["%$categoryId%"] : null);
+    
+    // Additional filtering for LIKE accuracy if needed, but for simple IDs it might be okay.
+    // Better: Filter in Dart for multi-category logic if DB structure is complex.
+    final products = maps.map((m) => Product.fromMap(m)).toList();
+    if (categoryId != null) {
+      return products.where((p) => p.categoryIds.contains(categoryId)).toList();
+    }
+    return products;
   }
 
   Future<int> addProduct(Product product) async {

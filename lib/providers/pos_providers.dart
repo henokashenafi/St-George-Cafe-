@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:st_george_pos/models/app_user.dart';
 import 'package:st_george_pos/models/category.dart';
@@ -5,7 +6,7 @@ import 'package:st_george_pos/models/product.dart';
 import 'package:st_george_pos/models/table_model.dart';
 import 'package:st_george_pos/models/table_zone.dart';
 import 'package:st_george_pos/models/waiter.dart';
-import 'package:st_george_pos/models/charge.dart';
+import '../models/charge.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/services/pos_repository.dart';

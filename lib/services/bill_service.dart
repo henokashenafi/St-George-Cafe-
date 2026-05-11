@@ -20,10 +20,12 @@ class BillService {
     final now = DateTime.now();
     final timeStr = DateFormat('HH:mm').format(now);
     final dateStr = DateFormat('dd/MM/yyyy').format(now);
+    final font = await PdfGoogleFonts.robotoMonoRegular();
 
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a5,
+        theme: pw.ThemeData.withFont(base: font),
         margin: const pw.EdgeInsets.all(24),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -137,6 +139,7 @@ class BillService {
     final dateStr = DateFormat('dd/MM/yyyy').format(now);
     final voucherNo =
         'RCS-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${(order.id ?? 0).toString().padLeft(3, '0')}';
+    final font = await PdfGoogleFonts.robotoMonoRegular();
 
     final subtotal = items.fold(0.0, (s, i) => s + i.subtotal);
     
@@ -170,6 +173,7 @@ class BillService {
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
+        theme: pw.ThemeData.withFont(base: font),
         margin: const pw.EdgeInsets.fromLTRB(40, 36, 40, 36),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -269,64 +273,44 @@ class BillService {
             pw.SizedBox(height: 14),
 
             // ── Items table ───────────────────────────────────────────────
-            pw.Table(
-              border: pw.TableBorder.all(width: 0.5),
-              columnWidths: {
-                0: const pw.FlexColumnWidth(5), // Description
-                1: const pw.FixedColumnWidth(40), // Qty
-                2: const pw.FixedColumnWidth(80), // Unit Price
-                3: const pw.FixedColumnWidth(80), // Total
-              },
+            // ── Items List (No Table) ──────────────────────────────────────────
+            pw.Column(
               children: [
                 // Header row
-                pw.TableRow(
-                  decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-                  children: [
-                    _cell(t('bill.description'), bold: true, fontSize: 10),
-                    _cell(
-                      t('bill.qty'),
-                      bold: true,
-                      fontSize: 10,
-                      align: pw.TextAlign.center,
-                    ),
-                    _cell(
-                      t('bill.unitAmount'),
-                      bold: true,
-                      fontSize: 10,
-                      align: pw.TextAlign.right,
-                    ),
-                    _cell(
-                      t('bill.total'),
-                      bold: true,
-                      fontSize: 10,
-                      align: pw.TextAlign.right,
-                    ),
-                  ],
+                pw.Container(
+                  color: PdfColors.grey200,
+                  padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                  child: pw.Row(
+                    children: [
+                      pw.Expanded(flex: 5, child: pw.Text(t('bill.description'), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                      pw.Container(width: 40, child: pw.Text(t('bill.qty'), textAlign: pw.TextAlign.center, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                      pw.Container(width: 80, child: pw.Text(t('bill.unitAmount'), textAlign: pw.TextAlign.right, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                      pw.Container(width: 80, child: pw.Text(t('bill.total'), textAlign: pw.TextAlign.right, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                    ],
+                  ),
                 ),
+                pw.Divider(height: 1, thickness: 0.5),
                 // Item rows
                 ...items.map(
-                  (item) => pw.TableRow(
-                    children: [
-                      _cell(
-                        '${item.productName}${item.notes != null && item.notes!.isNotEmpty ? " (${item.notes})" : ""}',
-                        fontSize: 11,
-                      ),
-                      _cell(
-                        '${item.quantity}',
-                        fontSize: 11,
-                        align: pw.TextAlign.center,
-                      ),
-                      _cell(
-                        _fmt(item.unitPrice),
-                        fontSize: 11,
-                        align: pw.TextAlign.right,
-                      ),
-                      _cell(
-                        _fmt(item.subtotal),
-                        fontSize: 11,
-                        align: pw.TextAlign.right,
-                      ),
-                    ],
+                  (item) => pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(bottom: pw.BorderSide(width: 0.2, color: PdfColors.grey400)),
+                    ),
+                    child: pw.Row(
+                      children: [
+                        pw.Expanded(
+                          flex: 5,
+                          child: pw.Text(
+                            '${item.productName}${item.notes != null && item.notes!.isNotEmpty ? " (${item.notes})" : ""}',
+                            style: const pw.TextStyle(fontSize: 11),
+                          ),
+                        ),
+                        pw.Container(width: 40, child: pw.Text('${item.quantity}', textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 11))),
+                        pw.Container(width: 80, child: pw.Text(_fmt(item.unitPrice), textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 11))),
+                        pw.Container(width: 80, child: pw.Text(_fmt(item.subtotal), textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 11))),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -388,6 +372,13 @@ class BillService {
                 style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
               ),
             ),
+            pw.SizedBox(height: 4),
+            pw.Center(
+              child: pw.Text(
+                'Powered by Askualink',
+                style: pw.TextStyle(fontSize: 12, color: PdfColors.grey900, fontWeight: pw.FontWeight.bold),
+              ),
+            ),
           ],
         ),
       ),
@@ -413,22 +404,6 @@ class BillService {
         style: pw.TextStyle(fontSize: fontSize, fontWeight: pw.FontWeight.bold),
       ),
     ],
-  );
-
-  static pw.Widget _cell(
-    String text, {
-    bool bold = false,
-    double fontSize = 11,
-    pw.TextAlign align = pw.TextAlign.left,
-  }) => pw.Padding(
-    padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-    child: pw.Text(
-      text,
-      style: bold
-          ? pw.TextStyle(fontSize: fontSize, fontWeight: pw.FontWeight.bold)
-          : pw.TextStyle(fontSize: fontSize),
-      textAlign: align,
-    ),
   );
 
   static pw.Widget _totalRow(String label, double value, {bool bold = false}) =>

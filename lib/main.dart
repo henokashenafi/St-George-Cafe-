@@ -48,15 +48,27 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+
     return MaterialApp(
       title: 'St George Cafe POS',
       debugShowCheckedModeBanner: false,
+      themeMode: ThemeMode.dark,
       theme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.light,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFD4AF37),
+          brightness: Brightness.light,
+          primary: const Color(0xFFD4AF37),
+          secondary: const Color(0xFF006B3C),
+        ),
+      ),
+      darkTheme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
         colorScheme: ColorScheme.fromSeed(
@@ -364,13 +376,13 @@ class DashboardScreen extends ConsumerWidget {
         case DashboardView.tables:
           return const TableManagementScreen(key: ValueKey('tables'));
         case DashboardView.reports:
-          return const ReportsScreen(key: ValueKey('reports'));
+          return ReportsScreen(key: const ValueKey('reports'));
         case DashboardView.charges:
-          return const ChargeManagementScreen(key: ValueKey('charges'));
+          return ChargeManagementScreen(key: const ValueKey('charges'));
         case DashboardView.users:
           return const UserManagementScreen(key: ValueKey('users'));
         case DashboardView.settings:
-          return const SettingsScreen(key: ValueKey('settings'));
+          return SettingsScreen(key: const ValueKey('settings'));
         case DashboardView.auditLogs:
           return const AuditLogsScreen(key: ValueKey('audit'));
         default:
@@ -382,17 +394,17 @@ class DashboardScreen extends ConsumerWidget {
       case DashboardView.home:
         return const DashboardHomeScreen(key: ValueKey('home'));
       case DashboardView.orders:
-        return const OrderHistoryScreen(key: ValueKey('orders'));
+        return OrderHistoryScreen(key: const ValueKey('orders'));
       case DashboardView.heldOrders:
-        return const HeldOrdersScreen(key: ValueKey('held_orders'));
+        return HeldOrdersScreen(key: const ValueKey('held_orders'));
       case DashboardView.menu:
-        return const MenuManagementScreen(key: ValueKey('menu'));
+        return MenuManagementScreen(key: const ValueKey('menu'));
       case DashboardView.waiters:
-        return const WaiterManagementScreen(key: ValueKey('waiters'));
+        return WaiterManagementScreen(key: const ValueKey('waiters'));
       case DashboardView.reports:
-        return const ReportsScreen(key: ValueKey('reports'));
+        return ReportsScreen(key: const ValueKey('reports'));
       case DashboardView.charges:
-        return const ChargeManagementScreen(key: ValueKey('charges'));
+        return ChargeManagementScreen(key: const ValueKey('charges'));
       case DashboardView.pos:
         return const OrderScreen(key: ValueKey('pos'));
       case DashboardView.tables:
@@ -470,77 +482,101 @@ class DashboardHomeScreen extends ConsumerWidget {
         const SizedBox(height: 40),
 
         // ── Primary Action: New Order ────────────────────────────────────────
-        InkWell(
-          onTap: () => _startNewOrderFlowFromDashboard(context, ref),
-          child: Container(
-            height: 180,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.03),
-              borderRadius: BorderRadius.zero,
-              border: Border.all(
-                color: const Color(0xFFD4AF37).withOpacity(0.2),
+        Container(
+          height: 180,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.03),
+            borderRadius: BorderRadius.zero,
+            border: Border.all(
+              color: const Color(0xFFD4AF37).withOpacity(0.2),
+            ),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: 40,
+                top: -20,
+                child: Icon(
+                  Icons.add_shopping_cart,
+                  size: 220,
+                  color: const Color(0xFFD4AF37).withOpacity(0.05),
+                ),
               ),
-            ),
-            child: Stack(
-              children: [
-                Positioned(
-                  right: 40,
-                  top: -20,
-                  child: Icon(
-                    Icons.add_shopping_cart,
-                    size: 220,
-                    color: const Color(0xFFD4AF37).withOpacity(0.05),
+              Positioned(
+                right: 40,
+                bottom: 60,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD4AF37),
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    elevation: 10,
+                    shadowColor: const Color(0xFFD4AF37).withOpacity(0.5),
                   ),
+                  icon: const Icon(Icons.add, size: 24, color: Colors.black),
+                  label: const Text(
+                    'START SERVICE',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  onPressed: () {
+                    ref.read(selectedTableProvider.notifier).set(null);
+                    ref.read(dashboardViewProvider.notifier).state = DashboardView.pos;
+                  },
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFD4AF37).withOpacity(0.1),
-                          borderRadius: BorderRadius.zero,
-                        ),
-                        child: Text(
-                          'QUICK ACTION',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            color: const Color(0xFFD4AF37),
-                            letterSpacing: 2,
-                          ),
-                        ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
                       ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'START NEW ORDER',
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD4AF37).withOpacity(0.1),
+                        borderRadius: BorderRadius.zero,
+                      ),
+                      child: Text(
+                        'QUICK ACTION',
                         style: TextStyle(
-                          fontSize: 42,
+                          fontSize: 10,
                           fontWeight: FontWeight.w900,
-                          letterSpacing: 4,
-                          color: Colors.white.withOpacity(0.9),
+                          color: const Color(0xFFD4AF37),
+                          letterSpacing: 2,
                         ),
                       ),
-                      Text(
-                        'Tap here to select a table and begin service',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.white38,
-                          letterSpacing: 1,
-                        ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'START NEW ORDER',
+                      style: TextStyle(
+                        fontSize: 42,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 4,
+                        color: Colors.white.withOpacity(0.9),
                       ),
-                    ],
-                  ),
+                    ),
+                    Text(
+                      'Select a table and begin service',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white38,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
 
@@ -727,35 +763,69 @@ class _HeldOrderDashboardListTile extends ConsumerWidget {
                 ),
               ),
 
-              // Time Elapsed
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.timer_outlined,
-                        size: 14,
-                        color: Colors.orangeAccent,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${minutes}M',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orangeAccent,
+              // Time Elapsed Flag
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: minutes > 30 
+                      ? Colors.redAccent.withOpacity(0.2) 
+                      : minutes > 15 
+                          ? Colors.orangeAccent.withOpacity(0.2)
+                          : Colors.greenAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: minutes > 30 
+                        ? Colors.redAccent 
+                        : minutes > 15 
+                            ? Colors.orangeAccent
+                            : Colors.greenAccent.withOpacity(0.5),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.timer_outlined,
+                          size: 12,
+                          color: minutes > 30 
+                              ? Colors.redAccent 
+                              : minutes > 15 
+                                  ? Colors.orangeAccent
+                                  : Colors.greenAccent,
                         ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${minutes}M',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: minutes > 30 
+                                ? Colors.redAccent 
+                                : minutes > 15 
+                                    ? Colors.orangeAccent
+                                    : Colors.greenAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      'WAITING',
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                        color: minutes > 30 
+                            ? Colors.redAccent 
+                            : minutes > 15 
+                                ? Colors.orangeAccent
+                                : Colors.greenAccent,
                       ),
-                    ],
-                  ),
-                  Text(
-                    'Started ${DateFormat('HH:mm').format(order.createdAt)}',
-                    style: const TextStyle(fontSize: 11, color: Colors.white24),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 40),
+              const SizedBox(width: 20),
 
               // Total Amount
               Column(
@@ -782,458 +852,6 @@ class _HeldOrderDashboardListTile extends ConsumerWidget {
               const SizedBox(width: 12),
               const Icon(Icons.chevron_right, color: Colors.white12),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Professional Table Selector Dialog ────────────────────────────────────
-
-void _startNewOrderFlowFromDashboard(
-  BuildContext context,
-  WidgetRef ref,
-) async {
-  final selectedTable = await showDialog<TableModel>(
-    context: context,
-    barrierColor: Colors.black87,
-    builder: (ctx) => const _TableSelectorDialog(),
-  );
-
-  if (selectedTable != null && context.mounted) {
-    ref.read(selectedTableProvider.notifier).set(selectedTable);
-    ref.read(dashboardViewProvider.notifier).state = DashboardView.pos;
-  }
-}
-
-class _TableSelectorDialog extends ConsumerStatefulWidget {
-  const _TableSelectorDialog();
-
-  @override
-  ConsumerState<_TableSelectorDialog> createState() =>
-      _TableSelectorDialogState();
-}
-
-class _TableSelectorDialogState extends ConsumerState<_TableSelectorDialog> {
-  final _searchCtrl = TextEditingController();
-  int? _selectedZoneId;
-  String _search = '';
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tablesAsync = ref.watch(tablesProvider);
-    final zonesAsync = ref.watch(tableZonesProvider);
-    final screenSize = MediaQuery.of(context).size;
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(24),
-      child: Container(
-        width: screenSize.width * 0.88,
-        height: screenSize.height * 0.88,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF121212), Color(0xFF003D22), Color(0xFF121212)],
-          ),
-          borderRadius: BorderRadius.zero,
-          border: Border.all(color: Colors.white.withOpacity(0.07)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.6),
-              blurRadius: 60,
-              spreadRadius: 10,
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.zero,
-          child: Row(
-            children: [
-              // ── Zone Sidebar ─────────────────────────────────────────
-              _buildZoneSidebar(zonesAsync),
-
-              // ── Main Content ─────────────────────────────────────────
-              Expanded(
-                child: Column(
-                  children: [
-                    _buildHeader(tablesAsync),
-                    _buildSearchBar(),
-                    const SizedBox(height: 4),
-                    Expanded(child: _buildTableGrid(tablesAsync)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Zone Sidebar ───────────────────────────────────────────────────────
-
-  Widget _buildZoneSidebar(AsyncValue zonesAsync) {
-    return Container(
-      width: 200,
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
-        border: Border(
-          right: BorderSide(color: Colors.white.withOpacity(0.05)),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 3,
-                      height: 18,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD4AF37),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      ref.t('dashboard.zones'),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 2,
-                        color: Color(0xFF8B90A0),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          _ZoneTile(
-            label: ref.t('zones.allTables'),
-            icon: Icons.grid_view_rounded,
-            isSelected: _selectedZoneId == null,
-            onTap: () => setState(() => _selectedZoneId = null),
-          ),
-          const SizedBox(height: 4),
-          Expanded(
-            child: zonesAsync.maybeWhen(
-              data: (zones) => ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                itemCount: (zones as List).length,
-                itemBuilder: (_, i) {
-                  final z = zones[i];
-                  return _ZoneTile(
-                    label: z.name,
-                    icon: Icons.map_outlined,
-                    isSelected: _selectedZoneId == z.id,
-                    onTap: () => setState(() => _selectedZoneId = z.id),
-                  );
-                },
-              ),
-              orElse: () => const SizedBox(),
-            ),
-          ),
-          // Close button
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white38,
-                minimumSize: const Size(double.infinity, 44),
-              ),
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.close, size: 16),
-              label: Text(
-                ref.t('dashboard.cancel'),
-                style: const TextStyle(fontSize: 13),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Header with live stats ─────────────────────────────────────────────
-
-  Widget _buildHeader(AsyncValue tablesAsync) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(28, 24, 28, 16),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
-        ),
-      ),
-      child: Row(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                ref.t('dashboard.selectTable'),
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                _selectedZoneId == null
-                    ? ref.t('zones.allTables')
-                    : ref.t('zones.filteredByZone'),
-                style: const TextStyle(fontSize: 12, color: Color(0xFF8B90A0)),
-              ),
-            ],
-          ),
-          const Spacer(),
-          // Live stats
-          tablesAsync.maybeWhen(
-            data: (tables) {
-              final all = tables as List;
-              final available = all
-                  .where((t) => t.status == TableStatus.available)
-                  .length;
-              final occupied = all
-                  .where((t) => t.status == TableStatus.occupied)
-                  .length;
-              return Row(
-                children: [
-                  _StatBadge(
-                    label: ref.t('dashboard.available'),
-                    count: available,
-                    color: const Color(0xFF22C55E),
-                  ),
-                  const SizedBox(width: 12),
-                  _StatBadge(
-                    label: ref.t('dashboard.occupied'),
-                    count: occupied,
-                    color: const Color(0xFFEF4444),
-                  ),
-                  const SizedBox(width: 12),
-                  _StatBadge(
-                    label: ref.t('dashboard.total'),
-                    count: all.length,
-                    color: const Color(0xFFD4AF37),
-                  ),
-                ],
-              );
-            },
-            orElse: () => const SizedBox(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Search bar ─────────────────────────────────────────────────────────
-
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 14, 28, 6),
-      child: Container(
-        height: 44,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.03),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withOpacity(0.08)),
-        ),
-        child: Row(
-          children: [
-            const SizedBox(width: 14),
-            const Icon(Icons.search, color: Color(0xFF8B90A0), size: 18),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                controller: _searchCtrl,
-                autofocus: false,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
-                decoration: const InputDecoration(
-                  hintText: 'Search table name...',
-                  hintStyle: TextStyle(color: Color(0xFF8B90A0), fontSize: 14),
-                  border: InputBorder.none,
-                  isDense: true,
-                ),
-                onChanged: (v) => setState(() => _search = v.toLowerCase()),
-              ),
-            ),
-            if (_search.isNotEmpty)
-              IconButton(
-                icon: const Icon(
-                  Icons.close,
-                  size: 16,
-                  color: Color(0xFF8B90A0),
-                ),
-                onPressed: () {
-                  _searchCtrl.clear();
-                  setState(() => _search = '');
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── Table grid ─────────────────────────────────────────────────────────
-
-  Widget _buildTableGrid(AsyncValue tablesAsync) {
-    return tablesAsync.when(
-      data: (tables) {
-        var filtered = tables as List<TableModel>;
-        if (_selectedZoneId != null) {
-          filtered = filtered
-              .where((t) => t.zoneId == _selectedZoneId)
-              .toList();
-        }
-        if (_search.isNotEmpty) {
-          filtered = filtered
-              .where((t) => t.name.toLowerCase().contains(_search))
-              .toList();
-        }
-
-        if (filtered.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.table_bar_outlined,
-                  size: 64,
-                  color: Colors.white.withOpacity(0.1),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  ref.t('dashboard.noTablesFound'),
-                  style: const TextStyle(color: Colors.white24),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return GridView.builder(
-          padding: const EdgeInsets.fromLTRB(28, 16, 28, 28),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 5,
-            childAspectRatio: 1.1,
-            crossAxisSpacing: 14,
-            mainAxisSpacing: 14,
-          ),
-          itemCount: filtered.length,
-          itemBuilder: (_, i) {
-            final tableOccupied = filtered[i].status == TableStatus.occupied;
-            return _ProfessionalTableCard(
-              table: filtered[i],
-              statusLabel: tableOccupied
-                  ? ref.t('tableSelector.busy')
-                  : ref.t('tableSelector.free'),
-              noZoneLabel: ref.t('tableSelector.noZone'),
-              onTap: () => Navigator.pop(context, filtered[i]),
-            );
-          },
-        );
-      },
-      loading: () => const Center(
-        child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
-      ),
-      error: (e, _) => Center(
-        child: Text(
-          '${ref.t('errors.error')}: $e',
-          style: const TextStyle(color: Colors.redAccent),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Zone Tile (sidebar item) ──────────────────────────────────────────────
-
-class _ZoneTile extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _ZoneTile({
-    required this.label,
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      child: Material(
-        color: isSelected
-            ? const Color(0xFFD4AF37).withOpacity(0.12)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: isSelected
-                  ? Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3))
-                  : null,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  size: 16,
-                  color: isSelected
-                      ? const Color(0xFFD4AF37)
-                      : const Color(0xFF8B90A0),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: isSelected
-                          ? FontWeight.w700
-                          : FontWeight.w400,
-                      color: isSelected
-                          ? const Color(0xFFD4AF37)
-                          : const Color(0xFF8B90A0),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (isSelected)
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFD4AF37),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-              ],
-            ),
           ),
         ),
       ),
