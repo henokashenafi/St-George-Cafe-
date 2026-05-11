@@ -381,11 +381,14 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           .read(activeOrderServiceProvider)
           .addItems(order.id!, itemsToPrint, selectedTable!.id!);
 
+      final printerName = settings['default_printer_name'];
+
       // Kitchen Printing PDF
       await BillService.generateKitchenSlip(
         order: order,
         items: localItems,
         roundNumber: roundNumber,
+        printerName: printerName,
         t: (key, {replacements}) =>
             AppLocalizations.format(key, replacements: replacements),
       );
@@ -460,7 +463,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     );
 
     if (confirmed == true) {
-      final settings = await ref.read(cafeSettingsProvider.future);
+      final printerName = settings['default_printer_name'];
+      final cafeSettings = await ref.read(cafeSettingsProvider.future);
       final charges = (await ref.read(chargesProvider.future)).where((c) => c.isActive).toList();
       
       await BillService.generateAndDownloadBill(
@@ -468,9 +472,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           discountAmount: discount,
         ), // Ensure order has the discount
         items: order.items,
-        settings: settings,
+        settings: cafeSettings,
         cashierName: order.cashierName,
         activeCharges: charges,
+        printerName: printerName,
         t: (key, {replacements}) =>
             AppLocalizations.format(key, replacements: replacements),
       );

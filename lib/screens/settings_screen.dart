@@ -9,6 +9,7 @@ import 'package:st_george_pos/core/database_helper.dart';
 import 'package:st_george_pos/services/audit_service.dart';
 import 'package:st_george_pos/models/settings.dart';
 import 'package:st_george_pos/core/widgets/top_toaster.dart';
+import 'package:printing/printing.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -29,6 +30,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _discountEnabled = true;
   bool _saving = false;
   bool _initialized = false;
+  
+  List<Printer> _printers = [];
+  String? _selectedPrinterName;
+  bool _isLoadingPrinters = false;
 
   @override
   void dispose() {
@@ -58,7 +63,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _cafeCurrencyController.text = cafe.currency;
     _vatRateController.text = cafe.vatRate.toString();
     
+    _selectedPrinterName = settings['default_printer_name'];
+    
     setState(() => _initialized = true);
+    _fetchPrinters();
+  }
+
+  Future<void> _fetchPrinters() async {
+    if (!mounted) return;
+    setState(() => _isLoadingPrinters = true);
+    try {
+      final printers = await Printing.listPrinters();
+      if (mounted) {
+        setState(() {
+          _printers = printers;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching printers: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingPrinters = false);
+    }
   }
 
   Future<void> _saveSettings() async {
@@ -75,6 +100,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // Save Billing
     await repo.setSetting('service_charge_percent', charge.toString(), currentUser.id!);
     await repo.setSetting('discount_enabled', _discountEnabled.toString(), currentUser.id!);
+    if (_selectedPrinterName != null) {
+      await repo.setSetting('default_printer_name', _selectedPrinterName!, currentUser.id!);
+    } else {
+      await repo.setSetting('default_printer_name', '', currentUser.id!);
+    }
     
     // Save Cafe Info
     final newCafe = CafeSettings(
@@ -219,6 +249,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       _buildTextField(_cafeVatController, 'VAT Number'),
                       const SizedBox(height: 16),
                       _buildTextField(_cafeCurrencyController, 'Currency (e.g. ETB)'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              _SectionHeader(title: 'HARDWARE & PRINTERS'),
+              GlassContainer(
+                opacity: 0.05,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Default Receipt Printer',
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                      const SizedBox(height: 8),
+                      if (_isLoadingPrinters)
+                        const CircularProgressIndicator()
+                      else
+                        DropdownButtonFormField<String?>(
+                          value: _selectedPrinterName == '' ? null : _selectedPrinterName,
+                          dropdownColor: const Color(0xFF1A1A1A),
+                          decoration: _inputDec('Select a Printer'),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('None (Use Print Dialog)'),
+                            ),
+                            ..._printers.map((p) => DropdownMenuItem(
+                                  value: p.name,
+                                  child: Text(p.name),
+                                )),
+                            if (_selectedPrinterName != null && _selectedPrinterName != '' && !_printers.any((p) => p.name == _selectedPrinterName))
+                              DropdownMenuItem(
+                                value: _selectedPrinterName,
+                                child: Text('$_selectedPrinterName (Offline)'),
+                              ),
+                          ],
+                          onChanged: (v) => setState(() => _selectedPrinterName = v),
+                        ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Select a printer to enable silent direct printing. If set to None, the system print dialog will be used.',
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
+                      ),
                     ],
                   ),
                 ),

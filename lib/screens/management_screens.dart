@@ -724,6 +724,8 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                               ),
                               tooltip: ref.t('management.reprintBill'),
                               onPressed: () async {
+                                final appSettings = await ref.read(appSettingsProvider.future);
+                                final printerName = appSettings['default_printer_name'];
                                 final settings = await ref.read(
                                   cafeSettingsProvider.future,
                                 );
@@ -736,6 +738,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                                   settings: settings,
                                   cashierName: o.cashierName,
                                   activeCharges: charges,
+                                  printerName: printerName,
                                   t: (key, {replacements}) =>
                                       AppLocalizations.getEnglish(key, replacements: replacements),
                                 );
@@ -2022,216 +2025,7 @@ class _ReportCard extends StatelessWidget {
   }
 }
 
-// --- Settings Screen ---
-class SettingsScreen extends ConsumerStatefulWidget {
-  const SettingsScreen({super.key});
 
-  @override
-  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameController;
-  late TextEditingController _addressController;
-  late TextEditingController _phoneController;
-  late TextEditingController _vatNumberController;
-  late TextEditingController _vatRateController;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController();
-    _addressController = TextEditingController();
-    _phoneController = TextEditingController();
-    _vatNumberController = TextEditingController();
-    _vatRateController = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _addressController.dispose();
-    _phoneController.dispose();
-    _vatNumberController.dispose();
-    _vatRateController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final settingsAsync = ref.watch(cafeSettingsProvider);
-
-    return settingsAsync.when(
-      data: (settings) {
-        _nameController.text = settings.name;
-        _addressController.text = settings.address;
-        _phoneController.text = settings.phone;
-        _vatNumberController.text = settings.vatNumber;
-        _vatRateController.text = settings.vatRate.toString();
-
-        return GlassContainer(
-          opacity: 0.05,
-          child: Padding(
-            padding: const EdgeInsets.all(32.0),
-            child: Form(
-              key: _formKey,
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      ref.t('systemSettings.title'),
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 2,
-                        color: Color(0xFFD4AF37),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    _buildSectionTitle(ref.t('settings.cafeInformation')),
-                    _buildTextField(
-                      ref.t('settings.cafeName'),
-                      _nameController,
-                      requiredFieldMessage: ref.t('common.fieldRequired'),
-                    ),
-                    _buildTextField(
-                      ref.t('settings.address'),
-                      _addressController,
-                      requiredFieldMessage: ref.t('common.fieldRequired'),
-                    ),
-                    _buildTextField(
-                      ref.t('settings.phoneNumber'),
-                      _phoneController,
-                      requiredFieldMessage: ref.t('common.fieldRequired'),
-                    ),
-                    const SizedBox(height: 24),
-                    _buildSectionTitle(ref.t('settings.taxAndCurrency')),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextField(
-                            ref.t('settings.vatNumber'),
-                            _vatNumberController,
-                            requiredFieldMessage: ref.t('common.fieldRequired'),
-                          ),
-                        ),
-                        const SizedBox(width: 24),
-                        Expanded(
-                          child: _buildTextField(
-                            ref.t('settings.vatRate'),
-                            _vatRateController,
-                            isNumber: true,
-                            requiredFieldMessage: ref.t('common.fieldRequired'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 48),
-                    Center(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFD4AF37),
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 48,
-                            vertical: 20,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.zero,
-                          ),
-                        ),
-                        onPressed: () async {
-                          if (_formKey.currentState!.validate()) {
-                            final newSettings = settings.copyWith(
-                              name: _nameController.text,
-                              address: _addressController.text,
-                              phone: _phoneController.text,
-                              vatNumber: _vatNumberController.text,
-                              vatRate:
-                                  double.tryParse(_vatRateController.text) ??
-                                  5.0,
-                            );
-                            await ref
-                                .read(activeOrderServiceProvider)
-                                .saveSettings(newSettings);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  ref.t('systemSettings.settingsSaved'),
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                        child: Text(
-                          ref.t('systemSettings.saveChanges'),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('${ref.t('errors.error')}: $e')),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: Text(
-        title.toUpperCase(),
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          color: Colors.white38,
-          letterSpacing: 1.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTextField(
-    String label,
-    TextEditingController controller, {
-    bool isNumber = false,
-    String requiredFieldMessage = 'Field required',
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20.0),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(color: Colors.white54),
-          filled: true,
-          fillColor: Colors.white.withOpacity(0.05),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.zero,
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.zero,
-            borderSide: const BorderSide(color: Color(0xFFD4AF37)),
-          ),
-        ),
-        validator: (value) =>
-            value == null || value.isEmpty ? requiredFieldMessage : null,
-      ),
-    );
-  }
-}
 
 class _SummaryRow extends StatelessWidget {
   final String label;

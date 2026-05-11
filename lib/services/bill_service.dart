@@ -2,6 +2,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/models/charge.dart';
@@ -15,6 +16,7 @@ class BillService {
     required List<OrderItem> items,
     required int roundNumber,
     required String Function(String key, {Map<String, String>? replacements}) t,
+    String? printerName,
   }) async {
     final pdf = pw.Document();
     final now = DateTime.now();
@@ -127,9 +129,10 @@ class BillService {
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (_) async => pdf.save(),
-      name: 'Kitchen_Round${roundNumber}_Order${order.id}.pdf',
+    await _printDocument(
+      pdf: pdf,
+      documentName: 'Kitchen_Round${roundNumber}_Order${order.id}.pdf',
+      printerName: printerName,
     );
   }
 
@@ -142,6 +145,7 @@ class BillService {
     required String cashierName,
     required List<ChargeModel> activeCharges,
     required String Function(String key, {Map<String, String>? replacements}) t,
+    String? printerName,
   }) async {
     final pdf = pw.Document();
     final now = DateTime.now();
@@ -341,10 +345,50 @@ class BillService {
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (_) async => pdf.save(),
-      name: 'Invoice_${voucherNo}.pdf',
+    await _printDocument(
+      pdf: pdf,
+      documentName: 'Invoice_$voucherNo.pdf',
+      printerName: printerName,
     );
+  }
+
+  static Future<void> _printDocument({
+    required pw.Document pdf,
+    required String documentName,
+    String? printerName,
+  }) async {
+    final pdfBytes = await pdf.save();
+    
+    if (kIsWeb || printerName == null || printerName.isEmpty) {
+      await Printing.layoutPdf(
+        onLayout: (_) async => pdfBytes,
+        name: documentName,
+      );
+      return;
+    }
+
+    try {
+      final printers = await Printing.listPrinters();
+      final printer = printers.cast<Printer?>().firstWhere((p) => p?.name == printerName, orElse: () => null);
+      
+      if (printer != null) {
+        await Printing.directPrintPdf(
+          printer: printer,
+          onLayout: (_) async => pdfBytes,
+          name: documentName,
+        );
+      } else {
+        await Printing.layoutPdf(
+          onLayout: (_) async => pdfBytes,
+          name: documentName,
+        );
+      }
+    } catch (e) {
+      await Printing.layoutPdf(
+        onLayout: (_) async => pdfBytes,
+        name: documentName,
+      );
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
