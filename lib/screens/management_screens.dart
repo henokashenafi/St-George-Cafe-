@@ -1312,7 +1312,7 @@ class ShiftManagementScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Enter the starting cash float in the drawer.',
+              ref.t('shift.openNewDescription'),
               style: TextStyle(color: Colors.white54, fontSize: 13),
             ),
             const SizedBox(height: 20),
@@ -1511,10 +1511,8 @@ class ShiftManagementScreen extends ConsumerWidget {
                   if (!context.mounted) return;
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Shift closed, Snapshot saved & Z-Slip printed.',
-                      ),
+                    SnackBar(
+                      content: Text(ref.t('shift.zReportSaved')),
                     ),
                   );
                 },
@@ -1861,8 +1859,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                 }
 
                 for (final item in o.items) {
-                  // More robust Category aggregation for the Dashboard
-                  final catName = "General";
+                  // Use item.categoryName if available, else General
+                  final catName = item.categoryName ?? "General";
                   categoryMap[catName] =
                       (categoryMap[catName] ?? 0) + item.subtotal;
                 }
@@ -1924,7 +1922,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         // VAT hidden per request if 0
                         if (vatSum > 0)
                           _ReportMetricTile(
-                            label: 'VAT ($vatRate%)',
+                            label: '${ref.t('reports.vat')} ($vatRate%)',
                             value: vatSum,
                             color: Colors.blueAccent,
                           ),
@@ -1938,25 +1936,25 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                     const SizedBox(height: 32),
 
                     // ── Category Breakdown ───────────────────────────────
-                    _SectionHeader('SALES BY CATEGORY'),
+                    _SectionHeader(ref.t('reports.salesByCategory')),
                     const SizedBox(height: 16),
                     _CategoryBreakdownDashboard(categoryMap: categoryMap),
                     const SizedBox(height: 32),
 
                     // ── Order Type Breakdown ─────────────────────────────
-                    _SectionHeader('ORDER TYPE DISTRIBUTION'),
+                    _SectionHeader(ref.t('reports.orderTypeDistribution')),
                     const SizedBox(height: 16),
                     _OrderTypeDashboard(orderTypeMap: orderTypeMap),
                     const SizedBox(height: 32),
 
                     // ── Z-Reports History ────────────────────────────────
-                    _SectionHeader('SHIFT CLOSING HISTORY'),
+                    _SectionHeader(ref.t('reports.shiftClosingHistory')),
                     const SizedBox(height: 16),
                     _ZReportHistorySection(),
                     const SizedBox(height: 32),
 
                     // ── Best Sellers Visualization ──────────────────────
-                    _SectionHeader('BEST SELLERS PERFORMANCE'),
+                    _SectionHeader(ref.t('reports.bestSellers')),
                     const SizedBox(height: 16),
                     _BestSellersDashboard(sortedItemSales: sortedItemSales),
                     const SizedBox(height: 32),
@@ -1969,7 +1967,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _SectionHeader('PAYMENT BREAKDOWN'),
+                              _SectionHeader(ref.t('reports.paymentBreakdown')),
                               const SizedBox(height: 12),
                               _FormalDataTable(
                                 data: paymentMap.entries.toList(),
