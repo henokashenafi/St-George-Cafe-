@@ -406,8 +406,6 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         items: localItems,
         roundNumber: roundNumber,
         printerName: printerName,
-        t: (key, {replacements}) =>
-            AppLocalizations.format(key, replacements: replacements),
       );
 
       await ref
@@ -500,8 +498,6 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         cashierName: order.cashierName,
         activeCharges: charges,
         printerName: printerName,
-        t: (key, {replacements}) =>
-            AppLocalizations.format(key, replacements: replacements),
       );
       double totalAdditions = 0;
       double totalDeductions = 0;
