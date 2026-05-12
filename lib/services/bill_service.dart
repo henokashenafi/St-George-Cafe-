@@ -137,7 +137,7 @@ class BillService {
     await _printDocument(
       pdf: pdf,
       documentName: 'Kitchen_Round${roundNumber}_Order${order.id}.pdf',
-      printerName: '', // Kitchen printing might need its own config later
+      printerName: printerName,
     );
   }
 
@@ -313,7 +313,7 @@ class BillService {
 
             // ── Totals ───────────────────────────────────────────────────
             _totalRow(t('bill.subtotal'), subtotal, fontSize: 9),
-            ...appliedCharges.map(
+            ...appliedCharges.where((c) => (c['amount'] as num).abs() > 0.01).map(
               (c) => _totalRow(c['name'], c['amount'], fontSize: 9),
             ),
             if (discount > 0)
@@ -405,11 +405,19 @@ class BillService {
               ),
             ),
             pw.Center(
-              child: pw.Text(
-                isZReport ? 'Z REPORT (FINAL)' : 'X REPORT (PROVISIONAL)',
-                style: pw.TextStyle(
-                  fontSize: 12,
-                  fontWeight: pw.FontWeight.bold,
+              child: pw.Container(
+                padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: pw.BoxDecoration(
+                  color: isZReport ? PdfColors.black : PdfColors.white,
+                  border: isZReport ? null : pw.Border.all(color: PdfColors.black, width: 1),
+                ),
+                child: pw.Text(
+                  isZReport ? 'Z REPORT (FINAL)' : 'X REPORT (PROVISIONAL)',
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                    color: isZReport ? PdfColors.white : PdfColors.black,
+                  ),
                 ),
               ),
             ),

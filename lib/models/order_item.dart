@@ -8,6 +8,7 @@ class OrderItem {
   final double subtotal;
   final bool isPrintedToKitchen;
   final String? notes;
+  final String? categoryName;
   final int kitchenRound; // 0 = unsent, 1+ = round number sent to kitchen
   final String? categoryName;
 
@@ -16,6 +17,7 @@ class OrderItem {
     this.orderId,
     required this.productId,
     required this.productName,
+    this.categoryName,
     required this.quantity,
     required this.unitPrice,
     required this.subtotal,
@@ -32,6 +34,7 @@ class OrderItem {
     double? subtotal,
     bool? isPrintedToKitchen,
     String? notes,
+    String? categoryName,
     int? kitchenRound,
   }) {
     return OrderItem(
@@ -39,6 +42,7 @@ class OrderItem {
       orderId: orderId ?? this.orderId,
       productId: productId,
       productName: productName,
+      categoryName: categoryName ?? this.categoryName,
       quantity: quantity ?? this.quantity,
       unitPrice: unitPrice,
       subtotal: subtotal ?? this.subtotal,
@@ -55,6 +59,7 @@ class OrderItem {
       orderId: map['order_id'],
       productId: map['product_id'] ?? 0,
       productName: map['product_name'] ?? '',
+      categoryName: map['category_name'],
       quantity: map['quantity'] ?? 1,
       unitPrice: (map['unit_price'] as num? ?? 0).toDouble(),
       subtotal: (map['subtotal'] as num? ?? 0).toDouble(),

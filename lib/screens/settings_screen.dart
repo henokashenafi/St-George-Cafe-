@@ -26,11 +26,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _cafeVatController = TextEditingController();
   final _cafeCurrencyController = TextEditingController();
   final _vatRateController = TextEditingController();
-  
+
   bool _discountEnabled = true;
   bool _saving = false;
   bool _initialized = false;
-  
+
   List<Printer> _printers = [];
   String? _selectedPrinterName;
   bool _isLoadingPrinters = false;
@@ -49,22 +49,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     if (_initialized) return;
-    
+
     final settings = await ref.read(appSettingsProvider.future);
     final cafe = await ref.read(cafeSettingsProvider.future);
-    
+
     _serviceChargeController.text = settings['service_charge_percent'] ?? '5.0';
     _discountEnabled = (settings['discount_enabled'] ?? 'true') == 'true';
-    
+
     _cafeNameController.text = cafe.name;
     _cafeAddressController.text = cafe.address;
     _cafePhoneController.text = cafe.phone;
     _cafeVatController.text = cafe.vatNumber;
     _cafeCurrencyController.text = cafe.currency;
     _vatRateController.text = cafe.vatRate.toString();
-    
+
     _selectedPrinterName = settings['default_printer_name'];
-    
+
     setState(() => _initialized = true);
     _fetchPrinters();
   }
@@ -91,21 +91,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (currentUser == null) return;
     final charge = double.tryParse(_serviceChargeController.text);
     if (charge == null || charge < 0 || charge > 100) {
-      TopToaster.show(context, ref.t('settings.serviceChargeError'), isError: true);
+      TopToaster.show(
+        context,
+        ref.t('settings.serviceChargeError'),
+        isError: true,
+      );
       return;
     }
     setState(() => _saving = true);
     final repo = ref.read(posRepositoryProvider);
-    
+
     // Save Billing
-    await repo.setSetting('service_charge_percent', charge.toString(), currentUser.id!);
-    await repo.setSetting('discount_enabled', _discountEnabled.toString(), currentUser.id!);
+    await repo.setSetting(
+      'service_charge_percent',
+      charge.toString(),
+      currentUser.id!,
+    );
+    await repo.setSetting(
+      'discount_enabled',
+      _discountEnabled.toString(),
+      currentUser.id!,
+    );
     if (_selectedPrinterName != null) {
-      await repo.setSetting('default_printer_name', _selectedPrinterName!, currentUser.id!);
+      await repo.setSetting(
+        'default_printer_name',
+        _selectedPrinterName!,
+        currentUser.id!,
+      );
     } else {
       await repo.setSetting('default_printer_name', '', currentUser.id!);
     }
-    
+
     // Save Cafe Info
     final newCafe = CafeSettings(
       name: _cafeNameController.text,
@@ -116,25 +132,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       vatRate: double.tryParse(_vatRateController.text) ?? 0.0,
     );
     await repo.saveSettings(newCafe);
-    
+
     // Sync VAT with pos_charges
     final charges = await ref.read(chargesProvider.future);
     try {
-      final vatCharge = charges.firstWhere((c) => c.name.toUpperCase() == 'VAT');
-      await repo.updateCharge(vatCharge.id!, vatCharge.copyWith(value: newCafe.vatRate).toMap());
+      final vatCharge = charges.firstWhere(
+        (c) => c.name.toUpperCase() == 'VAT',
+      );
+      await repo.updateCharge(
+        vatCharge.id!,
+        vatCharge.copyWith(value: newCafe.vatRate).toMap(),
+      );
     } catch (e) {
-      await repo.addCharge({'name': 'VAT', 'type': 'addition', 'value': newCafe.vatRate, 'is_active': 1});
+      await repo.addCharge({
+        'name': 'VAT',
+        'type': 'addition',
+        'value': newCafe.vatRate,
+        'is_active': 1,
+      });
     }
     ref.invalidate(chargesProvider);
-    
-    await ref.read(auditServiceProvider).log(
-      'Settings Updated',
-      details: 'User: ${currentUser.username}, SC: $charge%',
-    );
+
+    await ref
+        .read(auditServiceProvider)
+        .log(
+          'Settings Updated',
+          details: 'User: ${currentUser.username}, SC: $charge%',
+        );
 
     ref.invalidate(appSettingsProvider);
     ref.invalidate(cafeSettingsProvider);
-    
+
     setState(() => _saving = false);
     if (mounted) {
       TopToaster.show(context, ref.t('settings.saved'));
@@ -143,12 +171,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(languageProvider);
     final settingsAsync = ref.watch(appSettingsProvider);
 
     return FutureBuilder(
       future: _loadSettings(),
       builder: (context, snapshot) {
-        if (!_initialized) return const Center(child: CircularProgressIndicator());
+        if (!_initialized)
+          return const Center(child: CircularProgressIndicator());
         return SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,7 +219,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'VAT Rate (%)',
+                        ref.t('settings.vatRate'),
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 14,
@@ -209,7 +239,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ),
                           ],
                           style: const TextStyle(color: Colors.white),
-                          decoration: _inputDec('e.g. 15.0'),
+                          decoration: _inputDec(ref.t('settings.vatRateHint')),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -233,28 +263,43 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-              _SectionHeader(title: 'CAFE INFORMATION'),
+              _SectionHeader(title: ref.t('settings.cafeInformation')),
               GlassContainer(
                 opacity: 0.05,
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(
                     children: [
-                      _buildTextField(_cafeNameController, 'Cafe Name'),
+                      _buildTextField(
+                        _cafeNameController,
+                        ref.t('settings.cafeName'),
+                      ),
                       const SizedBox(height: 16),
-                      _buildTextField(_cafeAddressController, 'Address'),
+                      _buildTextField(
+                        _cafeAddressController,
+                        ref.t('settings.address'),
+                      ),
                       const SizedBox(height: 16),
-                      _buildTextField(_cafePhoneController, 'Phone'),
+                      _buildTextField(
+                        _cafePhoneController,
+                        ref.t('settings.phone'),
+                      ),
                       const SizedBox(height: 16),
-                      _buildTextField(_cafeVatController, 'VAT Number'),
+                      _buildTextField(
+                        _cafeVatController,
+                        ref.t('settings.vatNumber'),
+                      ),
                       const SizedBox(height: 16),
-                      _buildTextField(_cafeCurrencyController, 'Currency (e.g. ETB)'),
+                      _buildTextField(
+                        _cafeCurrencyController,
+                        ref.t('settings.currencyLabel'),
+                      ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 32),
-              _SectionHeader(title: 'HARDWARE & PRINTERS'),
+              _SectionHeader(title: ref.t('settings.hardwarePrinters')),
               GlassContainer(
                 opacity: 0.05,
                 child: Padding(
@@ -262,39 +307,63 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Default Receipt Printer',
-                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      Text(
+                        ref.t('settings.defaultPrinter'),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       if (_isLoadingPrinters)
                         const CircularProgressIndicator()
                       else
                         DropdownButtonFormField<String?>(
-                          value: _selectedPrinterName == '' ? null : _selectedPrinterName,
+                          value: _selectedPrinterName == ''
+                              ? null
+                              : _selectedPrinterName,
                           dropdownColor: const Color(0xFF1A1A1A),
-                          decoration: _inputDec('Select a Printer'),
+                          decoration: _inputDec(
+                            ref.t('settings.selectPrinter'),
+                          ),
                           items: [
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                               value: null,
-                              child: Text('None (Use Print Dialog)'),
+                              child: Text(ref.t('settings.noPrinter')),
                             ),
-                            ..._printers.map((p) => DropdownMenuItem(
-                                  value: p.name,
-                                  child: Text(p.name),
-                                )),
-                            if (_selectedPrinterName != null && _selectedPrinterName != '' && !_printers.any((p) => p.name == _selectedPrinterName))
+                            ..._printers.map(
+                              (p) => DropdownMenuItem(
+                                value: p.name,
+                                child: Text(p.name),
+                              ),
+                            ),
+                            if (_selectedPrinterName != null &&
+                                _selectedPrinterName != '' &&
+                                !_printers.any(
+                                  (p) => p.name == _selectedPrinterName,
+                                ))
                               DropdownMenuItem(
                                 value: _selectedPrinterName,
-                                child: Text('$_selectedPrinterName (Offline)'),
+                                child: Text(
+                                  ref.t(
+                                    'settings.printerOffline',
+                                    replacements: {
+                                      'name': _selectedPrinterName!,
+                                    },
+                                  ),
+                                ),
                               ),
                           ],
-                          onChanged: (v) => setState(() => _selectedPrinterName = v),
+                          onChanged: (v) =>
+                              setState(() => _selectedPrinterName = v),
                         ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Select a printer to enable silent direct printing. If set to None, the system print dialog will be used.',
-                        style: TextStyle(color: Colors.white38, fontSize: 11),
+                      Text(
+                        ref.t('settings.printerDescription'),
+                        style: const TextStyle(
+                          color: Colors.white38,
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                   ),
@@ -323,9 +392,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           color: Colors.black,
                         ),
                       )
-                    : const Text(
-                        'SAVE ALL SETTINGS',
-                        style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2),
+                    : Text(
+                        ref.t('settings.saveAll'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                        ),
                       ),
               ),
               const SizedBox(height: 60),
@@ -340,7 +412,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
+        ),
         const SizedBox(height: 6),
         TextFormField(
           controller: ctrl,

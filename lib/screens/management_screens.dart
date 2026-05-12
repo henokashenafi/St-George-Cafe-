@@ -116,7 +116,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                       if (selectedCategoryId != null)
                         TextButton.icon(
                           icon: const Icon(Icons.library_add_check, size: 18),
-                          label: const Text('Bulk Assign'),
+                          label: Text(ref.t('management.bulkAssign')),
                           style: TextButton.styleFrom(
                             foregroundColor: const Color(0xFFD4AF37),
                           ),
@@ -339,8 +339,8 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                   onSubmitted: (_) => doSave(ctx),
                 ),
                 const SizedBox(height: 20),
-                const Text(
-                  'CATEGORIES',
+                Text(
+                  ref.t('management.categoriesLabel'),
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -425,7 +425,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
-          title: const Text('Bulk Assign to Category'),
+          title: Text(ref.t('management.bulkAssignTitle')),
           content: SizedBox(
             width: 400,
             height: 400,
@@ -696,7 +696,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                       onChanged: (v) => setState(() => searchQuery = v),
                       style: const TextStyle(fontSize: 13, color: Colors.white),
                       decoration: InputDecoration(
-                        hintText: 'Search by Waiter...',
+                        hintText: ref.t('history.searchByWaiter'),
                         hintStyle: TextStyle(
                           color: Colors.white.withOpacity(0.3),
                           fontSize: 13,
@@ -782,8 +782,11 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                               ),
                               tooltip: ref.t('management.reprintBill'),
                               onPressed: () async {
-                                final appSettings = await ref.read(appSettingsProvider.future);
-                                final printerName = appSettings['default_printer_name'];
+                                final appSettings = await ref.read(
+                                  appSettingsProvider.future,
+                                );
+                                final printerName =
+                                    appSettings['default_printer_name'];
                                 final settings = await ref.read(
                                   cafeSettingsProvider.future,
                                 );
@@ -902,7 +905,7 @@ class _HeldOrdersScreenState extends ConsumerState<HeldOrdersScreen> {
                           setState(() => _searchQuery = v.toLowerCase()),
                       style: const TextStyle(fontSize: 13, color: Colors.white),
                       decoration: InputDecoration(
-                        hintText: 'Search waiter, table or item...',
+                        hintText: ref.t('management.searchOrdersHint'),
                         hintStyle: TextStyle(
                           color: Colors.white.withOpacity(0.3),
                           fontSize: 13,
@@ -1092,7 +1095,7 @@ class ShiftManagementScreen extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 20),
           child: Text(
-            'SHIFT MANAGEMENT',
+            ref.t('shift.title'),
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -1109,7 +1112,14 @@ class ShiftManagementScreen extends ConsumerWidget {
               return _buildActiveShift(context, ref, shift);
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (e, _) => Center(
+              child: Text(
+                ref.t(
+                  'errors.errorWithMessage',
+                  replacements: {'message': '$e'},
+                ),
+              ),
+            ),
           ),
         ),
       ],
@@ -1127,8 +1137,8 @@ class ShiftManagementScreen extends ConsumerWidget {
             color: Colors.white.withOpacity(0.1),
           ),
           const SizedBox(height: 24),
-          const Text(
-            'NO ACTIVE SHIFT',
+          Text(
+            ref.t('shift.noActive'),
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w900,
@@ -1137,8 +1147,8 @@ class ShiftManagementScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Start a new shift to begin processing orders.',
+          Text(
+            ref.t('shift.openNewDescription'),
             style: TextStyle(color: Colors.white38),
           ),
           const SizedBox(height: 40),
@@ -1152,8 +1162,8 @@ class ShiftManagementScreen extends ConsumerWidget {
               ),
             ),
             icon: const Icon(Icons.play_arrow),
-            label: const Text(
-              'OPEN NEW SHIFT',
+            label: Text(
+              ref.t('shift.openNew'),
               style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
             ),
             onPressed: () => _showOpenShiftDialog(context, ref),
@@ -1194,8 +1204,8 @@ class ShiftManagementScreen extends ConsumerWidget {
                               color: Colors.green.withOpacity(0.2),
                               border: Border.all(color: Colors.green),
                             ),
-                            child: const Text(
-                              'ACTIVE',
+                            child: Text(
+                              ref.t('shift.active'),
                               style: TextStyle(
                                 color: Colors.green,
                                 fontSize: 10,
@@ -1205,7 +1215,10 @@ class ShiftManagementScreen extends ConsumerWidget {
                           ),
                           const SizedBox(width: 12),
                           Text(
-                            'SHIFT #${shift.id}',
+                            ref.t(
+                              'shift.shiftNumber',
+                              replacements: {'id': '${shift.id}'},
+                            ),
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.white38,
@@ -1225,7 +1238,10 @@ class ShiftManagementScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Started on $startTime',
+                        ref.t(
+                          'shift.startedOn',
+                          replacements: {'time': startTime},
+                        ),
                         style: const TextStyle(color: Colors.white54),
                       ),
                     ],
@@ -1234,8 +1250,8 @@ class ShiftManagementScreen extends ConsumerWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text(
-                      'STARTING CASH',
+                    Text(
+                      ref.t('shift.startCash'),
                       style: TextStyle(
                         fontSize: 10,
                         color: Colors.white38,
@@ -1261,8 +1277,8 @@ class ShiftManagementScreen extends ConsumerWidget {
             children: [
               Expanded(
                 child: _ShiftActionCard(
-                  title: 'X-REPORT',
-                  subtitle: 'Snapshot of current shift totals',
+                  title: ref.t('shift.xReport'),
+                  subtitle: ref.t('shift.xReportSubtitle'),
                   icon: Icons.receipt_long,
                   color: Colors.blueAccent,
                   onTap: () => _printXReport(context, ref, shift),
@@ -1271,8 +1287,8 @@ class ShiftManagementScreen extends ConsumerWidget {
               const SizedBox(width: 20),
               Expanded(
                 child: _ShiftActionCard(
-                  title: 'END SHIFT (Z-REPORT)',
-                  subtitle: 'Close shift and reconcile cash',
+                  title: ref.t('shift.endShiftZ'),
+                  subtitle: ref.t('shift.endShiftSubtitle'),
                   icon: Icons.power_settings_new,
                   color: Colors.redAccent,
                   onTap: () => _showEndShiftDialog(context, ref, shift),
@@ -1291,12 +1307,12 @@ class ShiftManagementScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('OPEN NEW SHIFT'),
+        title: Text(ref.t('shift.openNew')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Enter the starting cash float in the drawer.',
+            Text(
+              ref.t('shift.openNewDescription'),
               style: TextStyle(color: Colors.white54, fontSize: 13),
             ),
             const SizedBox(height: 20),
@@ -1305,9 +1321,9 @@ class ShiftManagementScreen extends ConsumerWidget {
               keyboardType: TextInputType.number,
               autofocus: true,
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              decoration: const InputDecoration(
-                labelText: 'Starting Cash',
-                prefixText: 'ETB ',
+              decoration: InputDecoration(
+                labelText: ref.t('shift.startingCash'),
+                prefixText: '${ref.t('common.currency')} ',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -1316,7 +1332,7 @@ class ShiftManagementScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('CANCEL'),
+            child: Text(ref.t('common.cancel').toUpperCase()),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -1328,7 +1344,7 @@ class ShiftManagementScreen extends ConsumerWidget {
               await ref.read(activeOrderServiceProvider).startShift(cash);
               Navigator.pop(ctx);
             },
-            child: const Text('OPEN SHIFT'),
+            child: Text(ref.t('shift.openShift')),
           ),
         ],
       ),
@@ -1359,7 +1375,7 @@ class ShiftManagementScreen extends ConsumerWidget {
 
           return AlertDialog(
             backgroundColor: const Color(0xFF1A1A1A),
-            title: const Text('END SHIFT & RECONCILE'),
+            title: Text(ref.t('shift.endReconcile')),
             content: SizedBox(
               width: 400,
               child: Column(
@@ -1373,11 +1389,14 @@ class ShiftManagementScreen extends ConsumerWidget {
                     ),
                     child: Column(
                       children: [
-                        _reconcileRow('Opening Float', shift.startingCash),
-                        _reconcileRow('Cash Sales', cashSales),
+                        _reconcileRow(
+                          ref.t('shift.startCash'),
+                          shift.startingCash,
+                        ),
+                        _reconcileRow(ref.t('shift.cashSales'), cashSales),
                         const Divider(color: Colors.white10),
                         _reconcileRow(
-                          'Expected in Drawer',
+                          ref.t('shift.expectedDrawer'),
                           expectedCash,
                           isBold: true,
                         ),
@@ -1394,8 +1413,8 @@ class ShiftManagementScreen extends ConsumerWidget {
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
-                    decoration: const InputDecoration(
-                      labelText: 'Actual Cash Counted',
+                    decoration: InputDecoration(
+                      labelText: ref.t('shift.actualCashCounted'),
                       prefixText: 'ETB ',
                       border: OutlineInputBorder(),
                     ),
@@ -1417,8 +1436,10 @@ class ShiftManagementScreen extends ConsumerWidget {
                         children: [
                           Text(
                             diff == 0
-                                ? 'BALANCED'
-                                : (diff > 0 ? 'OVERAGE' : 'SHORTAGE'),
+                                ? ref.t('shift.balanced')
+                                : (diff > 0
+                                      ? ref.t('shift.overage')
+                                      : ref.t('shift.shortage')),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: diff == 0
@@ -1444,7 +1465,7 @@ class ShiftManagementScreen extends ConsumerWidget {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('CANCEL'),
+                child: Text(ref.t('common.cancel').toUpperCase()),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -1490,14 +1511,12 @@ class ShiftManagementScreen extends ConsumerWidget {
                   if (!context.mounted) return;
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Shift closed, Snapshot saved & Z-Slip printed.',
-                      ),
+                    SnackBar(
+                      content: Text(ref.t('shift.zReportSaved')),
                     ),
                   );
                 },
-                child: const Text('CLOSE SHIFT'),
+                child: Text(ref.t('shift.closeShift')),
               ),
             ],
           );
@@ -1548,9 +1567,9 @@ class ShiftManagementScreen extends ConsumerWidget {
     );
 
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('X-Report generated and sent to printer.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(ref.t('shift.xReportSent'))));
   }
 }
 
@@ -2428,9 +2447,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
         .toList();
 
     if (completed.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No completed orders to print.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(ref.t('reports.noOrdersToPrint'))));
       return;
     }
 
@@ -2571,15 +2590,15 @@ class _ZReportHistorySection extends ConsumerWidget {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'NET SALES',
+                                  Text(
+                                    ref.t('shift.netSales'),
                                     style: TextStyle(
                                       fontSize: 9,
                                       color: Colors.white38,
                                     ),
                                   ),
                                   Text(
-                                    '${(r.reportData['sales_totals']?['net_sales'] as num? ?? 0).toStringAsFixed(2)} ETB',
+                                    '${(r.reportData['sales_totals']?['net_sales'] as num? ?? 0).toStringAsFixed(2)} ${ref.t('common.currency')}',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -2594,7 +2613,7 @@ class _ZReportHistorySection extends ConsumerWidget {
                                       size: 20,
                                     ),
                                     onPressed: () =>
-                                        _showZReportDetail(context, r),
+                                        _showZReportDetail(context, ref, r),
                                   ),
                                   IconButton(
                                     icon: const Icon(
@@ -2626,13 +2645,19 @@ class _ZReportHistorySection extends ConsumerWidget {
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Text('Error: $e'),
+          error: (e, _) => Text(
+            ref.t('errors.errorWithMessage', replacements: {'message': '$e'}),
+          ),
         ),
       ],
     );
   }
 
-  void _showZReportDetail(BuildContext context, ZReportModel report) {
+  void _showZReportDetail(
+    BuildContext context,
+    WidgetRef ref,
+    ZReportModel report,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -2650,46 +2675,49 @@ class _ZReportHistorySection extends ConsumerWidget {
                   size: 40,
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'DIGITAL Z-REPORT',
+                Text(
+                  ref.t('reports.digitalZReport'),
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
                     letterSpacing: 2,
                   ),
                 ),
                 const Divider(height: 32, color: Colors.white10),
-                _DigitalSlipRow('Report #', '${report.zCount}'),
                 _DigitalSlipRow(
-                  'Cashier',
+                  ref.t('reports.reportNumber'),
+                  '${report.zCount}',
+                ),
+                _DigitalSlipRow(
+                  ref.t('bill.cashier'),
                   report.reportData['report_header']['cashier_name'],
                 ),
                 _DigitalSlipRow(
-                  'Date',
+                  ref.t('bill.date'),
                   DateFormat('dd/MM/yyyy').format(report.createdAt),
                 ),
                 const Divider(height: 32, color: Colors.white10),
                 _DigitalSlipRow(
-                  'Gross Sales',
+                  ref.t('reports.grossSales'),
                   '${report.reportData['sales_totals']['gross_sales']}',
                 ),
                 if ((report.reportData['sales_totals']['vat'] as num? ?? 0) > 0)
                   _DigitalSlipRow(
-                    'VAT',
+                    ref.t('reports.vat'),
                     '${report.reportData['sales_totals']['vat']}',
                   ),
                 _DigitalSlipRow(
-                  'Discount',
+                  ref.t('bill.discount'),
                   '${report.reportData['sales_totals']['discounts']}',
                 ),
                 _DigitalSlipRow(
-                  'NET TOTAL',
+                  ref.t('reports.netTotal'),
                   '${report.reportData['sales_totals']['net_sales']}',
                   isBold: true,
                 ),
 
                 const Divider(height: 32, color: Colors.white10),
-                const Text(
-                  'PAYMENT METHODS',
+                Text(
+                  ref.t('reports.paymentMethods'),
                   style: TextStyle(fontSize: 10, color: Colors.white38),
                 ),
                 const SizedBox(height: 8),
@@ -2701,7 +2729,7 @@ class _ZReportHistorySection extends ConsumerWidget {
                     ),
                 const Divider(height: 32, color: Colors.white10),
                 _DigitalSlipRow(
-                  'CASH VARIANCE',
+                  ref.t('shift.cashVariance'),
                   '${report.reportData['cash_reconciliation']['difference']}',
                   isBold: true,
                 ),
@@ -2712,7 +2740,7 @@ class _ZReportHistorySection extends ConsumerWidget {
                     backgroundColor: const Color(0xFFD4AF37),
                     foregroundColor: Colors.black,
                   ),
-                  child: const Text('CLOSE PREVIEW'),
+                  child: Text(ref.t('shift.closePreview')),
                 ),
               ],
             ),
@@ -3121,7 +3149,7 @@ class _DateFilterChips extends ConsumerWidget {
                 ? const Color(0xFFD4AF37)
                 : Colors.white54,
           ),
-          tooltip: 'Custom Range',
+          tooltip: ref.t('reports.customRange'),
           onPressed: () async {
             // Sequential pickers for "auto-submit" behavior
             final fromDate = await showDatePicker(
@@ -3513,7 +3541,7 @@ class ChargeManagementScreen extends ConsumerWidget {
     return Column(
       children: [
         _Header(
-          title: 'DYNAMIC CHARGES (ADDITIONS & DEDUCTIONS)',
+          title: ref.t('charges.dynamicTitle'),
           onAdd: () => _showChargeDialog(context, ref, null),
         ),
         const SizedBox(height: 24),
@@ -3538,7 +3566,8 @@ class ChargeManagementScreen extends ConsumerWidget {
               },
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (e, _) =>
+                Center(child: Text('${ref.t('common.error')}: $e')),
           ),
         ),
       ],
@@ -3559,33 +3588,37 @@ class ChargeManagementScreen extends ConsumerWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
-          title: Text(charge == null ? 'Add Charge' : 'Edit Charge'),
+          title: Text(
+            charge == null ? ref.t('charges.add') : ref.t('charges.edit'),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Name (e.g. VAT, Service)',
+                decoration: InputDecoration(
+                  labelText: ref.t('charges.nameHint'),
                 ),
               ),
               TextField(
                 controller: valueCtrl,
-                decoration: const InputDecoration(labelText: 'Value (%)'),
+                decoration: InputDecoration(
+                  labelText: ref.t('charges.valueHint'),
+                ),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 16),
               DropdownButton<String>(
                 value: type,
                 isExpanded: true,
-                items: const [
+                items: [
                   DropdownMenuItem(
                     value: 'addition',
-                    child: Text('Addition (+)'),
+                    child: Text(ref.t('charges.addition')),
                   ),
                   DropdownMenuItem(
                     value: 'deduction',
-                    child: Text('Deduction (-)'),
+                    child: Text(ref.t('charges.deduction')),
                   ),
                 ],
                 onChanged: (v) => setLocalState(() => type = v!),
@@ -3595,7 +3628,7 @@ class ChargeManagementScreen extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+              child: Text(ref.t('common.cancel')),
             ),
             ElevatedButton(
               onPressed: () {
@@ -3613,7 +3646,7 @@ class ChargeManagementScreen extends ConsumerWidget {
                 }
                 Navigator.pop(ctx);
               },
-              child: const Text('Save'),
+              child: Text(ref.t('common.save')),
             ),
           ],
         ),
