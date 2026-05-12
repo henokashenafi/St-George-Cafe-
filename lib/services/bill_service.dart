@@ -20,6 +20,7 @@ class BillService {
     required int roundNumber,
     String? printerName,
   }) async {
+    debugPrint('Starting Kitchen Slip PDF Generation...');
     // Force English for printing
     String t(String key, {Map<String, String>? replacements}) => 
         AppLocalizations.getEnglish(key, replacements: replacements);
@@ -138,6 +139,7 @@ class BillService {
       ),
     );
 
+    debugPrint('PDF layout complete. Sending to printer...');
     await _printDocument(
       pdf: pdf,
       documentName: 'Kitchen_Round${roundNumber}_Order${order.id}.pdf',
@@ -831,6 +833,7 @@ class BillService {
       }
     }
 
+    debugPrint('Falling back to system print dialog (layoutPdf)...');
     await Printing.layoutPdf(
       onLayout: (_) async => pdf.save(),
       name: documentName,
