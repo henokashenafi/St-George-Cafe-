@@ -9,6 +9,7 @@ import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/models/charge.dart';
 import 'package:st_george_pos/models/settings.dart';
 import 'package:st_george_pos/models/z_report.dart';
+import 'package:st_george_pos/locales/app_localizations.dart';
 
 class BillService {
   // ── Kitchen Slip PDF (A5 compact) ────────────────────────────────────────
@@ -17,9 +18,12 @@ class BillService {
     required OrderModel order,
     required List<OrderItem> items,
     required int roundNumber,
-    required String Function(String key, {Map<String, String>? replacements}) t,
     String? printerName,
   }) async {
+    // Force English for printing
+    String t(String key, {Map<String, String>? replacements}) => 
+        AppLocalizations.getEnglish(key, replacements: replacements);
+
     final pdf = pw.Document();
     final now = DateTime.now();
     final timeStr = DateFormat('HH:mm').format(now);
@@ -138,6 +142,7 @@ class BillService {
       pdf: pdf,
       documentName: 'Kitchen_Round${roundNumber}_Order${order.id}.pdf',
       printerName: printerName,
+      format: PdfPageFormat.roll80,
     );
   }
 
@@ -149,9 +154,12 @@ class BillService {
     required CafeSettings settings,
     required String cashierName,
     required List<ChargeModel> activeCharges,
-    required String Function(String key, {Map<String, String>? replacements}) t,
     String? printerName,
   }) async {
+    // Force English for printing
+    String t(String key, {Map<String, String>? replacements}) => 
+        AppLocalizations.getEnglish(key, replacements: replacements);
+
     final pdf = pw.Document();
     final now = DateTime.now();
     final dateStr = DateFormat('dd/MM/yyyy').format(now);
@@ -353,6 +361,7 @@ class BillService {
       pdf: pdf,
       documentName: 'Invoice_${voucherNo}.pdf',
       printerName: printerName,
+      format: PdfPageFormat.roll80,
     );
   }
 
@@ -361,12 +370,10 @@ class BillService {
   static Future<void> reprintZReport({
     required ZReportModel report,
     required CafeSettings settings,
-    required String Function(String key, {Map<String, String>? replacements}) t,
   }) async {
     await printReport(
       reportData: report.reportData,
       settings: settings,
-      t: t,
       isZReport: true,
     );
   }
@@ -374,9 +381,12 @@ class BillService {
   static Future<void> printReport({
     required Map<String, dynamic> reportData,
     required CafeSettings settings,
-    required String Function(String key, {Map<String, String>? replacements}) t,
     bool isZReport = false,
   }) async {
+    // Force English for printing
+    String t(String key, {Map<String, String>? replacements}) => 
+        AppLocalizations.getEnglish(key, replacements: replacements);
+
     final pdf = pw.Document();
     final font = pw.Font.helvetica();
 
@@ -778,6 +788,7 @@ class BillService {
       documentName:
           '${isZReport ? 'Z' : 'X'}_Report_Shift_${header['shift_number']}.pdf',
       printerName: settings.defaultPrinterName,
+      format: PdfPageFormat.roll80,
     );
   }
 
@@ -787,21 +798,26 @@ class BillService {
     required pw.Document pdf,
     required String documentName,
     String? printerName,
+    PdfPageFormat format = PdfPageFormat.roll80,
   }) async {
     if (printerName != null && printerName.isNotEmpty && !kIsWeb) {
       try {
         final printers = await Printing.listPrinters();
-        final printer = printers.firstWhere(
-          (p) => p.name == printerName,
-          orElse: () => printers.first,
-        );
-        await Printing.directPrintPdf(
-          printer: printer,
-          onLayout: (_) async => pdf.save(),
-          name: documentName,
-        );
-        return;
+        if (printers.isNotEmpty) {
+          final printer = printers.firstWhere(
+            (p) => p.name == printerName,
+            orElse: () => printers.first,
+          );
+          await Printing.directPrintPdf(
+            printer: printer,
+            onLayout: (_) async => pdf.save(),
+            name: documentName,
+            format: format,
+          );
+          return;
+        }
       } catch (e) {
+        debugPrint('Direct Print Error: $e');
         // Fallback to dialog if direct printing fails
       }
     }
@@ -809,6 +825,7 @@ class BillService {
     await Printing.layoutPdf(
       onLayout: (_) async => pdf.save(),
       name: documentName,
+      format: format,
     );
   }
 
@@ -889,18 +906,18 @@ class BillService {
   ) {
     final int whole = amount.truncate();
     final int cents = ((amount - whole) * 100).round();
-    final words = _intToWords(whole, t);
+    final words = _intToWords(whole);
     final centsStr = cents > 0
-        ? ' ${t('common.numbers.and')} ${_intToWords(cents, t)} ${t('common.numbers.cents')}'
+        ? ' ${t('common.numbers.and')} ${_intToWords(cents)} ${t('common.numbers.cents')}'
         : ' ${t('common.numbers.and')} ${t('common.numbers.zero')} ${t('common.numbers.cents')}';
     return '$words $centsStr ${t('common.numbers.only')}';
   }
 
-  static String _intToWords(
-    int n,
-    String Function(String key, {Map<String, String>? replacements}) t,
-  ) {
-    if (n == 0) return t('numbers.zero');
+  static String _intToWords(int n) {
+    String t(String key, {Map<String, String>? replacements}) => 
+        AppLocalizations.getEnglish(key, replacements: replacements);
+
+    if (n == 0) return t('common.numbers.zero');
     const ones = [
       '',
       'one',
@@ -939,11 +956,11 @@ class BillService {
     String result = '';
     if (n >= 1000000) {
       result +=
-          '${_intToWords(n ~/ 1000000, t)} ${t('common.numbers.million')} ';
+          '${_intToWords(n ~/ 1000000)} ${t('common.numbers.million')} ';
       n %= 1000000;
     }
     if (n >= 1000) {
-      result += '${_intToWords(n ~/ 1000, t)} ${t('common.numbers.thousand')} ';
+      result += '${_intToWords(n ~/ 1000)} ${t('common.numbers.thousand')} ';
       n %= 1000;
     }
     if (n >= 100) {

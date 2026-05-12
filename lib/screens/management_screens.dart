@@ -800,11 +800,6 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                                   cashierName: o.cashierName,
                                   activeCharges: charges,
                                   printerName: printerName,
-                                  t: (key, {replacements}) =>
-                                      AppLocalizations.getEnglish(
-                                        key,
-                                        replacements: replacements,
-                                      ),
                                 );
                               },
                             ),
@@ -1504,7 +1499,6 @@ class ShiftManagementScreen extends ConsumerWidget {
                   await BillService.printReport(
                     reportData: reportData,
                     settings: settings,
-                    t: ref.t,
                     isZReport: true,
                   );
 
@@ -1562,7 +1556,6 @@ class ShiftManagementScreen extends ConsumerWidget {
     await BillService.printReport(
       reportData: reportData,
       settings: settings,
-      t: ref.t,
       isZReport: false,
     );
 
@@ -2146,7 +2139,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                             await BillService.reprintZReport(
                               report: report,
                               settings: settings,
-                              t: ref.t,
                             );
                           },
                         ),
@@ -2500,7 +2492,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     await BillService.printReport(
       reportData: reportData,
       settings: settings,
-      t: ref.t,
       isZReport: false,
     );
   }
@@ -2627,7 +2618,6 @@ class _ZReportHistorySection extends ConsumerWidget {
                                       await BillService.printReport(
                                         reportData: r.reportData,
                                         settings: settings,
-                                        t: ref.t,
                                         isZReport: true,
                                       );
                                     },
