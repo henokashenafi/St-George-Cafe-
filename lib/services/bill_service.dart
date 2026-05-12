@@ -802,23 +802,24 @@ class BillService {
   }) async {
     if (printerName != null && printerName.isNotEmpty && !kIsWeb) {
       try {
+        debugPrint('Attempting direct print to: $printerName');
         final printers = await Printing.listPrinters();
-        if (printers.isNotEmpty) {
-          final printer = printers.firstWhere(
-            (p) => p.name == printerName,
-            orElse: () => printers.first,
-          );
-          await Printing.directPrintPdf(
-            printer: printer,
-            onLayout: (_) async => pdf.save(),
-            name: documentName,
-            format: format,
-          );
-          return;
-        }
+        final printer = printers.firstWhere(
+          (p) => p.name == printerName,
+          orElse: () => printers.first,
+        );
+        
+        final success = await Printing.directPrintPdf(
+          printer: printer,
+          onLayout: (_) async => pdf.save(),
+          name: documentName,
+          format: format,
+        );
+        
+        if (success) return;
+        debugPrint('Direct printing returned false, falling back to layoutPdf');
       } catch (e) {
         debugPrint('Direct Print Error: $e');
-        // Fallback to dialog if direct printing fails
       }
     }
 

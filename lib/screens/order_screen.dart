@@ -361,6 +361,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     Map<String, String> settings,
   ) async {
     if (localItems.isEmpty) return;
+    TopToaster.show(context, 'Processing print job...', isError: false);
 
     if (selectedTable == null) {
       TopToaster.show(context, ref.t('dashboard.selectTable'), isError: true);
@@ -427,6 +428,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     OrderModel order,
     Map<String, String> settings,
   ) async {
+    TopToaster.show(context, 'Generating bill PDF...', isError: false);
     final serviceChargePercent =
         double.tryParse(settings['service_charge_percent'] ?? '5') ?? 5;
     final discountEnabled = (settings['discount_enabled'] ?? 'true') == 'true';
@@ -1726,23 +1728,13 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                 ),
                                                 onPressed:
                                                     (localItems.isEmpty ||
-                                                        selectedTable == null ||
-                                                        (activeOrderAsync
-                                                                    .value ==
-                                                                null &&
-                                                            selectedWaiter ==
-                                                                null))
+                                                        selectedTable == null)
                                                     ? null
-                                                    : () => appSettingsAsync
-                                                          .maybeWhen(
-                                                            data: (s) =>
-                                                                _sendToKitchen(
-                                                                  activeOrderAsync
-                                                                      .value,
-                                                                  s,
-                                                                ),
-                                                            orElse: () => null,
-                                                          ),
+                                                    : () async {
+                                                      final settings = ref.read(appSettingsProvider).value ?? {};
+                                                      final activeOrder = ref.read(activeOrderProvider(selectedTable!.id!)).value;
+                                                      await _sendToKitchen(activeOrder, settings);
+                                                    },
                                                 child: Text(
                                                   ref.t('order.sendToKitchen'),
                                                   style: const TextStyle(
@@ -1774,16 +1766,13 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                             null ||
                                                         selectedTable == null)
                                                     ? null
-                                                    : () => appSettingsAsync
-                                                          .maybeWhen(
-                                                            data: (s) =>
-                                                                _printBill(
-                                                                  activeOrderAsync
-                                                                      .value!,
-                                                                  s,
-                                                                ),
-                                                            orElse: () => null,
-                                                          ),
+                                                    : () async {
+                                                      final settings = ref.read(appSettingsProvider).value ?? {};
+                                                      final activeOrder = ref.read(activeOrderProvider(selectedTable!.id!)).value;
+                                                      if (activeOrder != null) {
+                                                        await _printBill(activeOrder, settings);
+                                                      }
+                                                    },
                                                 child: Text(
                                                   ref.t('order.printBill'),
                                                   style: const TextStyle(
