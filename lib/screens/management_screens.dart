@@ -782,6 +782,8 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                               ),
                               tooltip: ref.t('management.reprintBill'),
                               onPressed: () async {
+                                final appSettings = await ref.read(appSettingsProvider.future);
+                                final printerName = appSettings['default_printer_name'];
                                 final settings = await ref.read(
                                   cafeSettingsProvider.future,
                                 );
@@ -794,6 +796,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                                   settings: settings,
                                   cashierName: o.cashierName,
                                   activeCharges: charges,
+                                  printerName: printerName,
                                   t: (key, {replacements}) =>
                                       AppLocalizations.getEnglish(
                                         key,
@@ -3116,9 +3119,6 @@ class _ReportCard extends StatelessWidget {
   }
 }
 
-// --- Settings Screen ---
-class SettingsScreen extends ConsumerStatefulWidget {
-  const SettingsScreen({super.key});
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();

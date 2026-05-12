@@ -3,6 +3,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart';
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/models/charge.dart';
@@ -16,6 +17,7 @@ class BillService {
     required List<OrderItem> items,
     required int roundNumber,
     required String Function(String key, {Map<String, String>? replacements}) t,
+    String? printerName,
   }) async {
     final pdf = pw.Document();
     final now = DateTime.now();
@@ -27,9 +29,9 @@ class BillService {
 
     pdf.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.a5,
+        pageFormat: PdfPageFormat.roll80,
         theme: pw.ThemeData.withFont(base: font),
-        margin: const pw.EdgeInsets.all(24),
+        margin: const pw.EdgeInsets.all(12),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
