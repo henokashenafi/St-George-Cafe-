@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -127,9 +128,10 @@ class BillService {
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (_) async => pdf.save(),
-      name: 'Kitchen_Round${roundNumber}_Order${order.id}.pdf',
+    await _printDocument(
+      pdf: pdf,
+      documentName: 'Kitchen_Round${roundNumber}_Order${order.id}.pdf',
+      printerName: '', // Kitchen printing might need its own config later
     );
   }
 
@@ -142,6 +144,7 @@ class BillService {
     required String cashierName,
     required List<ChargeModel> activeCharges,
     required String Function(String key, {Map<String, String>? replacements}) t,
+    String? printerName,
   }) async {
     final pdf = pw.Document();
     final now = DateTime.now();
@@ -183,211 +186,80 @@ class BillService {
 
     pdf.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.a4,
+        pageFormat: PdfPageFormat.roll80,
         theme: pw.ThemeData.withFont(base: font),
-        margin: const pw.EdgeInsets.fromLTRB(40, 36, 40, 36),
+        margin: const pw.EdgeInsets.all(10),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            // ── Cafe name ────────────────────────────────────────────────
-            pw.Text(
-              cafeName,
-              style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
-            ),
-            if (settings.address.isNotEmpty)
-              pw.Text(
-                settings.address,
-                style: const pw.TextStyle(fontSize: 10),
-              ),
-            if (settings.phone.isNotEmpty)
-              pw.Text(
-                '${t('bill.tel')}: ${settings.phone}',
-                style: const pw.TextStyle(fontSize: 10),
-              ),
-            pw.SizedBox(height: 6),
-
-            // ── Title ─────────────────────────────────────────────────────
-            pw.Align(
-              alignment: pw.Alignment.centerRight,
-              child: pw.Text(
-                t('bill.cashSalesInvoice'),
-                style: pw.TextStyle(
-                  fontSize: 14,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ),
-            pw.SizedBox(height: 10),
-
-            // ── Info box (2-column) ───────────────────────────────────────
-            pw.Container(
-              decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
-              child: pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  // Left column
-                  pw.Expanded(
-                    child: pw.Container(
-                      padding: const pw.EdgeInsets.all(8),
-                      decoration: const pw.BoxDecoration(
-                        border: pw.Border(right: pw.BorderSide(width: 0.5)),
-                      ),
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Text(
-                            t('bill.to'),
-                            style: const pw.TextStyle(fontSize: 10),
-                          ),
-                          pw.SizedBox(height: 4),
-                          _infoRow(
-                            t('bill.preparedBy'),
-                            cashierName,
-                            fontSize: 10,
-                          ),
-                          _infoRow(
-                            t('bill.waiter'),
-                            order.waiterName,
-                            fontSize: 10,
-                          ),
-                          _infoRow(
-                            t('bill.table'),
-                            order.tableName,
-                            fontSize: 10,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Right column
-                  pw.Expanded(
-                    child: pw.Container(
-                      padding: const pw.EdgeInsets.all(8),
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          _infoRow(t('bill.voucher'), voucherNo, fontSize: 10),
-                          _infoRow(t('bill.date'), dateStr, fontSize: 10),
-                          _infoRow(
-                            t('bill.orderNumber'),
-                            '#${order.id ?? "—"}',
-                            fontSize: 10,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            pw.SizedBox(height: 14),
-
-            // ── Items table ───────────────────────────────────────────────
-            // ── Items List (No Table) ──────────────────────────────────────────
-            pw.Column(
-              children: [
-                // Header row
-                pw.Container(
-                  color: PdfColors.grey200,
-                  padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-                  child: pw.Row(
-                    children: [
-                      pw.Expanded(flex: 5, child: pw.Text(t('bill.description'), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                      pw.Container(width: 40, child: pw.Text(t('bill.qty'), textAlign: pw.TextAlign.center, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                      pw.Container(width: 80, child: pw.Text(t('bill.unitAmount'), textAlign: pw.TextAlign.right, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                      pw.Container(width: 80, child: pw.Text(t('bill.total'), textAlign: pw.TextAlign.right, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                    ],
-                  ),
-                ),
-                pw.Divider(height: 1, thickness: 0.5),
-                // Item rows
-                ...items.map(
-                  (item) => pw.Container(
-                    padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-                    decoration: const pw.BoxDecoration(
-                      border: pw.Border(bottom: pw.BorderSide(width: 0.2, color: PdfColors.grey400)),
-                    ),
-                    child: pw.Row(
-                      children: [
-                        pw.Expanded(
-                          flex: 5,
-                          child: pw.Text(
-                            '${item.productName}${item.notes != null && item.notes!.isNotEmpty ? " (${item.notes})" : ""}',
-                            style: const pw.TextStyle(fontSize: 11),
-                          ),
-                        ),
-                        pw.Container(width: 40, child: pw.Text('${item.quantity}', textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 11))),
-                        pw.Container(width: 80, child: pw.Text(_fmt(item.unitPrice), textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 11))),
-                        pw.Container(width: 80, child: pw.Text(_fmt(item.subtotal), textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 11))),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            pw.SizedBox(height: 10),
-
-            // ── Amount in words + totals side-by-side ─────────────────────
-            pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                // Amount in words (left)
-                pw.Expanded(
-                  flex: 3,
-                  child: pw.Container(
-                    padding: const pw.EdgeInsets.all(8),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(width: 0.5),
-                    ),
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          amountWords,
-                          style: pw.TextStyle(
-                            fontSize: 10,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                pw.SizedBox(width: 12),
-                // Totals (right)
-                pw.Expanded(
-                  flex: 2,
-                  child: pw.Column(
-                    children: [
-                      _totalRow(t('bill.subtotal'), subtotal),
-                      ...appliedCharges.map((c) => _totalRow(c['name'], c['amount'])),
-                      if (discount > 0)
-                        _totalRow(t('bill.discount'), -discount),
-                      pw.Divider(thickness: 1),
-                      _totalRow(t('bill.grandTotal'), grandTotal, bold: true),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            pw.SizedBox(height: 24),
-
-            // ── Footer ────────────────────────────────────────────────────
-            pw.Divider(),
+            // ── Header ──────────────────────────────────────────────────
             pw.Center(
               child: pw.Text(
-                'Come again to St George Cafe - Thank you for visiting!',
+                cafeName.toUpperCase(),
+                style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+              ),
+            ),
+            if (settings.address.isNotEmpty)
+              pw.Center(child: pw.Text(settings.address, style: const pw.TextStyle(fontSize: 8))),
+            if (settings.phone.isNotEmpty)
+              pw.Center(child: pw.Text('Tel: ${settings.phone}', style: const pw.TextStyle(fontSize: 8))),
+            pw.SizedBox(height: 10),
+            pw.Center(
+              child: pw.Text(
+                t('bill.cashSalesInvoice').toUpperCase(),
                 style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
               ),
             ),
+            pw.Divider(thickness: 0.5),
+            
+            // ── Info ─────────────────────────────────────────────────────
+            _infoRow(t('bill.date'), dateStr, fontSize: 9),
+            _infoRow(t('bill.voucher'), voucherNo, fontSize: 9),
+            _infoRow(t('bill.waiter'), order.waiterName, fontSize: 9),
+            _infoRow(t('bill.table'), order.tableName, fontSize: 9),
+            pw.Divider(thickness: 0.5),
+
+            // ── Items Table (Thermal Style) ──────────────────────────────
+            pw.Row(
+              children: [
+                pw.Expanded(flex: 3, child: pw.Text(t('bill.description'), style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))),
+                pw.Expanded(child: pw.Text(t('bill.qty'), textAlign: pw.TextAlign.center, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))),
+                pw.Expanded(flex: 2, child: pw.Text(t('bill.total'), textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))),
+              ],
+            ),
             pw.SizedBox(height: 4),
+            ...items.map((item) => pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(vertical: 2),
+              child: pw.Row(
+                children: [
+                  pw.Expanded(flex: 3, child: pw.Text(item.productName, style: const pw.TextStyle(fontSize: 9))),
+                  pw.Expanded(child: pw.Text('${item.quantity}', textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 9))),
+                  pw.Expanded(flex: 2, child: pw.Text(_fmt(item.subtotal), textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 9))),
+                ],
+              ),
+            )),
+            pw.Divider(thickness: 0.5),
+
+            // ── Totals ───────────────────────────────────────────────────
+            _totalRow(t('bill.subtotal'), subtotal, fontSize: 9),
+            ...appliedCharges.map((c) => _totalRow(c['name'], c['amount'], fontSize: 9)),
+            if (discount > 0) _totalRow(t('bill.discount'), -discount, fontSize: 9),
+            pw.SizedBox(height: 4),
+            _totalRow(t('bill.grandTotal'), grandTotal, bold: true, fontSize: 12),
+            pw.Divider(thickness: 1),
+
+            // ── Footer ────────────────────────────────────────────────────
+            pw.SizedBox(height: 10),
+            pw.Center(
+              child: pw.Text(
+                'Thank you for visiting!',
+                style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+              ),
+            ),
             pw.Center(
               child: pw.Text(
                 'Powered by Askuala',
-                style: pw.TextStyle(fontSize: 12, color: PdfColors.grey900, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
               ),
             ),
           ],
@@ -395,13 +267,165 @@ class BillService {
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (_) async => pdf.save(),
-      name: 'Invoice_${voucherNo}.pdf',
+    await _printDocument(
+      pdf: pdf,
+      documentName: 'Invoice_${voucherNo}.pdf',
+      printerName: printerName,
     );
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── X/Z Report Printing ──────────────────────────────────────────────────
+
+  static Future<void> printReport({
+    required Map<String, dynamic> reportData,
+    required CafeSettings settings,
+    required String Function(String key, {Map<String, String>? replacements}) t,
+    bool isZReport = false,
+  }) async {
+    final pdf = pw.Document();
+    final font = pw.Font.helvetica();
+    
+    final header = reportData['report_header'] as Map<String, dynamic>;
+    final sales = reportData['sales_totals'] as Map<String, dynamic>;
+    final payments = reportData['payment_methods'] as Map<String, dynamic>;
+    final items = reportData['items'] as Map<String, dynamic>;
+    final cashRec = reportData['cash_reconciliation'] as Map<String, dynamic>;
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.roll80,
+        theme: pw.ThemeData.withFont(base: font),
+        margin: const pw.EdgeInsets.all(10),
+        build: (ctx) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            // ── Header ──────────────────────────────────────────────────
+            pw.Center(
+              child: pw.Text(
+                settings.name.toUpperCase(),
+                style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+              ),
+            ),
+            pw.Center(
+              child: pw.Text(
+                isZReport ? 'Z REPORT (FINAL)' : 'X REPORT (PROVISIONAL)',
+                style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+              ),
+            ),
+            pw.Divider(),
+
+            // ── Report Info ──────────────────────────────────────────────
+            _infoRow('Shift #', '#${header['shift_number']}', fontSize: 9),
+            _infoRow('Cashier', header['cashier_name'], fontSize: 9),
+            _infoRow('Opened', DateFormat('dd/MM HH:mm').format(DateTime.parse(header['opening_time'])), fontSize: 9),
+            if (isZReport)
+              _infoRow('Closed', DateFormat('dd/MM HH:mm').format(DateTime.parse(header['closing_time'])), fontSize: 9),
+            pw.Divider(),
+
+            // ── Financial Totals ─────────────────────────────────────────
+            _sectionHeader('FINANCIAL TOTALS'),
+            _totalRow('Gross Sales', sales['gross_sales'], fontSize: 9),
+            _totalRow('Discounts', -sales['discounts'], fontSize: 9),
+            _totalRow('Service Chg', sales['service_charge'], fontSize: 9),
+            _totalRow('VAT', sales['vat'], fontSize: 9),
+            pw.SizedBox(height: 4),
+            _totalRow('GRAND TOTAL', sales['grand_total'], bold: true, fontSize: 11),
+            pw.Divider(),
+
+            // ── Payments ─────────────────────────────────────────────────
+            _sectionHeader('PAYMENT METHODS'),
+            ...payments.entries.map((e) => _totalRow(e.key.toUpperCase(), e.value, fontSize: 9)),
+            pw.Divider(),
+
+            // ── Item Sales ───────────────────────────────────────────────
+            _sectionHeader('TOP ITEM SALES'),
+            ...items.entries.take(15).map((e) {
+              final val = e.value as Map<String, dynamic>;
+              return pw.Row(
+                children: [
+                  pw.Expanded(child: pw.Text(e.key, style: const pw.TextStyle(fontSize: 8))),
+                  pw.Text('x${val['qty']}', style: const pw.TextStyle(fontSize: 8)),
+                  pw.SizedBox(width: 10),
+                  pw.Text(_fmt(val['revenue']), style: const pw.TextStyle(fontSize: 8)),
+                ],
+              );
+            }),
+            pw.Divider(),
+
+            // ── Cash Reconciliation ──────────────────────────────────────
+            _sectionHeader('CASH RECONCILIATION'),
+            _totalRow('Opening Float', cashRec['opening_float'], fontSize: 9),
+            _totalRow('Expected Cash', cashRec['expected_cash'], fontSize: 9),
+            if (isZReport) ...[
+              _totalRow('Actual Counted', cashRec['actual_counted'], fontSize: 9),
+              pw.SizedBox(height: 4),
+              _totalRow('VARIANCE', cashRec['difference'], 
+                  bold: true, 
+                  fontSize: 10,
+                  color: (cashRec['difference'] as num) < 0 ? PdfColors.red : PdfColors.green),
+            ],
+            pw.Divider(),
+
+            // ── Footer ────────────────────────────────────────────────────
+            pw.Center(
+              child: pw.Text(
+                'Printed at: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+                style: const pw.TextStyle(fontSize: 7),
+              ),
+            ),
+            pw.Center(
+              child: pw.Text('Powered by Askuala', style: const pw.TextStyle(fontSize: 8)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await _printDocument(
+      pdf: pdf,
+      documentName: '${isZReport ? 'Z' : 'X'}_Report_Shift_${header['shift_number']}.pdf',
+      printerName: settings.defaultPrinterName,
+    );
+  }
+
+  // ── Shared Helpers ───────────────────────────────────────────────────────
+
+  static Future<void> _printDocument({
+    required pw.Document pdf,
+    required String documentName,
+    String? printerName,
+  }) async {
+    if (printerName != null && printerName.isNotEmpty && !kIsWeb) {
+      try {
+        final printers = await Printing.listPrinters();
+        final printer = printers.firstWhere(
+          (p) => p.name == printerName,
+          orElse: () => printers.first,
+        );
+        await Printing.directPrintPdf(
+          printer: printer,
+          onLayout: (_) async => pdf.save(),
+          name: documentName,
+        );
+        return;
+      } catch (e) {
+        // Fallback to dialog if direct printing fails
+      }
+    }
+
+    await Printing.layoutPdf(
+      onLayout: (_) async => pdf.save(),
+      name: documentName,
+    );
+  }
+
+  static pw.Widget _sectionHeader(String title) => pw.Padding(
+    padding: const pw.EdgeInsets.symmetric(vertical: 4),
+    child: pw.Text(
+      title,
+      style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700),
+    ),
+  );
 
   static pw.Widget _infoRow(
     String label,
@@ -409,15 +433,17 @@ class BillService {
     double fontSize = 11,
   }) => pw.Row(
     children: [
-      pw.Text('$label  ', style: const pw.TextStyle(fontSize: 10)),
-      pw.Text(
-        value,
-        style: pw.TextStyle(fontSize: fontSize, fontWeight: pw.FontWeight.bold),
+      pw.Text('$label: ', style: pw.TextStyle(fontSize: fontSize - 1)),
+      pw.Expanded(
+        child: pw.Text(
+          value,
+          style: pw.TextStyle(fontSize: fontSize, fontWeight: pw.FontWeight.bold),
+        ),
       ),
     ],
   );
 
-  static pw.Widget _totalRow(String label, double value, {bool bold = false}) =>
+  static pw.Widget _totalRow(String label, double value, {bool bold = false, double fontSize = 11, PdfColor? color}) =>
       pw.Padding(
         padding: const pw.EdgeInsets.symmetric(vertical: 2),
         child: pw.Row(
@@ -426,14 +452,16 @@ class BillService {
             pw.Text(
               label,
               style: bold
-                  ? pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)
-                  : const pw.TextStyle(fontSize: 11),
+                  ? pw.TextStyle(fontSize: fontSize, fontWeight: pw.FontWeight.bold)
+                  : pw.TextStyle(fontSize: fontSize),
             ),
             pw.Text(
-              _fmt(value.abs()),
-              style: bold
-                  ? pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)
-                  : const pw.TextStyle(fontSize: 11),
+              _fmt(value),
+              style: pw.TextStyle(
+                fontSize: fontSize,
+                fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+                color: color,
+              ),
             ),
           ],
         ),
@@ -455,38 +483,10 @@ class BillService {
   static String _intToWords(int n, String Function(String key, {Map<String, String>? replacements}) t) {
     if (n == 0) return t('numbers.zero');
     const ones = [
-      '',
-      'one',
-      'two',
-      'three',
-      'four',
-      'five',
-      'six',
-      'seven',
-      'eight',
-      'nine',
-      'ten',
-      'eleven',
-      'twelve',
-      'thirteen',
-      'fourteen',
-      'fifteen',
-      'sixteen',
-      'seventeen',
-      'eighteen',
-      'nineteen',
+      '', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen',
     ];
     const tens = [
-      '',
-      '',
-      'twenty',
-      'thirty',
-      'forty',
-      'fifty',
-      'sixty',
-      'seventy',
-      'eighty',
-      'ninety',
+      '', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety',
     ];
 
     String result = '';

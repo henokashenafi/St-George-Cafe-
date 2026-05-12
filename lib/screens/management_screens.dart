@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:printing/printing.dart';
 import 'package:st_george_pos/models/category.dart';
 import 'package:st_george_pos/models/product.dart';
 import 'package:st_george_pos/models/order.dart';
@@ -1320,10 +1322,34 @@ class ShiftManagementScreen extends ConsumerWidget {
                 ),
                 onPressed: () async {
                   final cash = double.tryParse(controller.text) ?? 0.0;
+                  
+                  // 1. Generate Report Data Snapshot
+                  final reportData = await ref.read(posRepositoryProvider).getShiftReportData(shift.id!);
+                  
+                  // 2. Inject actual cash declared into the snapshot
+                  final cashRec = reportData['cash_reconciliation'] as Map<String, dynamic>;
+                  cashRec['actual_counted'] = cash;
+                  cashRec['difference'] = cash - (cashRec['expected_cash'] as num);
+                  
+                  // 3. Save Z-Report to Database
+                  await ref.read(posRepositoryProvider).createZReport(shift.id!, reportData);
+                  
+                  // 4. End the shift in DB
                   await ref.read(activeOrderServiceProvider).endShift(shift.id!, cash);
+                  
+                  // 5. Print the Z-Slip
+                  final settings = await ref.read(posRepositoryProvider).getCafeSettings();
+                  await BillService.printReport(
+                    reportData: reportData,
+                    settings: settings,
+                    t: ref.t,
+                    isZReport: true,
+                  );
+                  
+                  if (!context.mounted) return;
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Shift closed and Z-Report generated.')),
+                    const SnackBar(content: Text('Shift closed, Snapshot saved & Z-Slip printed.')),
                   );
                 },
                 child: const Text('CLOSE SHIFT'),
@@ -1353,7 +1379,17 @@ class ShiftManagementScreen extends ConsumerWidget {
   );
 
   void _printXReport(BuildContext context, WidgetRef ref, ShiftModel shift) async {
-    // Placeholder for printing logic
+    final reportData = await ref.read(posRepositoryProvider).getShiftReportData(shift.id!);
+    final settings = await ref.read(posRepositoryProvider).getCafeSettings();
+    
+    await BillService.printReport(
+      reportData: reportData,
+      settings: settings,
+      t: ref.t,
+      isZReport: false,
+    );
+
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('X-Report generated and sent to printer.')),
     );
@@ -1433,6 +1469,17 @@ class ReportsScreen extends ConsumerWidget {
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.5,
                 ),
+              ),
+              const SizedBox(width: 16),
+              // New Print Summary Button
+              orders.when(
+                data: (list) => IconButton(
+                  icon: const Icon(Icons.print_outlined, color: Color(0xFFD4AF37)),
+                  tooltip: 'Print Summary',
+                  onPressed: () => _printFilteredReport(context, ref, list, filter),
+                ),
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
               ),
               const Spacer(),
               // Waiter Filter
@@ -1543,72 +1590,38 @@ class ReportsScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Formal Financial Summary ──────────────────────────
                     Row(
                       children: [
-                        Text(
-                          'FINANCIAL OVERVIEW',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 2,
-                            color: Colors.white.withOpacity(0.4),
-                          ),
-                        ),
+                        _ReportMetricTile(label: ref.t('management.subtotal'), value: subtotalSum),
+                        _ReportMetricTile(label: ref.t('management.serviceCharge'), value: serviceSum),
+                        _ReportMetricTile(label: ref.t('management.discountsGiven'), value: -discountSum, color: Colors.redAccent),
+                        _ReportMetricTile(label: 'VAT ($vatRate%)', value: vatSum, color: Colors.blueAccent),
+                        _ReportMetricTile(label: ref.t('management.grandTotal'), value: grandSum, isGrand: true),
                       ],
-                    ),
-                    const SizedBox(height: 16),
-                    GlassContainer(
-                      opacity: 0.05,
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        children: [
-                          _SummaryRow(
-                            label: ref.t('management.subtotal'),
-                            value: subtotalSum,
-                            symbol: 'ETB',
-                          ),
-                          const Divider(height: 32, color: Colors.white10),
-                          _SummaryRow(
-                            label: ref.t('management.serviceCharge'),
-                            value: serviceSum,
-                            symbol: 'ETB',
-                          ),
-                          _SummaryRow(
-                            label: ref.t('management.discountsGiven'),
-                            value: -discountSum,
-                            symbol: 'ETB',
-                            color: Colors.redAccent.withOpacity(0.8),
-                          ),
-                          _SummaryRow(
-                            label: 'ESTIMATED VAT ($vatRate%)',
-                            value: vatSum,
-                            symbol: 'ETB',
-                            color: Colors.blueAccent.withOpacity(0.8),
-                          ),
-                          const Divider(height: 32, color: Colors.white10),
-                          _SummaryRow(
-                            label: ref.t('management.grandTotal'),
-                            value: grandSum,
-                            symbol: 'ETB',
-                            isTotal: true,
-                            color: const Color(0xFFD4AF37),
-                          ),
-                        ],
-                      ),
                     ),
                     const SizedBox(height: 32),
 
-                    // ── Payment Methods & Performance Metrics ─────────────
+                    // ── Z-Reports History ────────────────────────────────
+                    _SectionHeader('SHIFT CLOSING HISTORY'),
+                    const SizedBox(height: 16),
+                    _ZReportHistorySection(),
+                    const SizedBox(height: 32),
+
+                    // ── Best Sellers Visualization ──────────────────────
+                    _SectionHeader('BEST SELLERS PERFORMANCE'),
+                    const SizedBox(height: 16),
+                    _BestSellersDashboard(sortedItemSales: sortedItemSales),
+                    const SizedBox(height: 32),
+
+                    // ── Detailed Breakdowns ─────────────────────────────
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          flex: 2,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _SectionHeader('PAYMENT METHODS'),
+                              _SectionHeader('PAYMENT BREAKDOWN'),
                               const SizedBox(height: 12),
                               _FormalDataTable(
                                 data: paymentMap.entries.toList(),
@@ -1621,101 +1634,21 @@ class ReportsScreen extends ConsumerWidget {
                         const SizedBox(width: 24),
                         Expanded(
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _ReportMetricCard(
-                                title: ref.t('management.orderCount'),
-                                value: '${completed.length}',
-                                icon: Icons.receipt_long,
-                              ),
-                              const SizedBox(height: 16),
-                              _ReportMetricCard(
-                                title: ref.t('management.itemsSold'),
-                                value: '$itemsSum',
-                                icon: Icons.inventory_2_outlined,
+                              _SectionHeader(ref.t('management.byWaiter')),
+                              const SizedBox(height: 12),
+                              _FormalDataTable(
+                                data: waiterMap.entries.toList(),
+                                icon: Icons.person_outline,
+                                iconColor: const Color(0xFF006B3C),
                               ),
                             ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 32),
-
-                    // ── Item Sales List (Section 5) ──────────────────────
-                    _SectionHeader('ITEM SALES LIST'),
-                    const SizedBox(height: 12),
-                    GlassContainer(
-                      opacity: 0.05,
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(flex: 3, child: Text('ITEM NAME', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white38))),
-                              Expanded(child: Text('QTY', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white38))),
-                              Expanded(flex: 2, child: Text('REVENUE', textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white38))),
-                            ],
-                          ),
-                          const Divider(height: 24, color: Colors.white10),
-                          ...sortedItemSales.map((entry) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              children: [
-                                Expanded(flex: 3, child: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                Expanded(child: Text('x${entry.value['qty']}', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70))),
-                                Expanded(flex: 2, child: Text('${(entry.value['revenue'] as double).toStringAsFixed(2)} ETB', textAlign: TextAlign.right, style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold))),
-                              ],
-                            ),
-                          )),
-                          if (sortedItemSales.isEmpty)
-                            const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No items sold in this period.', style: TextStyle(color: Colors.white24)))),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // ── Detailed Breakdowns ─────────────────────────────
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // By Waiter
-                        if (waiterMap.isNotEmpty)
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _SectionHeader(ref.t('management.byWaiter')),
-                                const SizedBox(height: 12),
-                                _FormalDataTable(
-                                  data: waiterMap.entries.toList(),
-                                  icon: Icons.person_outline,
-                                  iconColor: const Color(0xFF006B3C),
-                                ),
-                              ],
-                            ),
-                          ),
-                        if (waiterMap.isNotEmpty && cashierMap.isNotEmpty)
-                          const SizedBox(width: 24),
-                        // By Cashier
-                        if (cashierMap.isNotEmpty)
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _SectionHeader(ref.t('management.byCashier')),
-                                const SizedBox(height: 12),
-                                _FormalDataTable(
-                                  data: cashierMap.entries.toList(),
-                                  icon: Icons.point_of_sale_outlined,
-                                  iconColor: const Color(0xFFD4AF37),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
                     const SizedBox(height: 40),
-                    // ── Z-Reports History ────────────────────────────────
-                    _ZReportHistorySection(),
                   ],
                 ),
               );
@@ -1725,6 +1658,72 @@ class ReportsScreen extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  void _printFilteredReport(BuildContext context, WidgetRef ref, List<OrderModel> allOrders, DateFilter filter) async {
+    final selectedWaiterId = ref.read(reportWaiterFilterProvider);
+    final completed = allOrders
+        .where((o) => o.status == OrderStatus.completed)
+        .where((o) => selectedWaiterId == null || o.waiterId == selectedWaiterId)
+        .toList();
+
+    if (completed.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No completed orders to print.')),
+      );
+      return;
+    }
+
+    // Aggregate data manually for the thermal report
+    final settings = await ref.read(posRepositoryProvider).getCafeSettings();
+    final subtotal = completed.fold(0.0, (s, o) => s + o.totalAmount);
+    final service = completed.fold(0.0, (s, o) => s + o.serviceCharge);
+    final discount = completed.fold(0.0, (s, o) => s + o.discountAmount);
+    final vat = subtotal * (settings.vatRate / 100);
+    final grandTotal = subtotal + service - discount + vat;
+
+    final payments = <String, double>{};
+    final items = <String, Map<String, dynamic>>{};
+    
+    for (final o in completed) {
+      payments[o.paymentMethod] = (payments[o.paymentMethod] ?? 0) + o.grandTotal;
+      for (final item in o.items) {
+        if (!items.containsKey(item.productName)) {
+          items[item.productName] = {'qty': 0, 'revenue': 0.0};
+        }
+        items[item.productName]!['qty'] += item.quantity;
+        items[item.productName]!['revenue'] += item.subtotal;
+      }
+    }
+
+    final reportData = {
+      'report_header': {
+        'shift_number': 'N/A',
+        'cashier_name': 'Admin/Report',
+        'opening_time': filter.from?.toIso8601String() ?? DateTime.now().toIso8601String(),
+        'closing_time': filter.to?.toIso8601String() ?? DateTime.now().toIso8601String(),
+      },
+      'sales_totals': {
+        'gross_sales': subtotal,
+        'discounts': discount,
+        'service_charge': service,
+        'vat': vat,
+        'grand_total': grandTotal,
+      },
+      'payment_methods': payments,
+      'items': items,
+      'cash_reconciliation': {
+        'opening_float': 0.0,
+        'expected_cash': payments['cash'] ?? 0.0,
+      },
+    };
+
+    await BillService.printReport(
+      reportData: reportData,
+      settings: settings,
+      t: ref.t,
+      isZReport: false,
     );
   }
 }
@@ -1745,73 +1744,294 @@ class _ZReportHistorySection extends ConsumerWidget {
               return const Center(
                 child: Padding(
                   padding: EdgeInsets.all(40),
-                  child: Text('No Z-Reports found.', style: TextStyle(color: Colors.white24)),
+                  child: Text('No Z-Reports archived.', style: TextStyle(color: Colors.white24)),
                 ),
               );
             }
-            return ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: list.length,
-              itemBuilder: (context, index) {
-                final r = list[index];
-                final date = DateFormat('MMM d, yyyy HH:mm').format(r.createdAt);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: GlassContainer(
-                    opacity: 0.03,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFD4AF37).withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Center(
-                            child: Text(
-                              'Z',
-                              style: TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+            return SizedBox(
+              height: 180,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: list.length,
+                itemBuilder: (context, index) {
+                  final r = list[index];
+                  final header = r.reportData['report_header'] as Map<String, dynamic>;
+                  final cashRec = r.reportData['cash_reconciliation'] as Map<String, dynamic>?;
+                  final variance = (cashRec?['difference'] as num? ?? 0.0);
+                  
+                  return Container(
+                    width: 320,
+                    margin: const EdgeInsets.only(right: 16),
+                    child: GlassContainer(
+                      opacity: 0.05,
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
                                 'Z-REPORT #${r.zCount}',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFFD4AF37)),
                               ),
-                              Text(date, style: const TextStyle(fontSize: 11, color: Colors.white38)),
+                              _VarianceBadge(variance: variance),
                             ],
                           ),
-                        ),
-                        Text(
-                          '${(r.reportData['net_sales'] as num? ?? 0).toStringAsFixed(2)} ETB',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFD4AF37)),
-                        ),
-                        const SizedBox(width: 16),
-                        IconButton(
-                          icon: const Icon(Icons.print_outlined, size: 18),
-                          onPressed: () {
-                            // Placeholder for printing past Z-report
-                          },
-                        ),
-                      ],
+                          const Spacer(),
+                          Text(
+                            header['cashier_name']?.toString().toUpperCase() ?? 'UNKNOWN',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            DateFormat('MMM d, HH:mm').format(r.createdAt),
+                            style: const TextStyle(fontSize: 11, color: Colors.white38),
+                          ),
+                          const Divider(height: 24, color: Colors.white10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('NET SALES', style: TextStyle(fontSize: 9, color: Colors.white38)),
+                                  Text('${(r.reportData['sales_totals']?['net_sales'] as num? ?? 0).toStringAsFixed(2)} ETB', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.visibility_outlined, size: 20),
+                                    onPressed: () => _showZReportDetail(context, r),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.print_outlined, size: 20),
+                                    onPressed: () async {
+                                      final settings = await ref.read(posRepositoryProvider).getCafeSettings();
+                                      await BillService.printReport(
+                                        reportData: r.reportData,
+                                        settings: settings,
+                                        t: ref.t,
+                                        isZReport: true,
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Text('Error: $e'),
         ),
       ],
+    );
+  }
+
+  void _showZReportDetail(BuildContext context, ZReportModel report) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        contentPadding: EdgeInsets.zero,
+        content: Container(
+          width: 350,
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                const Icon(Icons.receipt_long, color: Color(0xFFD4AF37), size: 40),
+                const SizedBox(height: 16),
+                const Text('DIGITAL Z-REPORT', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)),
+                const Divider(height: 32, color: Colors.white10),
+                _DigitalSlipRow('Report #', '${report.zCount}'),
+                _DigitalSlipRow('Cashier', report.reportData['report_header']['cashier_name']),
+                _DigitalSlipRow('Date', DateFormat('dd/MM/yyyy').format(report.createdAt)),
+                const Divider(height: 32, color: Colors.white10),
+                _DigitalSlipRow('Gross Sales', '${report.reportData['sales_totals']['gross_sales']}'),
+                _DigitalSlipRow('VAT', '${report.reportData['sales_totals']['vat']}'),
+                _DigitalSlipRow('Discount', '${report.reportData['sales_totals']['discounts']}'),
+                _DigitalSlipRow('NET TOTAL', '${report.reportData['sales_totals']['net_sales']}', isBold: true),
+                const Divider(height: 32, color: Colors.white10),
+                const Text('PAYMENT METHODS', style: TextStyle(fontSize: 10, color: Colors.white38)),
+                const SizedBox(height: 8),
+                ...(report.reportData['payment_methods'] as Map<String, dynamic>).entries.map((e) => _DigitalSlipRow(e.key.toUpperCase(), '${e.value}')),
+                const Divider(height: 32, color: Colors.white10),
+                _DigitalSlipRow('CASH VARIANCE', '${report.reportData['cash_reconciliation']['difference']}', isBold: true),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black),
+                  child: const Text('CLOSE PREVIEW'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DigitalSlipRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isBold;
+  const _DigitalSlipRow(this.label, this.value, {this.isBold = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+          Text(value, style: TextStyle(fontSize: 12, fontWeight: isBold ? FontWeight.bold : FontWeight.normal, color: isBold ? const Color(0xFFD4AF37) : Colors.white)),
+        ],
+      ),
+    );
+  }
+}
+
+class _VarianceBadge extends StatelessWidget {
+  final num variance;
+  const _VarianceBadge({required this.variance});
+
+  @override
+  Widget build(BuildContext context) {
+    final isBalanced = variance == 0;
+    final isShort = variance < 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isBalanced ? Colors.green.withOpacity(0.1) : (isShort ? Colors.red.withOpacity(0.1) : Colors.blue.withOpacity(0.1)),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        isBalanced ? 'BALANCED' : (isShort ? 'SHORTAGE' : 'OVERAGE'),
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.bold,
+          color: isBalanced ? Colors.green : (isShort ? Colors.red : Colors.blue),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReportMetricTile extends StatelessWidget {
+  final String label;
+  final double value;
+  final Color? color;
+  final bool isGrand;
+
+  const _ReportMetricTile({required this.label, required this.value, this.color, this.isGrand = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        child: GlassContainer(
+          opacity: isGrand ? 0.15 : 0.05,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label.toUpperCase(), style: TextStyle(fontSize: 9, color: Colors.white.withOpacity(0.4), letterSpacing: 1)),
+              const SizedBox(height: 8),
+              Text(
+                '${value.toStringAsFixed(2)}',
+                style: TextStyle(
+                  fontSize: isGrand ? 24 : 18,
+                  fontWeight: FontWeight.w900,
+                  color: color ?? (isGrand ? const Color(0xFFD4AF37) : Colors.white),
+                ),
+              ),
+              const Text('ETB', style: TextStyle(fontSize: 10, color: Colors.white24)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BestSellersDashboard extends StatelessWidget {
+  final List<MapEntry<String, Map<String, dynamic>>> sortedItemSales;
+  const _BestSellersDashboard({required this.sortedItemSales});
+
+  @override
+  Widget build(BuildContext context) {
+    if (sortedItemSales.isEmpty) {
+      return const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No item sales to visualize.', style: TextStyle(color: Colors.white24))));
+    }
+
+    final maxRevenue = sortedItemSales.first.value['revenue'] as double;
+
+    return GlassContainer(
+      opacity: 0.05,
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: sortedItemSales.take(10).map((entry) {
+          final revenue = entry.value['revenue'] as double;
+          final percentage = maxRevenue > 0 ? (revenue / maxRevenue) : 0.0;
+          
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        entry.key.toUpperCase(),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      '${revenue.toStringAsFixed(2)} ETB',
+                      style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.w900, fontSize: 13),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: percentage,
+                          backgroundColor: Colors.white.withOpacity(0.05),
+                          color: const Color(0xFFD4AF37).withOpacity(0.8),
+                          minHeight: 6,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'x${entry.value['qty']}',
+                      style: const TextStyle(fontSize: 12, color: Colors.white54, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }
@@ -2127,6 +2347,59 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 24),
+                    _buildSectionTitle('HARDWARE & PRINTERS'),
+                    FutureBuilder<List<Printer>>(
+                      future: kIsWeb ? Future.value(<Printer>[]) : Printing.listPrinters().catchError((_) => <Printer>[]),
+                      builder: (context, snapshot) {
+                        final printers = snapshot.data ?? [];
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Select Default Thermal Printer (80mm)',
+                              style: TextStyle(fontSize: 12, color: Colors.white54),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.05),
+                                border: Border.all(color: Colors.white10),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: settings.defaultPrinterName.isNotEmpty && printers.any((p) => p.name == settings.defaultPrinterName)
+                                      ? settings.defaultPrinterName
+                                      : (printers.isNotEmpty ? printers.first.name : null),
+                                  isExpanded: true,
+                                  dropdownColor: const Color(0xFF1A1A1A),
+                                  hint: const Text('No Printers Found'),
+                                  items: printers.map((p) => DropdownMenuItem<String>(
+                                    value: p.name,
+                                    child: Text(p.name),
+                                  )).toList(),
+                                  onChanged: (val) async {
+                                    if (val != null) {
+                                      final newSettings = settings.copyWith(defaultPrinterName: val);
+                                      await ref.read(activeOrderServiceProvider).saveSettings(newSettings);
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                            if (kIsWeb)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 8),
+                                child: Text(
+                                  'Note: Direct printing is not supported in browsers for security. Use PDF dialog instead.',
+                                  style: TextStyle(fontSize: 10, color: Colors.orangeAccent),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 48),
                     Center(

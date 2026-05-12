@@ -6,6 +6,8 @@ class CafeSettings {
   final double vatRate;
   final String currency;
 
+  final String defaultPrinterName;
+
   CafeSettings({
     this.name = 'ST GEORGE CAFE',
     this.address = 'Addis Ababa, Ethiopia',
@@ -13,6 +15,7 @@ class CafeSettings {
     this.vatNumber = '1234567890',
     this.vatRate = 5.0,
     this.currency = 'ETB',
+    this.defaultPrinterName = '',
   });
 
   CafeSettings copyWith({
@@ -22,6 +25,7 @@ class CafeSettings {
     String? vatNumber,
     double? vatRate,
     String? currency,
+    String? defaultPrinterName,
   }) {
     return CafeSettings(
       name: name ?? this.name,
@@ -30,6 +34,7 @@ class CafeSettings {
       vatNumber: vatNumber ?? this.vatNumber,
       vatRate: vatRate ?? this.vatRate,
       currency: currency ?? this.currency,
+      defaultPrinterName: defaultPrinterName ?? this.defaultPrinterName,
     );
   }
 
@@ -41,6 +46,7 @@ class CafeSettings {
       'vatNumber': vatNumber,
       'vatRate': vatRate,
       'currency': currency,
+      'default_printer_name': defaultPrinterName,
     };
   }
 
@@ -52,6 +58,7 @@ class CafeSettings {
       vatNumber: map['vatNumber'] ?? '1234567890',
       vatRate: (map['vatRate'] ?? 5.0).toDouble(),
       currency: map['currency'] ?? 'ETB',
+      defaultPrinterName: map['default_printer_name'] ?? '',
     );
   }
 }
