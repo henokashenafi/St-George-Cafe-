@@ -738,7 +738,7 @@ class PosRepository {
     if (maps.isEmpty) return null;
     final orderId = maps.first['id'];
     final itemMaps = await db.rawQuery(
-      'SELECT oi.*, p.name as product_name FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?',
+      'SELECT oi.*, p.name as product_name, c.name as category_name FROM order_items oi JOIN products p ON oi.product_id = p.id LEFT JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
       [orderId],
     );
     final items = itemMaps.map((i) => OrderItem.fromMap(i)).toList();
@@ -1511,8 +1511,25 @@ class PosRepository {
       return list.map((o) {
         final items = _webStorage['order_items']!
             .where((i) => i['order_id'] == o['id'])
-            .map((i) => OrderItem.fromMap(i))
-            .toList();
+            .map((i) {
+          final product = _webStorage['products']!.firstWhere(
+            (p) => p['id'] == i['product_id'],
+            orElse: () => {},
+          );
+          final catId = product['category_id'] ??
+              (product['category_ids'] != null
+                  ? int.tryParse(product['category_ids'].toString())
+                  : null);
+          final category = _webStorage['categories']!.firstWhere(
+            (c) => c['id'] == catId,
+            orElse: () => {},
+          );
+          return OrderItem.fromMap({
+            ...i,
+            'product_name': product['name'] ?? '',
+            'category_name': category['name'] ?? 'General',
+          });
+        }).toList();
         return OrderModel.fromMap(o, items: items);
       }).toList();
     }

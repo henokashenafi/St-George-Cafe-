@@ -55,8 +55,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     _assistantController.addListener(() {
       final query = _assistantController.text;
       setState(() {
-        if (currentStep == OrderAssistantStep.waiter) waiterSearchQuery = query;
-        else if (currentStep == OrderAssistantStep.product) searchQuery = query;
+        if (currentStep == OrderAssistantStep.waiter)
+          waiterSearchQuery = query;
+        else if (currentStep == OrderAssistantStep.product)
+          searchQuery = query;
         _suggestionIndex = 0; // Reset index on type
       });
       // Auto-select when exactly 1 match and query is long enough
@@ -73,10 +75,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         }
       });
     });
-    
+
     // Auto-focus assistant bar
     _assistantFocusNode.requestFocus();
-    
+
     _searchController.addListener(() {
       setState(() => searchQuery = _searchController.text);
     });
@@ -139,8 +141,11 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     if (selectedTable == null ||
         (ref.read(activeOrderProvider(selectedTable?.id)).value == null &&
             selectedWaiter == null)) {
-      TopToaster.show(context, 'Please select a waiter and table first',
-          isError: true);
+      TopToaster.show(
+        context,
+        'Please select a waiter and table first',
+        isError: true,
+      );
       return;
     }
     _showQuickQuantityPicker(product);
@@ -162,11 +167,13 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     }
   }
 
-
   void _handleAssistantSubmit(String value) {
     if (currentStep == OrderAssistantStep.waiter) {
       if (_lastFilteredWaiters.isNotEmpty) {
-        final index = _suggestionIndex.clamp(0, _lastFilteredWaiters.length - 1);
+        final index = _suggestionIndex.clamp(
+          0,
+          _lastFilteredWaiters.length - 1,
+        );
         _onWaiterSelected(_lastFilteredWaiters[index]);
       }
     } else if (currentStep == OrderAssistantStep.table) {
@@ -177,11 +184,15 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     } else if (currentStep == OrderAssistantStep.product) {
       if (value.isEmpty) {
         final settings = ref.read(appSettingsProvider).value;
-        final activeOrder =
-            ref.read(activeOrderProvider(selectedTable?.id)).value;
+        final activeOrder = ref
+            .read(activeOrderProvider(selectedTable?.id))
+            .value;
         if (settings != null) _sendToKitchen(activeOrder, settings);
       } else if (_lastFilteredProducts.isNotEmpty) {
-        final index = _suggestionIndex.clamp(0, _lastFilteredProducts.length - 1);
+        final index = _suggestionIndex.clamp(
+          0,
+          _lastFilteredProducts.length - 1,
+        );
         _onProductSelected(_lastFilteredProducts[index]);
       }
     }
@@ -256,7 +267,9 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   }
 
   void _removeItem(int index) async {
-    final confirm = await _showDeleteConfirmation(localItems[index].productName);
+    final confirm = await _showDeleteConfirmation(
+      localItems[index].productName,
+    );
     if (confirm) {
       setState(() => localItems.removeAt(index));
     }
@@ -268,8 +281,12 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           builder: (ctx) => AlertDialog(
             backgroundColor: const Color(0xFF1A1A1A),
             title: Text(ref.t('order.removeConfirm')),
-            content: Text(ref.t('order.removeConfirmMessage',
-                replacements: {'product': productName})),
+            content: Text(
+              ref.t(
+                'order.removeConfirmMessage',
+                replacements: {'product': productName},
+              ),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
@@ -393,9 +410,12 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             AppLocalizations.format(key, replacements: replacements),
       );
 
-      await ref.read(auditServiceProvider).log(
+      await ref
+          .read(auditServiceProvider)
+          .log(
             'Sent to Kitchen',
-            details: 'Table: ${selectedTable!.name}, Items: ${localItems.length}, Round: $roundNumber',
+            details:
+                'Table: ${selectedTable!.name}, Items: ${localItems.length}, Round: $roundNumber',
           );
 
       if (roundNumber != null) {
@@ -445,7 +465,9 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
 
     final subtotal = order.totalAmount;
     double discount = _discountAmount;
-    final charges = (await ref.read(chargesProvider.future)).where((c) => c.isActive).toList();
+    final charges = (await ref.read(
+      chargesProvider.future,
+    )).where((c) => c.isActive).toList();
 
     // Show bill confirmation dialog with discount input
     final confirmed = await showDialog<bool>(
@@ -465,8 +487,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     if (confirmed == true) {
       final printerName = settings['default_printer_name'];
       final cafeSettings = await ref.read(cafeSettingsProvider.future);
-      final charges = (await ref.read(chargesProvider.future)).where((c) => c.isActive).toList();
-      
+      final charges = (await ref.read(
+        chargesProvider.future,
+      )).where((c) => c.isActive).toList();
+
       await BillService.generateAndDownloadBill(
         order: order.copyWith(
           discountAmount: discount,
@@ -483,8 +507,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
       double totalDeductions = 0;
       for (final c in charges) {
         final amount = order.totalAmount * (c.value / 100);
-        if (c.type == 'addition') totalAdditions += amount;
-        else totalDeductions += amount;
+        if (c.type == 'addition')
+          totalAdditions += amount;
+        else
+          totalDeductions += amount;
       }
 
       await ref
@@ -497,10 +523,13 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             discountAmount: discount + totalDeductions,
             paymentMethod: order.paymentMethod,
           );
-      
-      await ref.read(auditServiceProvider).log(
+
+      await ref
+          .read(auditServiceProvider)
+          .log(
             'Order Completed',
-            details: 'ID: ${order.id}, Total: ${subtotal.toStringAsFixed(2)}, Table: ${order.tableName}',
+            details:
+                'ID: ${order.id}, Total: ${subtotal.toStringAsFixed(2)}, Table: ${order.tableName}',
           );
 
       ref.refresh(tablesProvider);
@@ -518,6 +547,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     final waitersAsync = ref.watch(waitersProvider);
     final tablesAsync = ref.watch(tablesProvider);
     final settingsAsync = ref.watch(appSettingsProvider);
+    ref.watch(languageProvider);
 
     // Sync currentStep when selectedTable changes (e.g. from held orders)
     ref.listen(selectedTableProvider, (prev, next) {
@@ -536,7 +566,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         // Only react on key-down, ignore if any text field is already focused
         if (event is! KeyDownEvent) return KeyEventResult.ignored;
         final logical = event.logicalKey;
-        
+
         // Escape → clear assistant bar
         if (logical == LogicalKeyboardKey.escape) {
           _assistantController.clear();
@@ -548,9 +578,12 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         if (logical == LogicalKeyboardKey.arrowDown) {
           setState(() {
             int max = 0;
-            if (currentStep == OrderAssistantStep.waiter) max = _lastFilteredWaiters.length;
-            if (currentStep == OrderAssistantStep.table) max = _lastFilteredTables.length;
-            if (currentStep == OrderAssistantStep.product) max = _lastFilteredProducts.length;
+            if (currentStep == OrderAssistantStep.waiter)
+              max = _lastFilteredWaiters.length;
+            if (currentStep == OrderAssistantStep.table)
+              max = _lastFilteredTables.length;
+            if (currentStep == OrderAssistantStep.product)
+              max = _lastFilteredProducts.length;
             if (max > 0) _suggestionIndex = (_suggestionIndex + 1) % max;
           });
           return KeyEventResult.handled;
@@ -558,9 +591,12 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         if (logical == LogicalKeyboardKey.arrowUp) {
           setState(() {
             int max = 0;
-            if (currentStep == OrderAssistantStep.waiter) max = _lastFilteredWaiters.length;
-            if (currentStep == OrderAssistantStep.table) max = _lastFilteredTables.length;
-            if (currentStep == OrderAssistantStep.product) max = _lastFilteredProducts.length;
+            if (currentStep == OrderAssistantStep.waiter)
+              max = _lastFilteredWaiters.length;
+            if (currentStep == OrderAssistantStep.table)
+              max = _lastFilteredTables.length;
+            if (currentStep == OrderAssistantStep.product)
+              max = _lastFilteredProducts.length;
             if (max > 0) _suggestionIndex = (_suggestionIndex - 1 + max) % max;
           });
           return KeyEventResult.handled;
@@ -570,7 +606,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           return KeyEventResult.ignored;
         }
         // Ctrl+F / Ctrl+W → focus assistant bar
-        if ((logical == LogicalKeyboardKey.keyF || logical == LogicalKeyboardKey.keyW) &&
+        if ((logical == LogicalKeyboardKey.keyF ||
+                logical == LogicalKeyboardKey.keyW) &&
             HardwareKeyboard.instance.isControlPressed) {
           _assistantFocusNode.requestFocus();
           return KeyEventResult.handled;
@@ -604,806 +641,1183 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
       },
       child: Shortcuts(
         shortcuts: {
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyF): const SearchIntent(),
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyW): const WaiterSearchIntent(),
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.enter): const SendToKitchenIntent(),
+          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyF):
+              const SearchIntent(),
+          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyW):
+              const WaiterSearchIntent(),
+          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.enter):
+              const SendToKitchenIntent(),
           LogicalKeySet(LogicalKeyboardKey.f9): const SendToKitchenIntent(),
         },
         child: Actions(
           actions: {
-            SearchIntent: CallbackAction<SearchIntent>(onInvoke: (_) {
-              _assistantFocusNode.requestFocus();
-              return null;
-            }),
-            WaiterSearchIntent: CallbackAction<WaiterSearchIntent>(onInvoke: (_) {
-              _assistantFocusNode.requestFocus();
-              return null;
-            }),
-            SendToKitchenIntent: CallbackAction<SendToKitchenIntent>(onInvoke: (_) {
-              settingsAsync.maybeWhen(
-                data: (s) => _sendToKitchen(activeOrderAsync.value, s),
-                orElse: () => null,
-              );
-              return null;
-            }),
+            SearchIntent: CallbackAction<SearchIntent>(
+              onInvoke: (_) {
+                _assistantFocusNode.requestFocus();
+                return null;
+              },
+            ),
+            WaiterSearchIntent: CallbackAction<WaiterSearchIntent>(
+              onInvoke: (_) {
+                _assistantFocusNode.requestFocus();
+                return null;
+              },
+            ),
+            SendToKitchenIntent: CallbackAction<SendToKitchenIntent>(
+              onInvoke: (_) {
+                settingsAsync.maybeWhen(
+                  data: (s) => _sendToKitchen(activeOrderAsync.value, s),
+                  orElse: () => null,
+                );
+                return null;
+              },
+            ),
           },
           child: Column(
             children: [
-        // Header matching dashboard style
-        Padding(
-          padding: const EdgeInsets.only(bottom: 20),
-          child: Row(
-            children: [
-              Text(
-                selectedTable != null ? '${selectedTable!.name} — ORDER' : 'NEW ORDER',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
+              // Header matching dashboard style
+              Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Row(
+                  children: [
+                    Text(
+                      selectedTable != null
+                          ? ref.t(
+                              'order.title',
+                              replacements: {'table': selectedTable!.name},
+                            )
+                          : ref.t('main.newOrder'),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (selectedTable != null)
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () {
+                          ref.read(selectedTableProvider.notifier).set(null);
+                          setState(() {
+                            localItems = [];
+                            currentStep = OrderAssistantStep.waiter;
+                            selectedWaiter = null;
+                            _discountAmount = 0;
+                            _assistantController.clear();
+                          });
+                        },
+                        tooltip: ref.t('order.clearNewOrder'),
+                      ),
+                  ],
                 ),
               ),
-              const Spacer(),
-              if (selectedTable != null)
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () {
-                    ref.read(selectedTableProvider.notifier).set(null);
-                    setState(() {
-                      localItems = [];
-                      currentStep = OrderAssistantStep.waiter;
-                      selectedWaiter = null;
-                      _discountAmount = 0;
-                      _assistantController.clear();
-                    });
-                  },
-                  tooltip: 'Clear & Start New Order',
-                ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Row(
-            children: [
-            // ── Main Menu Panel ──────────────────────────────────────────────
-            Expanded(
-              flex: 3,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              Expanded(
+                child: Row(
                   children: [
-                    // ── Assistant Bar ──────────────────────────────────────────
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 4),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: _assistantFocusNode.hasFocus
-                              ? const Color(0xFFD4AF37)
-                              : Colors.white10,
-                          width: 1.5,
-                        ),
-                        borderRadius: BorderRadius.zero,
-                      ),
-                      child: GlassContainer(
-                        opacity: 0.08,
-                        child: TextField(
-                          controller: _assistantController,
-                          focusNode: _assistantFocusNode,
-                          style: const TextStyle(color: Colors.white, fontSize: 15),
-                          decoration: InputDecoration(
-                            prefixIcon: Icon(
-                              currentStep == OrderAssistantStep.waiter
-                                  ? Icons.person_search
-                                  : currentStep == OrderAssistantStep.table
-                                      ? Icons.table_bar
-                                      : Icons.search,
-                              color: const Color(0xFFD4AF37),
-                              size: 20,
-                            ),
-                            hintText: currentStep == OrderAssistantStep.waiter
-                                ? 'Type waiter name…  (Enter or tap to select)'
-                                : currentStep == OrderAssistantStep.table
-                                    ? 'Type table name…  (Enter or tap to select)'
-                                    : 'Search item…  (Enter when empty = Send to Kitchen)',
-                            hintStyle:
-                                TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13),
-                            border: InputBorder.none,
-                            contentPadding:
-                                const EdgeInsets.symmetric(vertical: 14),
-                            suffixIcon: _assistantController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.close,
-                                        size: 16, color: Colors.white30),
-                                    onPressed: () {
-                                      _assistantController.clear();
-                                      _assistantFocusNode.requestFocus();
-                                    },
-                                  )
-                                : null,
-                          ),
-                          onSubmitted: _handleAssistantSubmit,
-                        ),
-                      ),
-                    ),
-
-                    // ── Manual Selection Dropdowns (Added for Cashier convenience) ──
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        children: [
-                          // Waiter Dropdown
-                          Expanded(
-                            child: waitersAsync.when(
-                              data: (ws) => DropdownButtonFormField<int>(
-                                value: activeOrderAsync.value?.waiterId ?? selectedWaiter?.id,
-                                decoration: InputDecoration(
-                                  labelText: 'WAITER',
-                                  labelStyle: const TextStyle(color: Color(0xFFD4AF37), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
-                                  prefixIcon: const Icon(Icons.person, color: Color(0xFFD4AF37), size: 16),
-                                  filled: true,
-                                  fillColor: Colors.white.withOpacity(0.05),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.zero,
-                                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.zero,
-                                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                ),
-                                dropdownColor: const Color(0xFF1A1A1A),
-                                style: const TextStyle(color: Colors.white, fontSize: 13),
-                                items: ws.map((w) => DropdownMenuItem(
-                                  value: w.id,
-                                  child: Text(w.name),
-                                )).toList(),
-                                onChanged: activeOrderAsync.value != null ? null : (id) {
-                                  if (id != null) {
-                                    final waiter = ws.firstWhere((w) => w.id == id);
-                                    _onWaiterSelected(waiter);
-                                  }
-                                },
-                              ),
-                              loading: () => const LinearProgressIndicator(),
-                              error: (_, __) => const Text('Error'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // Table Dropdown
-                          Expanded(
-                            child: tablesAsync.when(
-                              data: (ts) => DropdownButtonFormField<int>(
-                                value: selectedTable?.id,
-                                decoration: InputDecoration(
-                                  labelText: 'TABLE',
-                                  labelStyle: const TextStyle(color: Color(0xFFD4AF37), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
-                                  prefixIcon: const Icon(Icons.table_bar, color: Color(0xFFD4AF37), size: 16),
-                                  filled: true,
-                                  fillColor: Colors.white.withOpacity(0.05),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.zero,
-                                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.zero,
-                                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                ),
-                                dropdownColor: const Color(0xFF1A1A1A),
-                                style: const TextStyle(color: Colors.white, fontSize: 13),
-                                items: ts.map((t) => DropdownMenuItem(
-                                  value: t.id,
-                                  child: Text(t.name),
-                                )).toList(),
-                                onChanged: activeOrderAsync.value != null ? null : (id) {
-                                  if (id != null) {
-                                    final table = ts.firstWhere((t) => t.id == id);
-                                    _onTableSelected(table);
-                                  }
-                                },
-                              ),
-                              loading: () => const LinearProgressIndicator(),
-                              error: (_, __) => const Text('Error'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // ── Suggestion Dropdown (Waiter / Table / Product) ─────────
-                    if (currentStep == OrderAssistantStep.waiter &&
-                        _lastFilteredWaiters.isNotEmpty)
-                      _SuggestionDropdown(
-                        children: _lastFilteredWaiters
-                            .take(6)
-                            .toList()
-                            .asMap()
-                            .entries
-                            .map((e) => _SuggestionItem(
-                                  icon: Icons.person,
-                                  title: e.value.name,
-                                  subtitle: 'Code: ${e.value.code}',
-                                  isHighlighted: e.key == _suggestionIndex,
-                                  onTap: () => _onWaiterSelected(e.value),
-                                ))
-                            .toList(),
-                      )
-                    else if (currentStep == OrderAssistantStep.table &&
-                        _lastFilteredTables.isNotEmpty)
-                      _SuggestionDropdown(
-                        children: _lastFilteredTables
-                            .take(8)
-                            .toList()
-                            .asMap()
-                            .entries
-                            .map((e) => _SuggestionItem(
-                                  icon: Icons.table_bar,
-                                  title: e.value.name,
-                                  subtitle: e.value.status ==
-                                          TableStatus.occupied
-                                      ? 'OCCUPIED'
-                                      : 'AVAILABLE',
-                                  accentColor: e.value.status ==
-                                          TableStatus.occupied
-                                      ? Colors.redAccent
-                                      : Colors.greenAccent,
-                                  isHighlighted: e.key == _suggestionIndex,
-                                  onTap: () => _onTableSelected(e.value),
-                                ))
-                            .toList(),
-                      )
-                    else if (currentStep == OrderAssistantStep.product &&
-                        searchQuery.isNotEmpty &&
-                        _lastFilteredProducts.isNotEmpty)
-                      _SuggestionDropdown(
-                        children: _lastFilteredProducts
-                            .take(6)
-                            .toList()
-                            .asMap()
-                            .entries
-                            .map((e) => _SuggestionItem(
-                                  icon: Icons.restaurant_menu,
-                                  title: e.value.name,
-                                  subtitle:
-                                      '${e.value.price.toStringAsFixed(2)} ETB',
-                                  isHighlighted: e.key == _suggestionIndex,
-                                  onTap: () => _onProductSelected(e.value),
-                                ))
-                            .toList(),
-                      ),
-                    const SizedBox(height: 8),
-
-                    // ── Horizontal Categories ──────────────────────────────────
-                    categoriesAsync.when(
-                      data: (cats) => Container(
-                        height: 40,
-                        margin: const EdgeInsets.only(bottom: 16),
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: cats.length + 1,
-                          itemBuilder: (ctx, i) {
-                            final isSelected = i == 0 ? selectedCategoryId == null : selectedCategoryId == cats[i - 1].id;
-                            final name = i == 0 ? ref.t('common.all') : cats[i - 1].name;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: InkWell(
-                                onTap: () => setState(() => selectedCategoryId = i == 0 ? null : cats[i - 1].id),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? const Color(0xFFD4AF37) : Colors.white.withOpacity(0.05),
-                                    borderRadius: BorderRadius.zero,
-                                    border: Border.all(color: isSelected ? Colors.transparent : Colors.white10),
-                                  ),
-                                  child: Text(
-                                    name.toUpperCase(),
-                                    style: TextStyle(
-                                      color: isSelected ? Colors.black : Colors.white70,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
-
-                    // ── Product Grid ──────────────────────────────────────────
+                    // ── Main Menu Panel ──────────────────────────────────────────────
                     Expanded(
-                      child: productsAsync.when(
-                        data: (products) {
-                          final filtered = products
-                              .where((p) => p.name.toLowerCase().contains(searchQuery.toLowerCase()))
-                              .toList();
-                          if (_sortOption == 'alpha') {
-                            filtered.sort((a, b) => a.name.compareTo(b.name));
-                          } else if (_sortOption == 'priceAsc') {
-                            filtered.sort((a, b) => a.price.compareTo(b.price));
-                          } else if (_sortOption == 'priceDesc') {
-                            filtered.sort((a, b) => b.price.compareTo(a.price));
-                          }
-                          
-                          // Track for assistant bar
-                          _lastFilteredProducts = filtered;
-
-                          return GridView.builder(
-                              padding: EdgeInsets.zero,
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 4,
-                                childAspectRatio: 2.8,
-                                crossAxisSpacing: 10,
-                                mainAxisSpacing: 10,
+                      flex: 3,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // ── Assistant Bar ──────────────────────────────────────────
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 4),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: _assistantFocusNode.hasFocus
+                                      ? const Color(0xFFD4AF37)
+                                      : Colors.white10,
+                                  width: 1.5,
+                                ),
+                                borderRadius: BorderRadius.zero,
                               ),
-                              itemCount: filtered.length,
-                              itemBuilder: (_, i) {
-                                final p = filtered[i];
-                                final isFirstMatch = i == 0 && searchQuery.isNotEmpty && currentStep == OrderAssistantStep.product;
-                                return AnimatedContainer(
-                                  duration: const Duration(milliseconds: 150),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.zero,
-                                    border: isFirstMatch
-                                        ? Border.all(color: const Color(0xFFD4AF37), width: 1.5)
+                              child: GlassContainer(
+                                opacity: 0.08,
+                                child: TextField(
+                                  controller: _assistantController,
+                                  focusNode: _assistantFocusNode,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                  ),
+                                  decoration: InputDecoration(
+                                    prefixIcon: Icon(
+                                      currentStep == OrderAssistantStep.waiter
+                                          ? Icons.person_search
+                                          : currentStep ==
+                                                OrderAssistantStep.table
+                                          ? Icons.table_bar
+                                          : Icons.search,
+                                      color: const Color(0xFFD4AF37),
+                                      size: 20,
+                                    ),
+                                    hintText:
+                                        currentStep == OrderAssistantStep.waiter
+                                        ? ref.t('order.waiterHint')
+                                        : currentStep ==
+                                              OrderAssistantStep.table
+                                        ? ref.t('order.tableHint')
+                                        : ref.t('order.productHint'),
+                                    hintStyle: TextStyle(
+                                      color: Colors.white.withOpacity(0.3),
+                                      fontSize: 13,
+                                    ),
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    suffixIcon:
+                                        _assistantController.text.isNotEmpty
+                                        ? IconButton(
+                                            icon: const Icon(
+                                              Icons.close,
+                                              size: 16,
+                                              color: Colors.white30,
+                                            ),
+                                            onPressed: () {
+                                              _assistantController.clear();
+                                              _assistantFocusNode
+                                                  .requestFocus();
+                                            },
+                                          )
                                         : null,
                                   ),
-                                  child: GlassContainer(
-                                    opacity: isFirstMatch ? 0.12 : 0.05,
-                                    border: Border.all(color: Colors.white.withOpacity(0.08)),
-                                    child: InkWell(
-                                      onTap: () => _onProductSelected(p),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.restaurant_menu,
-                                              size: 16,
-                                              color: isFirstMatch ? const Color(0xFFD4AF37) : const Color(0xFFD4AF37).withOpacity(0.6),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    p.name,
-                                                    style: TextStyle(
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 13,
-                                                      color: isFirstMatch ? Colors.white : Colors.white70,
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
+                                  onSubmitted: _handleAssistantSubmit,
+                                ),
+                              ),
+                            ),
+
+                            // ── Manual Selection Dropdowns (Added for Cashier convenience) ──
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Row(
+                                children: [
+                                  // Waiter Dropdown
+                                  Expanded(
+                                    child: waitersAsync.when(
+                                      data: (ws) =>
+                                          DropdownButtonFormField<int>(
+                                            value:
+                                                activeOrderAsync
+                                                    .value
+                                                    ?.waiterId ??
+                                                selectedWaiter?.id,
+                                            decoration: InputDecoration(
+                                              labelText: ref
+                                                  .t('bill.waiter')
+                                                  .toUpperCase(),
+                                              labelStyle: const TextStyle(
+                                                color: Color(0xFFD4AF37),
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                letterSpacing: 1,
+                                              ),
+                                              prefixIcon: const Icon(
+                                                Icons.person,
+                                                color: Color(0xFFD4AF37),
+                                                size: 16,
+                                              ),
+                                              filled: true,
+                                              fillColor: Colors.white
+                                                  .withOpacity(0.05),
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.zero,
+                                                borderSide: BorderSide(
+                                                  color: Colors.white
+                                                      .withOpacity(0.1),
+                                                ),
+                                              ),
+                                              enabledBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.zero,
+                                                borderSide: BorderSide(
+                                                  color: Colors.white
+                                                      .withOpacity(0.1),
+                                                ),
+                                              ),
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 8,
                                                   ),
-                                                  Text(
-                                                    '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                                    style: const TextStyle(
-                                                      color: Color(0xFFD4AF37),
-                                                      fontWeight: FontWeight.w600,
-                                                      fontSize: 11,
+                                            ),
+                                            dropdownColor: const Color(
+                                              0xFF1A1A1A,
+                                            ),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 13,
+                                            ),
+                                            items: ws
+                                                .map(
+                                                  (w) => DropdownMenuItem(
+                                                    value: w.id,
+                                                    child: Text(w.name),
+                                                  ),
+                                                )
+                                                .toList(),
+                                            onChanged:
+                                                activeOrderAsync.value != null
+                                                ? null
+                                                : (id) {
+                                                    if (id != null) {
+                                                      final waiter = ws
+                                                          .firstWhere(
+                                                            (w) => w.id == id,
+                                                          );
+                                                      _onWaiterSelected(waiter);
+                                                    }
+                                                  },
+                                          ),
+                                      loading: () =>
+                                          const LinearProgressIndicator(),
+                                      error: (_, __) =>
+                                          Text(ref.t('common.error')),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  // Table Dropdown
+                                  Expanded(
+                                    child: tablesAsync.when(
+                                      data: (ts) =>
+                                          DropdownButtonFormField<int>(
+                                            value: selectedTable?.id,
+                                            decoration: InputDecoration(
+                                              labelText: ref
+                                                  .t('order.selectTable')
+                                                  .toUpperCase(),
+                                              labelStyle: const TextStyle(
+                                                color: Color(0xFFD4AF37),
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                letterSpacing: 1,
+                                              ),
+                                              prefixIcon: const Icon(
+                                                Icons.table_bar,
+                                                color: Color(0xFFD4AF37),
+                                                size: 16,
+                                              ),
+                                              filled: true,
+                                              fillColor: Colors.white
+                                                  .withOpacity(0.05),
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.zero,
+                                                borderSide: BorderSide(
+                                                  color: Colors.white
+                                                      .withOpacity(0.1),
+                                                ),
+                                              ),
+                                              enabledBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.zero,
+                                                borderSide: BorderSide(
+                                                  color: Colors.white
+                                                      .withOpacity(0.1),
+                                                ),
+                                              ),
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 8,
+                                                  ),
+                                            ),
+                                            dropdownColor: const Color(
+                                              0xFF1A1A1A,
+                                            ),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 13,
+                                            ),
+                                            items: ts
+                                                .map(
+                                                  (t) => DropdownMenuItem(
+                                                    value: t.id,
+                                                    child: Text(t.name),
+                                                  ),
+                                                )
+                                                .toList(),
+                                            onChanged:
+                                                activeOrderAsync.value != null
+                                                ? null
+                                                : (id) {
+                                                    if (id != null) {
+                                                      final table = ts
+                                                          .firstWhere(
+                                                            (t) => t.id == id,
+                                                          );
+                                                      _onTableSelected(table);
+                                                    }
+                                                  },
+                                          ),
+                                      loading: () =>
+                                          const LinearProgressIndicator(),
+                                      error: (_, __) =>
+                                          Text(ref.t('common.error')),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // ── Suggestion Dropdown (Waiter / Table / Product) ─────────
+                            if (currentStep == OrderAssistantStep.waiter &&
+                                _lastFilteredWaiters.isNotEmpty)
+                              _SuggestionDropdown(
+                                children: _lastFilteredWaiters
+                                    .take(6)
+                                    .toList()
+                                    .asMap()
+                                    .entries
+                                    .map(
+                                      (e) => _SuggestionItem(
+                                        icon: Icons.person,
+                                        title: e.value.name,
+                                        subtitle: 'Code: ${e.value.code}',
+                                        isHighlighted:
+                                            e.key == _suggestionIndex,
+                                        onTap: () => _onWaiterSelected(e.value),
+                                      ),
+                                    )
+                                    .toList(),
+                              )
+                            else if (currentStep == OrderAssistantStep.table &&
+                                _lastFilteredTables.isNotEmpty)
+                              _SuggestionDropdown(
+                                children: _lastFilteredTables
+                                    .take(8)
+                                    .toList()
+                                    .asMap()
+                                    .entries
+                                    .map(
+                                      (e) => _SuggestionItem(
+                                        icon: Icons.table_bar,
+                                        title: e.value.name,
+                                        subtitle:
+                                            e.value.status ==
+                                                TableStatus.occupied
+                                            ? ref.t('tables.statusOccupied')
+                                            : ref.t('tables.statusAvailable'),
+                                        accentColor:
+                                            e.value.status ==
+                                                TableStatus.occupied
+                                            ? Colors.redAccent
+                                            : Colors.greenAccent,
+                                        isHighlighted:
+                                            e.key == _suggestionIndex,
+                                        onTap: () => _onTableSelected(e.value),
+                                      ),
+                                    )
+                                    .toList(),
+                              )
+                            else if (currentStep ==
+                                    OrderAssistantStep.product &&
+                                searchQuery.isNotEmpty &&
+                                _lastFilteredProducts.isNotEmpty)
+                              _SuggestionDropdown(
+                                children: _lastFilteredProducts
+                                    .take(6)
+                                    .toList()
+                                    .asMap()
+                                    .entries
+                                    .map(
+                                      (e) => _SuggestionItem(
+                                        icon: Icons.restaurant_menu,
+                                        title: e.value.name,
+                                        subtitle:
+                                            '${e.value.price.toStringAsFixed(2)} ETB',
+                                        isHighlighted:
+                                            e.key == _suggestionIndex,
+                                        onTap: () =>
+                                            _onProductSelected(e.value),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                            const SizedBox(height: 8),
+
+                            // ── Horizontal Categories ──────────────────────────────────
+                            categoriesAsync.when(
+                              data: (cats) => Container(
+                                height: 40,
+                                margin: const EdgeInsets.only(bottom: 16),
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: cats.length + 1,
+                                  itemBuilder: (ctx, i) {
+                                    final isSelected = i == 0
+                                        ? selectedCategoryId == null
+                                        : selectedCategoryId == cats[i - 1].id;
+                                    final name = i == 0
+                                        ? ref.t('common.all')
+                                        : cats[i - 1].name;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: InkWell(
+                                        onTap: () => setState(
+                                          () => selectedCategoryId = i == 0
+                                              ? null
+                                              : cats[i - 1].id,
+                                        ),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                          ),
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? const Color(0xFFD4AF37)
+                                                : Colors.white.withOpacity(
+                                                    0.05,
+                                                  ),
+                                            borderRadius: BorderRadius.zero,
+                                            border: Border.all(
+                                              color: isSelected
+                                                  ? Colors.transparent
+                                                  : Colors.white10,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            name.toUpperCase(),
+                                            style: TextStyle(
+                                              color: isSelected
+                                                  ? Colors.black
+                                                  : Colors.white70,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 1,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              loading: () => const SizedBox.shrink(),
+                              error: (_, __) => const SizedBox.shrink(),
+                            ),
+
+                            // ── Product Grid ──────────────────────────────────────────
+                            Expanded(
+                              child: productsAsync.when(
+                                data: (products) {
+                                  final filtered = products
+                                      .where(
+                                        (p) => p.name.toLowerCase().contains(
+                                          searchQuery.toLowerCase(),
+                                        ),
+                                      )
+                                      .toList();
+                                  if (_sortOption == 'alpha') {
+                                    filtered.sort(
+                                      (a, b) => a.name.compareTo(b.name),
+                                    );
+                                  } else if (_sortOption == 'priceAsc') {
+                                    filtered.sort(
+                                      (a, b) => a.price.compareTo(b.price),
+                                    );
+                                  } else if (_sortOption == 'priceDesc') {
+                                    filtered.sort(
+                                      (a, b) => b.price.compareTo(a.price),
+                                    );
+                                  }
+
+                                  // Track for assistant bar
+                                  _lastFilteredProducts = filtered;
+
+                                  return GridView.builder(
+                                    padding: EdgeInsets.zero,
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 4,
+                                          childAspectRatio: 2.8,
+                                          crossAxisSpacing: 10,
+                                          mainAxisSpacing: 10,
+                                        ),
+                                    itemCount: filtered.length,
+                                    itemBuilder: (_, i) {
+                                      final p = filtered[i];
+                                      final isFirstMatch =
+                                          i == 0 &&
+                                          searchQuery.isNotEmpty &&
+                                          currentStep ==
+                                              OrderAssistantStep.product;
+                                      return AnimatedContainer(
+                                        duration: const Duration(
+                                          milliseconds: 150,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.zero,
+                                          border: isFirstMatch
+                                              ? Border.all(
+                                                  color: const Color(
+                                                    0xFFD4AF37,
+                                                  ),
+                                                  width: 1.5,
+                                                )
+                                              : null,
+                                        ),
+                                        child: GlassContainer(
+                                          opacity: isFirstMatch ? 0.12 : 0.05,
+                                          border: Border.all(
+                                            color: Colors.white.withOpacity(
+                                              0.08,
+                                            ),
+                                          ),
+                                          child: InkWell(
+                                            onTap: () => _onProductSelected(p),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 8,
+                                                  ),
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.restaurant_menu,
+                                                    size: 16,
+                                                    color: isFirstMatch
+                                                        ? const Color(
+                                                            0xFFD4AF37,
+                                                          )
+                                                        : const Color(
+                                                            0xFFD4AF37,
+                                                          ).withOpacity(0.6),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Column(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          p.name,
+                                                          style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            fontSize: 13,
+                                                            color: isFirstMatch
+                                                                ? Colors.white
+                                                                : Colors
+                                                                      .white70,
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                        Text(
+                                                          '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                                          style:
+                                                              const TextStyle(
+                                                                color: Color(
+                                                                  0xFFD4AF37,
+                                                                ),
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                fontSize: 11,
+                                                              ),
+                                                        ),
+                                                      ],
                                                     ),
                                                   ),
                                                 ],
                                               ),
                                             ),
-                                          ],
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                          );
-                        },
-                        loading: () => const Center(child: CircularProgressIndicator()),
-                        error: (e, _) => Text('$e'),
-                      ),
-                    ),
-
-                    // ── Held Orders Panel (shown when no table selected) ──────
-                    if (selectedTable == null)
-                      const Flexible(child: _HeldOrdersInlinePanel()),
-                  ],
-                ),
-              ),
-            ),
-            // ── Cart panel ──────────────────────────────────────────────
-            Container(
-              width: 460,
-              margin: const EdgeInsets.only(bottom: 16, right: 16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
-                border: Border.all(color: Colors.white10),
-              ),
-              child: Column(
-                  children: [
-                    // Header
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.shopping_cart,
-                            color: Color(0xFFD4AF37),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            ref.t('order.currentOrder'),
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: Consumer(
-                        builder: (context, ref, _) {
-                          final waitersAsync = ref.watch(waitersProvider);
-                          final tablesAsync = ref.watch(tablesProvider);
-                          
-                          // Populate filtering for assistant bar
-                          waitersAsync.whenData((ws) {
-                            _lastFilteredWaiters = ws.where((w) => w.name.toLowerCase().contains(waiterSearchQuery.toLowerCase())).toList();
-                          });
-                          tablesAsync.whenData((ts) {
-                            _lastFilteredTables = ts.where((t) => t.name.toLowerCase().contains(_assistantController.text.toLowerCase())).toList();
-                          });
-
-                          final activeOrder = activeOrderAsync.value;
-                          final isLocked = activeOrder != null;
-
-                          return waitersAsync.when(
-                            data: (allWaiters) => Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Waiter Dropdown
-                                DropdownButtonFormField<int>(
-                                  value: activeOrder?.waiterId ?? selectedWaiter?.id,
-                                  decoration: InputDecoration(
-                                    prefixIcon: const Icon(Icons.person, color: Color(0xFFD4AF37), size: 18),
-                                    labelText: ref.t('bill.waiter'),
-                                    labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
-                                    border: const OutlineInputBorder(borderRadius: BorderRadius.zero),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  ),
-                                  dropdownColor: const Color(0xFF1A1A1A),
-                                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                                  items: allWaiters.map((w) => DropdownMenuItem(
-                                    value: w.id,
-                                    child: Text(w.name),
-                                  )).toList(),
-                                  onChanged: isLocked ? null : (id) {
-                                    final waiter = allWaiters.firstWhere((w) => w.id == id);
-                                    _onWaiterSelected(waiter);
-                                  },
-                                ),
-                                const SizedBox(height: 12),
-                                // Table Dropdown
-                                tablesAsync.when(
-                                  data: (allTables) => DropdownButtonFormField<int>(
-                                    value: selectedTable?.id,
-                                    decoration: InputDecoration(
-                                      prefixIcon: const Icon(Icons.table_bar, color: Color(0xFFD4AF37), size: 18),
-                                      labelText: ref.t('management.tables'),
-                                      labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
-                                      border: const OutlineInputBorder(borderRadius: BorderRadius.zero),
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                    ),
-                                    dropdownColor: const Color(0xFF1A1A1A),
-                                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                                    items: allTables.map((t) => DropdownMenuItem(
-                                      value: t.id,
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              t.name,
-                                              overflow: TextOverflow.ellipsis,
-                                              maxLines: 1,
-                                              style: const TextStyle(color: Colors.white, fontSize: 14),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: (t.status == TableStatus.occupied
-                                                      ? Colors.redAccent
-                                                      : Colors.greenAccent)
-                                                  .withOpacity(0.15),
-                                              borderRadius: BorderRadius.zero,
-                                            ),
-                                            child: Text(
-                                              t.status == TableStatus.occupied ? 'OCC' : 'FREE',
-                                              style: TextStyle(
-                                                color: t.status == TableStatus.occupied
-                                                    ? Colors.redAccent
-                                                    : Colors.greenAccent,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    )).toList(),
-                                    onChanged: isLocked ? null : (id) {
-                                      final table = allTables.firstWhere((t) => t.id == id);
-                                      _onTableSelected(table);
-                                    },
-                                  ),
-                                  loading: () => const LinearProgressIndicator(),
-                                  error: (_, __) => const Text('Error loading tables'),
-                                ),
-                                const SizedBox(height: 10),
-                              ],
-                            ),
-                            loading: () => const LinearProgressIndicator(),
-                            error: (_, __) => const Text('Error loading waiters'),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    const Divider(color: Colors.white10, height: 1),
-                    const SizedBox(height: 10),
-                    // Items list
-                    Expanded(
-                      child: activeOrderAsync.when(
-                        data: (order) {
-                          final savedItems = order?.items ?? [];
-                          return ListView(
-                            padding: const EdgeInsets.all(14),
-                            children: [
-                              if (savedItems.isNotEmpty) ...[
-                                const SizedBox(height: 8),
-                                Text(
-                                  ref.t('order.sentToKitchen'),
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white38,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                ...savedItems.map(
-                                  (item) => _CartItemTile(
-                                    item: item,
-                                    isSaved: true,
-                                    onVoid: () async {
-                                      final confirm = await _showDeleteConfirmation(item.productName);
-                                      if (!confirm) return;
-                                      
-                                      await ref
-                                          .read(posRepositoryProvider)
-                                          .voidOrderItem(item.id!, order!.id!);
-                                      if (selectedTable != null) {
-                                        await ref
-                                            .read(activeOrderServiceProvider)
-                                            .refreshTableData(
-                                              selectedTable!.id!,
-                                            );
-                                      }
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                              ],
-                              if (localItems.isNotEmpty) ...[
-                                const SizedBox(height: 12),
-                                Text(
-                                  ref.t('order.newItems'),
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFFD4AF37),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                ...localItems.asMap().entries.map(
-                                  (e) => _CartItemTile(
-                                    item: e.value,
-                                    isSaved: false,
-                                    onAdd: () => _updateQuantity(e.key, 1),
-                                    onRemove: () => _updateQuantity(e.key, -1),
-                                    onDelete: () => _removeItem(e.key),
-                                    onNote: () => _addNoteToItem(e.key),
-                                  ),
-                                ),
-                              ],
-                              if (savedItems.isEmpty && localItems.isEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 80),
-                                  child: Center(
-                                    child: Opacity(
-                                      opacity: 0.3,
-                                      child: Column(
-                                        children: [
-                                          const Icon(
-                                            Icons.shopping_basket_outlined,
-                                            size: 56,
-                                          ),
-                                          const SizedBox(height: 12),
-                                          Text(ref.t('order.cartEmpty')),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          );
-                        },
-                        loading: () => const Center(child: CircularProgressIndicator()),
-                        error: (e, _) => Text('$e'),
-                      ),
-                    ),
-                    // Summary & actions
-                    Consumer(
-                      builder: (context, cRef, _) {
-                        final chargesAsync = cRef.watch(chargesListProvider);
-                        final appSettingsAsync = cRef.watch(appSettingsProvider);
-
-                        return chargesAsync.maybeWhen(
-                          data: (charges) {
-                            return Container(
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.3),
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(24),
-                                ),
-                              ),
-                              child: Column(
-                                children: [
-                                  activeOrderAsync.maybeWhen(
-                                    data: (order) {
-                                      final subtotal = (order?.totalAmount ?? 0) + _localTotal;
-                                      double totalAdditions = 0;
-                                      double totalDeductions = 0;
-                                      final chargeWidgets = <Widget>[];
-
-                                      for (final c in charges.where((c) => c.isActive)) {
-                                        final amount = subtotal * (c.value / 100);
-                                        if (c.type == 'addition') {
-                                          totalAdditions += amount;
-                                        } else {
-                                          totalDeductions += amount;
-                                        }
-                                        chargeWidgets.add(
-                                          _SummaryRow(
-                                            '${c.name} (${c.value}%)',
-                                            '${c.type == 'addition' ? '' : '- '}${amount.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                            color: c.type == 'addition' ? null : Colors.redAccent,
-                                          ),
-                                        );
-                                      }
-
-                                      final total = subtotal + totalAdditions - totalDeductions - _discountAmount;
-
-                                      return Column(
-                                        children: [
-                                          _SummaryRow(
-                                            ref.t('order.subtotal'),
-                                            '${subtotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                          ),
-                                          ...chargeWidgets,
-                                          if (_discountAmount > 0)
-                                            _SummaryRow(
-                                              ref.t('order.discount'),
-                                              '- ${_discountAmount.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                              color: Colors.greenAccent,
-                                            ),
-                                          const Divider(color: Colors.white10, height: 16),
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                ref.t('order.total'),
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w900,
-                                                ),
-                                              ),
-                                              Text(
-                                                '${total.toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                                style: const TextStyle(
-                                                  fontSize: 24,
-                                                  fontWeight: FontWeight.w900,
-                                                  color: Color(0xFFD4AF37),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
                                       );
                                     },
-                                    orElse: () => const SizedBox(),
+                                  );
+                                },
+                                loading: () => const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                                error: (e, _) => Text('$e'),
+                              ),
+                            ),
+
+                            // ── Held Orders Panel (shown when no table selected) ──────
+                            if (selectedTable == null)
+                              const Flexible(child: _HeldOrdersInlinePanel()),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // ── Cart panel ──────────────────────────────────────────────
+                    Container(
+                      width: 460,
+                      margin: const EdgeInsets.only(bottom: 16, right: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.08),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: Column(
+                        children: [
+                          // Header
+                          Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.shopping_cart,
+                                  color: Color(0xFFD4AF37),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  ref.t('order.currentOrder'),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1,
                                   ),
-                                  const SizedBox(height: 16),
-                                  Row(
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                            child: Consumer(
+                              builder: (context, ref, _) {
+                                final waitersAsync = ref.watch(waitersProvider);
+                                final tablesAsync = ref.watch(tablesProvider);
+
+                                // Populate filtering for assistant bar
+                                waitersAsync.whenData((ws) {
+                                  _lastFilteredWaiters = ws
+                                      .where(
+                                        (w) => w.name.toLowerCase().contains(
+                                          waiterSearchQuery.toLowerCase(),
+                                        ),
+                                      )
+                                      .toList();
+                                });
+                                tablesAsync.whenData((ts) {
+                                  _lastFilteredTables = ts
+                                      .where(
+                                        (t) => t.name.toLowerCase().contains(
+                                          _assistantController.text
+                                              .toLowerCase(),
+                                        ),
+                                      )
+                                      .toList();
+                                });
+
+                                final activeOrder = activeOrderAsync.value;
+                                final isLocked = activeOrder != null;
+
+                                return waitersAsync.when(
+                                  data: (allWaiters) => Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Expanded(
-                                        child: ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.orange.withOpacity(0.85),
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(vertical: 18),
-                                            shape: const RoundedRectangleBorder(
+                                      // Waiter Dropdown
+                                      DropdownButtonFormField<int>(
+                                        value:
+                                            activeOrder?.waiterId ??
+                                            selectedWaiter?.id,
+                                        decoration: InputDecoration(
+                                          prefixIcon: const Icon(
+                                            Icons.person,
+                                            color: Color(0xFFD4AF37),
+                                            size: 18,
+                                          ),
+                                          labelText: ref.t('bill.waiter'),
+                                          labelStyle: const TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 12,
+                                          ),
+                                          border: const OutlineInputBorder(
+                                            borderRadius: BorderRadius.zero,
+                                          ),
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 8,
+                                              ),
+                                        ),
+                                        dropdownColor: const Color(0xFF1A1A1A),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                        ),
+                                        items: allWaiters
+                                            .map(
+                                              (w) => DropdownMenuItem(
+                                                value: w.id,
+                                                child: Text(w.name),
+                                              ),
+                                            )
+                                            .toList(),
+                                        onChanged: isLocked
+                                            ? null
+                                            : (id) {
+                                                final waiter = allWaiters
+                                                    .firstWhere(
+                                                      (w) => w.id == id,
+                                                    );
+                                                _onWaiterSelected(waiter);
+                                              },
+                                      ),
+                                      const SizedBox(height: 12),
+                                      // Table Dropdown
+                                      tablesAsync.when(
+                                        data: (allTables) => DropdownButtonFormField<int>(
+                                          value: selectedTable?.id,
+                                          decoration: InputDecoration(
+                                            prefixIcon: const Icon(
+                                              Icons.table_bar,
+                                              color: Color(0xFFD4AF37),
+                                              size: 18,
+                                            ),
+                                            labelText: ref.t(
+                                              'management.tables',
+                                            ),
+                                            labelStyle: const TextStyle(
+                                              color: Colors.white54,
+                                              fontSize: 12,
+                                            ),
+                                            border: const OutlineInputBorder(
                                               borderRadius: BorderRadius.zero,
                                             ),
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 8,
+                                                ),
                                           ),
-                                          onPressed: (localItems.isEmpty || selectedTable == null || (activeOrderAsync.value == null && selectedWaiter == null))
-                                              ? null
-                                              : () => appSettingsAsync.maybeWhen(
-                                                    data: (s) => _sendToKitchen(activeOrderAsync.value, s),
-                                                    orElse: () => null,
+                                          dropdownColor: const Color(
+                                            0xFF1A1A1A,
+                                          ),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                          ),
+                                          items: allTables
+                                              .map(
+                                                (t) => DropdownMenuItem(
+                                                  value: t.id,
+                                                  child: Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          t.name,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          maxLines: 1,
+                                                          style:
+                                                              const TextStyle(
+                                                                color: Colors
+                                                                    .white,
+                                                                fontSize: 14,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Container(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 6,
+                                                              vertical: 2,
+                                                            ),
+                                                        decoration: BoxDecoration(
+                                                          color:
+                                                              (t.status ==
+                                                                          TableStatus
+                                                                              .occupied
+                                                                      ? Colors
+                                                                            .redAccent
+                                                                      : Colors
+                                                                            .greenAccent)
+                                                                  .withOpacity(
+                                                                    0.15,
+                                                                  ),
+                                                          borderRadius:
+                                                              BorderRadius.zero,
+                                                        ),
+                                                        child: Text(
+                                                          t.status ==
+                                                                  TableStatus
+                                                                      .occupied
+                                                              ? 'OCC'
+                                                              : 'FREE',
+                                                          style: TextStyle(
+                                                            color:
+                                                                t.status ==
+                                                                    TableStatus
+                                                                        .occupied
+                                                                ? Colors
+                                                                      .redAccent
+                                                                : Colors
+                                                                      .greenAccent,
+                                                            fontSize: 10,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
-                                          child: Text(
-                                            ref.t('order.sendToKitchen'),
-                                            style: const TextStyle(fontWeight: FontWeight.bold),
-                                          ),
+                                                ),
+                                              )
+                                              .toList(),
+                                          onChanged: isLocked
+                                              ? null
+                                              : (id) {
+                                                  final table = allTables
+                                                      .firstWhere(
+                                                        (t) => t.id == id,
+                                                      );
+                                                  _onTableSelected(table);
+                                                },
+                                        ),
+                                        loading: () =>
+                                            const LinearProgressIndicator(),
+                                        error: (_, __) => Text(
+                                          ref.t('order.errorLoadingTables'),
                                         ),
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(0xFF006B3C),
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(vertical: 18),
-                                            shape: const RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.zero,
-                                            ),
-                                          ),
-                                          onPressed: (activeOrderAsync.value == null || selectedTable == null)
-                                              ? null
-                                              : () => appSettingsAsync.maybeWhen(
-                                                    data: (s) => _printBill(activeOrderAsync.value!, s),
-                                                    orElse: () => null,
-                                                  ),
-                                          child: Text(
-                                            ref.t('order.printBill'),
-                                            style: const TextStyle(fontWeight: FontWeight.bold),
-                                          ),
+                                      const SizedBox(height: 10),
+                                    ],
+                                  ),
+                                  loading: () =>
+                                      const LinearProgressIndicator(),
+                                  error: (_, __) =>
+                                      Text(ref.t('order.errorLoadingWaiters')),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const Divider(color: Colors.white10, height: 1),
+                          const SizedBox(height: 10),
+                          // Items list
+                          Expanded(
+                            child: activeOrderAsync.when(
+                              data: (order) {
+                                final savedItems = order?.items ?? [];
+                                return ListView(
+                                  padding: const EdgeInsets.all(14),
+                                  children: [
+                                    if (savedItems.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        ref.t('order.sentToKitchen'),
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white38,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      ...savedItems.map(
+                                        (item) => _CartItemTile(
+                                          item: item,
+                                          isSaved: true,
+                                          onVoid: () async {
+                                            final confirm =
+                                                await _showDeleteConfirmation(
+                                                  item.productName,
+                                                );
+                                            if (!confirm) return;
+
+                                            await ref
+                                                .read(posRepositoryProvider)
+                                                .voidOrderItem(
+                                                  item.id!,
+                                                  order!.id!,
+                                                );
+                                            if (selectedTable != null) {
+                                              await ref
+                                                  .read(
+                                                    activeOrderServiceProvider,
+                                                  )
+                                                  .refreshTableData(
+                                                    selectedTable!.id!,
+                                                  );
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                    ],
+                                    if (localItems.isNotEmpty) ...[
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        ref.t('order.newItems'),
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFD4AF37),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      ...localItems.asMap().entries.map(
+                                        (e) => _CartItemTile(
+                                          item: e.value,
+                                          isSaved: false,
+                                          onAdd: () =>
+                                              _updateQuantity(e.key, 1),
+                                          onRemove: () =>
+                                              _updateQuantity(e.key, -1),
+                                          onDelete: () => _removeItem(e.key),
+                                          onNote: () => _addNoteToItem(e.key),
                                         ),
                                       ),
                                     ],
-                                  ),
-                                ],
+                                    if (savedItems.isEmpty &&
+                                        localItems.isEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 80),
+                                        child: Center(
+                                          child: Opacity(
+                                            opacity: 0.3,
+                                            child: Column(
+                                              children: [
+                                                const Icon(
+                                                  Icons
+                                                      .shopping_basket_outlined,
+                                                  size: 56,
+                                                ),
+                                                const SizedBox(height: 12),
+                                                Text(ref.t('order.cartEmpty')),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                );
+                              },
+                              loading: () => const Center(
+                                child: CircularProgressIndicator(),
                               ),
-                            );
-                          },
-                          orElse: () => const SizedBox(height: 80),
-                        );
-                      },
+                              error: (e, _) => Text('$e'),
+                            ),
+                          ),
+                          // Summary & actions
+                          Consumer(
+                            builder: (context, cRef, _) {
+                              final chargesAsync = cRef.watch(
+                                chargesListProvider,
+                              );
+                              final appSettingsAsync = cRef.watch(
+                                appSettingsProvider,
+                              );
+
+                              return chargesAsync.maybeWhen(
+                                data: (charges) {
+                                  return Container(
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.3),
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(24),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        activeOrderAsync.maybeWhen(
+                                          data: (order) {
+                                            final subtotal =
+                                                (order?.totalAmount ?? 0) +
+                                                _localTotal;
+                                            double totalAdditions = 0;
+                                            double totalDeductions = 0;
+                                            final chargeWidgets = <Widget>[];
+
+                                            for (final c in charges.where(
+                                              (c) => c.isActive,
+                                            )) {
+                                              final amount =
+                                                  subtotal * (c.value / 100);
+                                              if (c.type == 'addition') {
+                                                totalAdditions += amount;
+                                              } else {
+                                                totalDeductions += amount;
+                                              }
+                                              chargeWidgets.add(
+                                                _SummaryRow(
+                                                  '${c.name} (${c.value}%)',
+                                                  '${c.type == 'addition' ? '' : '- '}${amount.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                                  color: c.type == 'addition'
+                                                      ? null
+                                                      : Colors.redAccent,
+                                                ),
+                                              );
+                                            }
+
+                                            final total =
+                                                subtotal +
+                                                totalAdditions -
+                                                totalDeductions -
+                                                _discountAmount;
+
+                                            return Column(
+                                              children: [
+                                                _SummaryRow(
+                                                  ref.t('order.subtotal'),
+                                                  '${subtotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                                ),
+                                                ...chargeWidgets,
+                                                if (_discountAmount > 0)
+                                                  _SummaryRow(
+                                                    ref.t('order.discount'),
+                                                    '- ${_discountAmount.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                                    color: Colors.greenAccent,
+                                                  ),
+                                                const Divider(
+                                                  color: Colors.white10,
+                                                  height: 16,
+                                                ),
+                                                Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceBetween,
+                                                  children: [
+                                                    Text(
+                                                      ref.t('order.total'),
+                                                      style: const TextStyle(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w900,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      '${total.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                                                      style: const TextStyle(
+                                                        fontSize: 24,
+                                                        fontWeight:
+                                                            FontWeight.w900,
+                                                        color: Color(
+                                                          0xFFD4AF37,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                          orElse: () => const SizedBox(),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: ElevatedButton(
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.orange
+                                                      .withOpacity(0.85),
+                                                  foregroundColor: Colors.white,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 18,
+                                                      ),
+                                                  shape:
+                                                      const RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.zero,
+                                                      ),
+                                                ),
+                                                onPressed:
+                                                    (localItems.isEmpty ||
+                                                        selectedTable == null ||
+                                                        (activeOrderAsync
+                                                                    .value ==
+                                                                null &&
+                                                            selectedWaiter ==
+                                                                null))
+                                                    ? null
+                                                    : () => appSettingsAsync
+                                                          .maybeWhen(
+                                                            data: (s) =>
+                                                                _sendToKitchen(
+                                                                  activeOrderAsync
+                                                                      .value,
+                                                                  s,
+                                                                ),
+                                                            orElse: () => null,
+                                                          ),
+                                                child: Text(
+                                                  ref.t('order.sendToKitchen'),
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: ElevatedButton(
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: const Color(
+                                                    0xFF006B3C,
+                                                  ),
+                                                  foregroundColor: Colors.white,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 18,
+                                                      ),
+                                                  shape:
+                                                      const RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.zero,
+                                                      ),
+                                                ),
+                                                onPressed:
+                                                    (activeOrderAsync.value ==
+                                                            null ||
+                                                        selectedTable == null)
+                                                    ? null
+                                                    : () => appSettingsAsync
+                                                          .maybeWhen(
+                                                            data: (s) =>
+                                                                _printBill(
+                                                                  activeOrderAsync
+                                                                      .value!,
+                                                                  s,
+                                                                ),
+                                                            orElse: () => null,
+                                                          ),
+                                                child: Text(
+                                                  ref.t('order.printBill'),
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                orElse: () => const SizedBox(height: 80),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
-    ],
-  ),
-),
-),
-);
-}
+    );
+  }
 }
 
 // ── Summary row helper ────────────────────────────────────────────────────
@@ -1495,7 +1909,10 @@ class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _Row(ref.t('order.items'), '${widget.order.items.length}'),
-            _Row(ref.t('order.subtotal'), '${widget.subtotal.toStringAsFixed(2)} ${ref.t('common.currency')}'),
+            _Row(
+              ref.t('order.subtotal'),
+              '${widget.subtotal.toStringAsFixed(2)} ${ref.t('common.currency')}',
+            ),
             ...widget.charges.map((c) {
               final amount = widget.subtotal * (c.value / 100);
               return _Row(
@@ -1534,16 +1951,37 @@ class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
                 value: _paymentMethod,
                 dropdownColor: const Color(0xFF1A1A1A),
                 decoration: InputDecoration(
-                  labelText: 'Payment Method',
+                  labelText: ref.t('order.paymentMethod'),
                   labelStyle: const TextStyle(color: Colors.white54),
-                  prefixIcon: const Icon(Icons.payments_outlined, color: Colors.white38),
+                  prefixIcon: const Icon(
+                    Icons.payments_outlined,
+                    color: Colors.white38,
+                  ),
                   border: const OutlineInputBorder(),
                 ),
                 items: [
-                  DropdownMenuItem(value: 'cash', child: Text('CASH', style: TextStyle(color: Colors.white))),
-                  DropdownMenuItem(value: 'card', child: Text('CREDIT CARD', style: TextStyle(color: Colors.white))),
-                  DropdownMenuItem(value: 'mobile', child: Text('MOBILE MONEY', style: TextStyle(color: Colors.white))),
-                  DropdownMenuItem(value: 'other', child: Text('OTHER', style: TextStyle(color: Colors.white))),
+                  DropdownMenuItem(
+                    value: 'cash',
+                    child: Text('CASH', style: TextStyle(color: Colors.white)),
+                  ),
+                  DropdownMenuItem(
+                    value: 'card',
+                    child: Text(
+                      'CREDIT CARD',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'mobile',
+                    child: Text(
+                      'MOBILE MONEY',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'other',
+                    child: Text('OTHER', style: TextStyle(color: Colors.white)),
+                  ),
                 ],
                 onChanged: (v) {
                   if (v != null) {
@@ -1561,10 +1999,16 @@ class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
                 double totalDeductions = 0;
                 for (final c in widget.charges) {
                   final amount = widget.subtotal * (c.value / 100);
-                  if (c.type == 'addition') totalAdditions += amount;
-                  else totalDeductions += amount;
+                  if (c.type == 'addition')
+                    totalAdditions += amount;
+                  else
+                    totalDeductions += amount;
                 }
-                final total = widget.subtotal + totalAdditions - totalDeductions - _discount;
+                final total =
+                    widget.subtotal +
+                    totalAdditions -
+                    totalDeductions -
+                    _discount;
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1776,163 +2220,195 @@ class _HeldOrdersInlinePanel extends ConsumerWidget {
             top: BorderSide(color: const Color(0xFFD4AF37).withOpacity(0.2)),
           ),
         ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header row
-          Padding(
-            padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
-            child: Row(
-              children: [
-                const Icon(Icons.layers_outlined, color: Color(0xFFD4AF37), size: 16),
-                const SizedBox(width: 8),
-                const Text(
-                  'HELD ORDERS',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.5,
-                    color: Colors.white54,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.layers_outlined,
+                    color: Color(0xFFD4AF37),
+                    size: 16,
                   ),
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: () => ref.invalidate(ordersProvider),
-                  icon: const Icon(Icons.refresh, size: 13),
-                  label: const Text('REFRESH', style: TextStyle(fontSize: 10)),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white24,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // List
-          Expanded(
-            child: ordersAsync.when(
-              data: (orders) {
-                final pending = orders
-                    .where((o) => o.status == OrderStatus.pending)
-                    .toList();
-
-                if (pending.isEmpty) {
-                  return Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.inbox_outlined,
-                            size: 18, color: Colors.white.withOpacity(0.08)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'No pending orders',
-                          style: TextStyle(color: Colors.white12, fontSize: 12),
-                        ),
-                      ],
+                  const SizedBox(width: 8),
+                  const Text(
+                    'HELD ORDERS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
+                      color: Colors.white54,
                     ),
-                  );
-                }
+                  ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: () => ref.invalidate(ordersProvider),
+                    icon: const Icon(Icons.refresh, size: 13),
+                    label: const Text(
+                      'REFRESH',
+                      style: TextStyle(fontSize: 10),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white24,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
-                return ListView.builder(
-                  padding: EdgeInsets.zero,
-                  itemCount: pending.length,
-                  itemBuilder: (context, index) {
-                    final order = pending[index];
-                    final diff = DateTime.now().difference(order.createdAt);
-                    final timerColor = diff.inMinutes > 30 
-                        ? Colors.redAccent 
-                        : diff.inMinutes > 15 ? Colors.orangeAccent : Colors.greenAccent;
+            // List
+            Expanded(
+              child: ordersAsync.when(
+                data: (orders) {
+                  final pending = orders
+                      .where((o) => o.status == OrderStatus.pending)
+                      .toList();
 
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: InkWell(
-                        onTap: () {
-                          final table = TableModel(
-                            id: order.tableId,
-                            name: order.tableName,
-                            status: TableStatus.occupied,
-                          );
-                          ref.read(selectedTableProvider.notifier).set(table);
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.03),
-                            border: Border.all(color: Colors.white.withOpacity(0.07)),
+                  if (pending.isEmpty) {
+                    return Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.inbox_outlined,
+                            size: 18,
+                            color: Colors.white.withOpacity(0.08),
                           ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: timerColor.withOpacity(0.08),
-                                  borderRadius: BorderRadius.zero,
-                                ),
-                                child: Icon(Icons.table_bar, color: timerColor, size: 18),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'No pending orders',
+                            style: TextStyle(
+                              color: Colors.white12,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: EdgeInsets.zero,
+                    itemCount: pending.length,
+                    itemBuilder: (context, index) {
+                      final order = pending[index];
+                      final diff = DateTime.now().difference(order.createdAt);
+                      final timerColor = diff.inMinutes > 30
+                          ? Colors.redAccent
+                          : diff.inMinutes > 15
+                          ? Colors.orangeAccent
+                          : Colors.greenAccent;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: InkWell(
+                          onTap: () {
+                            final table = TableModel(
+                              id: order.tableId,
+                              name: order.tableName,
+                              status: TableStatus.occupied,
+                            );
+                            ref.read(selectedTableProvider.notifier).set(table);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.03),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.07),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: timerColor.withOpacity(0.08),
+                                    borderRadius: BorderRadius.zero,
+                                  ),
+                                  child: Icon(
+                                    Icons.table_bar,
+                                    color: timerColor,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        order.tableName.toUpperCase(),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 13,
+                                          letterSpacing: 0.8,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${order.waiterName}  •  ${order.items.length} items',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.white38,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     Text(
-                                      order.tableName.toUpperCase(),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 13,
-                                        letterSpacing: 0.8,
+                                      '${diff.inMinutes}m',
+                                      style: TextStyle(
+                                        color: timerColor,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                     Text(
-                                      '${order.waiterName}  •  ${order.items.length} items',
+                                      '${order.totalAmount.toStringAsFixed(2)} ETB',
                                       style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.white38,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFFD4AF37),
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    '${diff.inMinutes}m',
-                                    style: TextStyle(
-                                      color: timerColor,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${order.totalAmount.toStringAsFixed(2)} ETB',
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w900,
-                                      color: Color(0xFFD4AF37),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(width: 8),
-                              const Icon(Icons.chevron_right, color: Colors.white12, size: 16),
-                            ],
+                                const SizedBox(width: 8),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  color: Colors.white12,
+                                  size: 16,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
-                );
-              },
-              loading: () => const Center(child: LinearProgressIndicator()),
-              error: (e, _) => Text('Error: $e'),
+                      );
+                    },
+                  );
+                },
+                loading: () => const Center(child: LinearProgressIndicator()),
+                error: (e, _) => Text('Error: $e'),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-     ),
     );
   }
 }
@@ -1962,8 +2438,10 @@ class _QuickQtyDialogState extends State<_QuickQtyDialog> {
       }
     });
     Future.microtask(() {
-      _ctrl.selection =
-          TextSelection(baseOffset: 0, extentOffset: _ctrl.text.length);
+      _ctrl.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _ctrl.text.length,
+      );
       _focusNode.requestFocus();
     });
   }
@@ -1978,8 +2456,10 @@ class _QuickQtyDialogState extends State<_QuickQtyDialog> {
   void _setQty(int q) {
     setState(() => qty = q);
     _ctrl.text = '$q';
-    _ctrl.selection =
-        TextSelection(baseOffset: 0, extentOffset: _ctrl.text.length);
+    _ctrl.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _ctrl.text.length,
+    );
   }
 
   @override
@@ -2044,7 +2524,8 @@ class _QuickQtyDialogState extends State<_QuickQtyDialog> {
                   foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.zero),
+                    borderRadius: BorderRadius.zero,
+                  ),
                 ),
                 onPressed: () {
                   final n = int.tryParse(_ctrl.text) ?? 1;
@@ -2087,10 +2568,7 @@ class _SuggestionDropdown extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 200),
         child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: children,
-          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: children),
         ),
       ),
     );
@@ -2135,8 +2613,11 @@ class _SuggestionItem extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(icon,
-                color: isHighlighted ? accent : Colors.white38, size: 18),
+            Icon(
+              icon,
+              color: isHighlighted ? accent : Colors.white38,
+              size: 18,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -2148,8 +2629,9 @@ class _SuggestionItem extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: isHighlighted ? Colors.white : Colors.white70,
-                      fontWeight:
-                          isHighlighted ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isHighlighted
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                       fontSize: 14,
                     ),
                   ),
@@ -2169,15 +2651,14 @@ class _SuggestionItem extends StatelessWidget {
             ),
             if (isHighlighted)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  border:
-                      Border.all(color: accent.withOpacity(0.4)),
+                  border: Border.all(color: accent.withOpacity(0.4)),
                 ),
-                child: Text('↵ Enter',
-                    style: TextStyle(
-                        color: accent, fontSize: 11)),
+                child: Text(
+                  '↵ Enter',
+                  style: TextStyle(color: accent, fontSize: 11),
+                ),
               ),
           ],
         ),

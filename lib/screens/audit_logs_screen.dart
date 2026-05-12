@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:st_george_pos/providers/pos_providers.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
+import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:intl/intl.dart';
 
 class AuditLogsScreen extends ConsumerWidget {
@@ -9,6 +10,7 @@ class AuditLogsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(languageProvider);
     final logsAsync = ref.watch(auditLogsProvider);
 
     return Column(
@@ -20,9 +22,9 @@ class AuditLogsScreen extends ConsumerWidget {
             children: [
               const Icon(Icons.history, color: Color(0xFFD4AF37), size: 28),
               const SizedBox(width: 12),
-              const Text(
-                'SYSTEM AUDIT LOGS',
-                style: TextStyle(
+              Text(
+                ref.t('audit.title'),
+                style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.5,
@@ -39,13 +41,14 @@ class AuditLogsScreen extends ConsumerWidget {
         Expanded(
           child: logsAsync.when(
             data: (logs) => logs.isEmpty
-                ? const Center(child: Text('No audit logs found.'))
+                ? Center(child: Text(ref.t('audit.noLogs')))
                 : GlassContainer(
                     opacity: 0.05,
                     child: ListView.separated(
                       padding: const EdgeInsets.all(16),
                       itemCount: logs.length,
-                      separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 1),
+                      separatorBuilder: (_, __) =>
+                          const Divider(color: Colors.white10, height: 1),
                       itemBuilder: (context, index) {
                         final log = logs[index];
                         final date = DateTime.parse(log['created_at']);
@@ -55,11 +58,17 @@ class AuditLogsScreen extends ConsumerWidget {
                             children: [
                               Text(
                                 DateFormat('HH:mm').format(date),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
                               ),
                               Text(
                                 DateFormat('dd/MM').format(date),
-                                style: const TextStyle(color: Colors.white38, fontSize: 10),
+                                style: const TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 10,
+                                ),
                               ),
                             ],
                           ),
@@ -77,20 +86,29 @@ class AuditLogsScreen extends ConsumerWidget {
                                   padding: const EdgeInsets.only(top: 4),
                                   child: Text(
                                     log['details'],
-                                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 )
                               : null,
                           trailing: log['user_id'] != null
                               ? Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.05),
                                     borderRadius: BorderRadius.zero,
                                   ),
                                   child: Text(
                                     'UID: ${log['user_id']}',
-                                    style: const TextStyle(fontSize: 10, color: Colors.white38),
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.white38,
+                                    ),
                                   ),
                                 )
                               : null,
@@ -99,7 +117,7 @@ class AuditLogsScreen extends ConsumerWidget {
                     ),
                   ),
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (e, _) => Center(child: Text('${ref.t('audit.error')}: $e')),
           ),
         ),
       ],
