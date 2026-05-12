@@ -327,10 +327,12 @@ class BillService {
             _totalRow('Gross Sales', sales['gross_sales'], fontSize: 9),
             _totalRow('Discounts', -sales['discounts'], fontSize: 9),
             _totalRow('Service Chg', sales['service_charge'], fontSize: 9),
-            _totalRow('VAT', sales['vat'], fontSize: 9),
+            if (sales['vat'] > 0)
+              _totalRow('VAT (${sales['vat_rate'] ?? 0}%)', sales['vat'], fontSize: 9),
             pw.SizedBox(height: 4),
             _totalRow('GRAND TOTAL', sales['grand_total'], bold: true, fontSize: 11),
             pw.Divider(),
+
 
             // ── Payments ─────────────────────────────────────────────────
             _sectionHeader('PAYMENT METHODS'),

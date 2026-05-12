@@ -955,17 +955,19 @@ class PosRepository {
 
         final product = await getProductById(item.productId);
         if (product != null) {
-          final catId = product.categoryIds.isNotEmpty ? product.categoryIds.first : 0;
+          // Robust category handling: product might have multiple category_ids
+          final List<int> catIds = product.categoryIds;
+          final int catId = catIds.isNotEmpty ? catIds.first : 0;
           final catName = await getCategoryName(catId);
           categoryBreakdown[catName] = (categoryBreakdown[catName] ?? 0) + item.subtotal;
         }
       }
     }
 
-    final vatRate = settings.vatRate;
+    // Force VAT to 0% as per user request
+    const double vatRate = 0.0;
     final totalNetSales = totalGrossSales + totalServiceCharge - totalDiscount;
-    // Assuming prices are VAT exclusive. If inclusive, this math changes.
-    final totalVat = totalNetSales * (vatRate / 100); 
+    final totalVat = 0.0; 
 
     int peakHour = 0;
     int maxOrders = 0;
@@ -989,9 +991,9 @@ class PosRepository {
         'restaurant_name': settings.name,
         'branch': 'Main Branch',
         'address': settings.address,
-        'report_type': 'Z REPORT',
-        'shift_number': shiftId,
-        'cashier_name': shift?.cashierName ?? 'Unknown',
+        'report_type': shiftId == -1 ? 'GENERIC REPORT' : 'Z REPORT',
+        'shift_number': shiftId == -1 ? 'N/A' : shiftId,
+        'cashier_name': shift?.cashierName ?? 'Admin',
         'opening_time': shift?.startTime.toIso8601String(),
         'closing_time': shift?.endTime?.toIso8601String() ?? DateTime.now().toIso8601String(),
         'generated_timestamp': DateTime.now().toIso8601String(),
@@ -1002,16 +1004,17 @@ class PosRepository {
         'canceled_orders': cancelled.length,
         'refund_count': voidLogs.length,
         'open_tables_remaining': openTables,
-        'closed_tables': completed.length, // approximation
+        'closed_tables': completed.length, 
       },
       'sales_totals': {
         'gross_sales': totalGrossSales,
         'discounts': totalDiscount,
         'service_charge': totalServiceCharge,
         'vat': totalVat,
+        'vat_rate': vatRate,
         'net_sales': totalNetSales,
-        'grand_total': totalNetSales + totalVat, // if VAT was exclusive
-        'refunds': 0, // Implement if refund system exists
+        'grand_total': totalNetSales, 
+        'refunds': 0,
         'void_totals': cancelled.fold<double>(0.0, (sum, o) => sum + o.grandTotal),
       },
       'payment_methods': paymentMethodBreakdown,
@@ -1030,7 +1033,7 @@ class PosRepository {
           'canceled_item': 'Order #${o.id}',
           'by': o.cashierName,
           'reason': 'Order Cancelled',
-          'approval_manager': 'Manager', // Add to model if needed
+          'approval_manager': 'Manager', 
         }).toList(),
       },
       'discounts_summary': {
@@ -1039,7 +1042,7 @@ class PosRepository {
       'tax_information': {
         'vat_totals': totalVat,
         'taxable_sales': totalNetSales,
-        'exempt_sales': 0.0,
+        'exempt_sales': totalNetSales,
       },
       'order_type_breakdown': orderTypeBreakdown,
       'time_analytics': {

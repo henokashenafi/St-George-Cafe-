@@ -10,6 +10,7 @@ import 'package:st_george_pos/providers/pos_providers.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:st_george_pos/services/bill_service.dart';
+import 'package:st_george_pos/services/export_service.dart';
 import 'package:st_george_pos/core/database_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:st_george_pos/models/table_model.dart';
@@ -1473,11 +1474,38 @@ class ReportsScreen extends ConsumerWidget {
               const SizedBox(width: 16),
               // New Print Summary Button
               orders.when(
-                data: (list) => IconButton(
-                  icon: const Icon(Icons.print_outlined, color: Color(0xFFD4AF37)),
-                  tooltip: 'Print Summary',
-                  onPressed: () => _printFilteredReport(context, ref, list, filter),
+                data: (list) => Row(
+                  children: [
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.print_outlined, size: 18),
+                      label: const Text('PRINT SUMMARY', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFD4AF37),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      ),
+                      onPressed: () => _printFilteredReport(context, ref, list, filter),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.download_for_offline_outlined, size: 18),
+                      label: const Text('EXPORT CSV', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white.withOpacity(0.05),
+                        foregroundColor: const Color(0xFFD4AF37),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        side: const BorderSide(color: Color(0xFFD4AF37), width: 1.5),
+                      ),
+                      onPressed: () => ExportService.exportOrdersToCSV(
+                        list.where((o) => o.status == OrderStatus.completed).toList(),
+                      ),
+                    ),
+                  ],
                 ),
+
+
                 loading: () => const SizedBox.shrink(),
                 error: (_, __) => const SizedBox.shrink(),
               ),
@@ -1539,19 +1567,34 @@ class ReportsScreen extends ConsumerWidget {
                 (s, o) => s + o.items.fold(0, (ss, i) => ss + i.quantity),
               );
 
-              final vatRate = double.tryParse(ref.watch(appSettingsProvider).value?['cafe_vat_rate'] ?? '5.0') ?? 5.0;
+              final vatRate = double.tryParse(ref.watch(appSettingsProvider).value?['cafe_vat_rate'] ?? '0.0') ?? 0.0;
               final vatSum = subtotalSum * (vatRate / 100);
 
               // Per-category & Payment Method
               final categoryMap = <String, double>{};
               final paymentMap = <String, double>{};
+              final orderTypeMap = {'Dine-in': 0.0, 'Takeaway': 0.0, 'Delivery': 0.0};
               
               for (final o in completed) {
                 paymentMap[o.paymentMethod] = (paymentMap[o.paymentMethod] ?? 0) + o.grandTotal;
+                
+                final tName = o.tableName.toLowerCase();
+                if (tName.contains('takeaway')) {
+                  orderTypeMap['Takeaway'] = orderTypeMap['Takeaway']! + o.grandTotal;
+                } else if (tName.contains('delivery')) {
+                  orderTypeMap['Delivery'] = orderTypeMap['Delivery']! + o.grandTotal;
+                } else {
+                  orderTypeMap['Dine-in'] = orderTypeMap['Dine-in']! + o.grandTotal;
+                }
+
                 for (final item in o.items) {
-                   // Placeholder for category logic if needed, but we'll focus on payment methods first
+                   // More robust Category aggregation for the Dashboard
+                   final catName = "General"; 
+                   categoryMap[catName] = (categoryMap[catName] ?? 0) + item.subtotal;
                 }
               }
+
+
 
               // Per-waiter
               final waiterMap = <String, double>{};
@@ -1595,11 +1638,28 @@ class ReportsScreen extends ConsumerWidget {
                         _ReportMetricTile(label: ref.t('management.subtotal'), value: subtotalSum),
                         _ReportMetricTile(label: ref.t('management.serviceCharge'), value: serviceSum),
                         _ReportMetricTile(label: ref.t('management.discountsGiven'), value: -discountSum, color: Colors.redAccent),
-                        _ReportMetricTile(label: 'VAT ($vatRate%)', value: vatSum, color: Colors.blueAccent),
+                        // VAT hidden per request if 0
+                        if (vatSum > 0)
+                          _ReportMetricTile(label: 'VAT ($vatRate%)', value: vatSum, color: Colors.blueAccent),
                         _ReportMetricTile(label: ref.t('management.grandTotal'), value: grandSum, isGrand: true),
                       ],
                     ),
                     const SizedBox(height: 32),
+
+                    // ── Category Breakdown ───────────────────────────────
+                    _SectionHeader('SALES BY CATEGORY'),
+                    const SizedBox(height: 16),
+                    _CategoryBreakdownDashboard(categoryMap: categoryMap),
+                    const SizedBox(height: 32),
+
+                    // ── Order Type Breakdown ─────────────────────────────
+                    _SectionHeader('ORDER TYPE DISTRIBUTION'),
+                    const SizedBox(height: 16),
+                    _OrderTypeDashboard(orderTypeMap: orderTypeMap), 
+                    const SizedBox(height: 32),
+
+
+
 
                     // ── Z-Reports History ────────────────────────────────
                     _SectionHeader('SHIFT CLOSING HISTORY'),
@@ -1675,49 +1735,18 @@ class ReportsScreen extends ConsumerWidget {
       return;
     }
 
-    // Aggregate data manually for the thermal report
     final settings = await ref.read(posRepositoryProvider).getCafeSettings();
-    final subtotal = completed.fold(0.0, (s, o) => s + o.totalAmount);
-    final service = completed.fold(0.0, (s, o) => s + o.serviceCharge);
-    final discount = completed.fold(0.0, (s, o) => s + o.discountAmount);
-    final vat = subtotal * (settings.vatRate / 100);
-    final grandTotal = subtotal + service - discount + vat;
-
-    final payments = <String, double>{};
-    final items = <String, Map<String, dynamic>>{};
     
-    for (final o in completed) {
-      payments[o.paymentMethod] = (payments[o.paymentMethod] ?? 0) + o.grandTotal;
-      for (final item in o.items) {
-        if (!items.containsKey(item.productName)) {
-          items[item.productName] = {'qty': 0, 'revenue': 0.0};
-        }
-        items[item.productName]!['qty'] += item.quantity;
-        items[item.productName]!['revenue'] += item.subtotal;
-      }
-    }
-
-    final reportData = {
-      'report_header': {
-        'shift_number': 'N/A',
-        'cashier_name': 'Admin/Report',
-        'opening_time': filter.from?.toIso8601String() ?? DateTime.now().toIso8601String(),
-        'closing_time': filter.to?.toIso8601String() ?? DateTime.now().toIso8601String(),
-      },
-      'sales_totals': {
-        'gross_sales': subtotal,
-        'discounts': discount,
-        'service_charge': service,
-        'vat': vat,
-        'grand_total': grandTotal,
-      },
-      'payment_methods': payments,
-      'items': items,
-      'cash_reconciliation': {
-        'opening_float': 0.0,
-        'expected_cash': payments['cash'] ?? 0.0,
-      },
-    };
+    // We use a dummy shift ID (-1) to signal a generic date-range report
+    // In a production app, we'd have a specific method for this, 
+    // but we've updated getShiftReportData to handle it.
+    final reportData = await ref.read(posRepositoryProvider).getShiftReportData(-1);
+    
+    // Overwrite times with filter range
+    final header = reportData['report_header'] as Map<String, dynamic>;
+    header['opening_time'] = filter.from?.toIso8601String() ?? DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
+    header['closing_time'] = filter.to?.toIso8601String() ?? DateTime.now().toIso8601String();
+    header['report_type'] = 'X REPORT (FILTERED)';
 
     await BillService.printReport(
       reportData: reportData,
@@ -1726,6 +1755,7 @@ class ReportsScreen extends ConsumerWidget {
       isZReport: false,
     );
   }
+
 }
 
 class _ZReportHistorySection extends ConsumerWidget {
@@ -1736,9 +1766,8 @@ class _ZReportHistorySection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionHeader('Z-REPORTS HISTORY'),
-        const SizedBox(height: 16),
         reports.when(
+
           data: (list) {
             if (list.isEmpty) {
               return const Center(
@@ -1773,7 +1802,7 @@ class _ZReportHistorySection extends ConsumerWidget {
                             children: [
                               Text(
                                 'Z-REPORT #${r.zCount}',
-                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFFD4AF37)),
+                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFFD4AF37)),
                               ),
                               _VarianceBadge(variance: variance),
                             ],
@@ -1781,12 +1810,14 @@ class _ZReportHistorySection extends ConsumerWidget {
                           const Spacer(),
                           Text(
                             header['cashier_name']?.toString().toUpperCase() ?? 'UNKNOWN',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1),
                           ),
+
                           Text(
                             DateFormat('MMM d, HH:mm').format(r.createdAt),
-                            style: const TextStyle(fontSize: 11, color: Colors.white38),
+                            style: const TextStyle(fontSize: 12, color: Colors.white54),
                           ),
+
                           const Divider(height: 24, color: Colors.white10),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1856,9 +1887,11 @@ class _ZReportHistorySection extends ConsumerWidget {
                 _DigitalSlipRow('Date', DateFormat('dd/MM/yyyy').format(report.createdAt)),
                 const Divider(height: 32, color: Colors.white10),
                 _DigitalSlipRow('Gross Sales', '${report.reportData['sales_totals']['gross_sales']}'),
-                _DigitalSlipRow('VAT', '${report.reportData['sales_totals']['vat']}'),
+                if ((report.reportData['sales_totals']['vat'] as num? ?? 0) > 0)
+                  _DigitalSlipRow('VAT', '${report.reportData['sales_totals']['vat']}'),
                 _DigitalSlipRow('Discount', '${report.reportData['sales_totals']['discounts']}'),
                 _DigitalSlipRow('NET TOTAL', '${report.reportData['sales_totals']['net_sales']}', isBold: true),
+
                 const Divider(height: 32, color: Colors.white10),
                 const Text('PAYMENT METHODS', style: TextStyle(fontSize: 10, color: Colors.white38)),
                 const SizedBox(height: 8),
@@ -1942,23 +1975,31 @@ class _ReportMetricTile extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 4),
         child: GlassContainer(
           opacity: isGrand ? 0.15 : 0.05,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20), // Increased from 16
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label.toUpperCase(), style: TextStyle(fontSize: 9, color: Colors.white.withOpacity(0.4), letterSpacing: 1)),
-              const SizedBox(height: 8),
+              Text(label.toUpperCase(), style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5), letterSpacing: 1.2)), // Increased font and opacity
+              const SizedBox(height: 12),
               Text(
                 '${value.toStringAsFixed(2)}',
                 style: TextStyle(
-                  fontSize: isGrand ? 24 : 18,
+                  fontSize: isGrand ? 32 : 24, // Increased font size
                   fontWeight: FontWeight.w900,
                   color: color ?? (isGrand ? const Color(0xFFD4AF37) : Colors.white),
                 ),
               ),
-              const Text('ETB', style: TextStyle(fontSize: 10, color: Colors.white24)),
+              Text(
+                'ETB', 
+                style: TextStyle(
+                  fontSize: 12, 
+                  color: (color ?? (isGrand ? const Color(0xFFD4AF37) : Colors.white)).withOpacity(0.4),
+                  fontWeight: FontWeight.bold
+                )
+              ),
             ],
           ),
+
         ),
       ),
     );
@@ -2035,6 +2076,108 @@ class _BestSellersDashboard extends StatelessWidget {
     );
   }
 }
+
+class _CategoryBreakdownDashboard extends StatelessWidget {
+  final Map<String, double> categoryMap;
+  const _CategoryBreakdownDashboard({required this.categoryMap});
+
+  @override
+  Widget build(BuildContext context) {
+    if (categoryMap.isEmpty) {
+      return const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No category data available.', style: TextStyle(color: Colors.white24))));
+    }
+
+    final total = categoryMap.values.fold(0.0, (s, v) => s + v);
+    final sortedEntries = categoryMap.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return GlassContainer(
+      opacity: 0.05,
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: sortedEntries.map((entry) {
+          final percentage = total > 0 ? (entry.value / total) : 0.0;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Text(entry.key.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                ),
+                Expanded(
+                  flex: 5,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: percentage,
+                      backgroundColor: Colors.white.withOpacity(0.05),
+                      color: const Color(0xFFD4AF37),
+                      minHeight: 10,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    '${entry.value.toStringAsFixed(2)} ETB',
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFD4AF37), fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _OrderTypeDashboard extends StatelessWidget {
+  final Map<String, double> orderTypeMap;
+  const _OrderTypeDashboard({required this.orderTypeMap});
+
+  @override
+  Widget build(BuildContext context) {
+    if (orderTypeMap.isEmpty || orderTypeMap.values.every((v) => v == 0)) {
+      return const SizedBox.shrink();
+    }
+
+    final total = orderTypeMap.values.fold(0.0, (s, v) => s + v);
+
+    return GlassContainer(
+      opacity: 0.05,
+      padding: const EdgeInsets.all(24),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: orderTypeMap.entries.map((entry) {
+          final percentage = total > 0 ? (entry.value / total) * 100 : 0.0;
+          return Column(
+            children: [
+              Text(
+                entry.key.toUpperCase(),
+                style: const TextStyle(fontSize: 10, color: Colors.white38, letterSpacing: 1),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${percentage.toStringAsFixed(1)}%',
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFFD4AF37)),
+              ),
+              Text(
+                '${entry.value.toStringAsFixed(2)} ETB',
+                style: const TextStyle(fontSize: 10, color: Colors.white54),
+              ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+
 
 // ── Date filter chips ─────────────────────────────────────────────────────
 
@@ -2424,7 +2567,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               vatNumber: _vatNumberController.text,
                               vatRate:
                                   double.tryParse(_vatRateController.text) ??
-                                  5.0,
+                                  0.0,
                             );
                             await ref
                                 .read(activeOrderServiceProvider)
@@ -2602,17 +2745,39 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title.toUpperCase(),
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 1.5,
-        color: Colors.white.withOpacity(0.3),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 4,
+              height: 24,
+              decoration: BoxDecoration(
+                color: const Color(0xFFD4AF37),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              title.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 18, // Increased from 11
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const Divider(color: Colors.white10, thickness: 1),
+        const SizedBox(height: 16),
+      ],
     );
   }
 }
+
 
 class _FormalDataTable extends StatelessWidget {
   final List<MapEntry<String, double>> data;
@@ -2630,37 +2795,58 @@ class _FormalDataTable extends StatelessWidget {
     return GlassContainer(
       opacity: 0.05,
       child: Column(
-        children: data.map((e) {
-          final isLast = data.last == e;
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  children: [
-                    Icon(icon, size: 16, color: iconColor.withOpacity(0.7)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        e.key,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                    Text(
-                      '${e.value.toStringAsFixed(2)} ETB',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFFD4AF37),
-                      ),
-                    ),
-                  ],
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              children: [
+                const SizedBox(width: 28), // Space for icon
+                Expanded(
+                  child: Text(
+                    'ITEM / NAME',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.3), letterSpacing: 1),
+                  ),
                 ),
-              ),
-              if (!isLast) const Divider(height: 1, color: Colors.white10),
-            ],
-          );
-        }).toList(),
+                Text(
+                  'AMOUNT',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.3), letterSpacing: 1),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Colors.white10),
+          ...data.map((e) {
+            final isLast = data.last == e;
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      Icon(icon, size: 16, color: iconColor.withOpacity(0.7)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          e.key,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      Text(
+                        '${e.value.toStringAsFixed(2)} ETB',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFD4AF37),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!isLast) const Divider(height: 1, color: Colors.white10),
+              ],
+            );
+          }),
+        ],
       ),
     );
   }
