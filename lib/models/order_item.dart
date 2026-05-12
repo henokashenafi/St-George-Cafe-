@@ -10,7 +10,6 @@ class OrderItem {
   final String? notes;
   final String? categoryName;
   final int kitchenRound; // 0 = unsent, 1+ = round number sent to kitchen
-  final String? categoryName;
 
   OrderItem({
     this.id,
@@ -24,7 +23,6 @@ class OrderItem {
     this.isPrintedToKitchen = false,
     this.notes,
     this.kitchenRound = 0,
-    this.categoryName,
   });
 
   OrderItem copyWith({
@@ -49,7 +47,6 @@ class OrderItem {
       isPrintedToKitchen: isPrintedToKitchen ?? this.isPrintedToKitchen,
       notes: notes ?? this.notes,
       kitchenRound: kitchenRound ?? this.kitchenRound,
-      categoryName: categoryName ?? this.categoryName,
     );
   }
 
@@ -66,7 +63,6 @@ class OrderItem {
       isPrintedToKitchen: map['is_printed_to_kitchen'] == 1,
       notes: map['notes'],
       kitchenRound: (map['kitchen_round'] as int?) ?? 0,
-      categoryName: map['category_name'],
     );
   }
 
