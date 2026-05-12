@@ -395,11 +395,12 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           .map((e) => e.copyWith(isPrintedToKitchen: true))
           .toList();
 
-      debugPrint('Adding items to order #${order.id}...');
+      TopToaster.show(context, 'Step 1: Adding items to database...', isError: false);
       final roundNumber = await ref
           .read(activeOrderServiceProvider)
           .addItems(order.id!, itemsToPrint, selectedTable!.id!);
-      debugPrint('Items added. Round: $roundNumber. Generating PDF...');
+      
+      TopToaster.show(context, 'Step 2: Generating PDF...', isError: false);
 
       final printerName = settings['default_printer_name'];
 
@@ -410,7 +411,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         roundNumber: roundNumber,
         printerName: printerName,
       );
-      debugPrint('Kitchen slip generated and sent to print service.');
+      TopToaster.show(context, 'Step 3: Sending to Windows print service...', isError: false);
 
       await ref
           .read(auditServiceProvider)
