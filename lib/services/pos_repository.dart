@@ -90,11 +90,11 @@ class PosRepository {
 
     // Products
     _webStorage['products'] = [
-      {'id': 1, 'category_ids': '1', 'name': 'Macchiato', 'price': 35.0},
-      {'id': 2, 'category_ids': '1', 'name': 'Black Coffee', 'price': 25.0},
-      {'id': 3, 'category_ids': '2', 'name': 'Black Tea', 'price': 15.0},
-      {'id': 4, 'category_ids': '3', 'name': 'Croissant', 'price': 55.0},
-      {'id': 5, 'category_ids': '4', 'name': 'Coca Cola', 'price': 30.0},
+      {'id': 1, 'category_id': 1, 'name': 'Macchiato', 'price': 35.0},
+      {'id': 2, 'category_id': 1, 'name': 'Black Coffee', 'price': 25.0},
+      {'id': 3, 'category_id': 2, 'name': 'Black Tea', 'price': 15.0},
+      {'id': 4, 'category_id': 3, 'name': 'Croissant', 'price': 55.0},
+      {'id': 5, 'category_id': 4, 'name': 'Coca Cola', 'price': 30.0},
     ];
 
     // Tables
@@ -567,30 +567,18 @@ class PosRepository {
     if (kIsWeb) {
       final list = _webStorage['products']!;
       final filtered = categoryId != null
-          ? list.where((e) {
-              final ids = (e['category_ids'] as String? ?? '')
-                  .split(',')
-                  .map((id) => int.tryParse(id))
-                  .whereType<int>();
-              return ids.contains(categoryId);
-            }).toList()
+          ? list.where((e) => e['category_id'] == categoryId).toList()
           : list;
       return filtered.map((p) => Product.fromMap(p)).toList();
     }
     final db = await _dbHelper.database;
     final maps = await db.query(
       'products',
-      where: categoryId != null ? "category_ids LIKE ?" : null,
-      whereArgs: categoryId != null ? ["%$categoryId%"] : null,
+      where: categoryId != null ? "category_id = ?" : null,
+      whereArgs: categoryId != null ? [categoryId] : null,
     );
 
-    // Additional filtering for LIKE accuracy if needed, but for simple IDs it might be okay.
-    // Better: Filter in Dart for multi-category logic if DB structure is complex.
-    final products = maps.map((m) => Product.fromMap(m)).toList();
-    if (categoryId != null) {
-      return products.where((p) => p.categoryIds.contains(categoryId)).toList();
-    }
-    return products;
+    return maps.map((m) => Product.fromMap(m)).toList();
   }
 
   Future<int> addProduct(Product product) async {
@@ -620,6 +608,18 @@ class PosRepository {
     }
     final db = await _dbHelper.database;
     await db.delete('products', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> clearAllMenuData() async {
+    if (kIsWeb) {
+      _webStorage['products'] = [];
+      _webStorage['categories'] = [];
+      await _saveWebData();
+    } else {
+      final db = await _dbHelper.database;
+      await db.delete('products');
+      await db.delete('categories');
+    }
   }
 
   // ── Waiters ───────────────────────────────────────────────────────────────
@@ -1357,9 +1357,7 @@ class PosRepository {
 
         final product = await getProductById(item.productId);
         if (product != null) {
-          // Robust category handling: product might have multiple category_ids
-          final List<int> catIds = product.categoryIds;
-          final int catId = catIds.isNotEmpty ? catIds.first : 0;
+          final int catId = product.categoryId;
           final catName = await getCategoryName(catId);
           categoryBreakdown[catName] =
               (categoryBreakdown[catName] ?? 0) + item.subtotal;

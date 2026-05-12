@@ -127,6 +127,8 @@
     "addNew": "አዲስ ጨምር",
     "categoryName": "የምድብ ስም",
     "productName": "የእቃ ስም",
+    "clearAllTitle": "ሁሉንም የምናሌ መረጃዎችን ሰርዝ?",
+    "clearAllConfirm": "ይህ ሁሉንም ምርቶች እና ምድቦች ለዘላለም ይሰርዛል። ይህ ሊመለስ አይችልም።",
     "price": "ዋጋ",
     "waiterName": "የአስተናጋጅ ስም",
     "code": "ኮድ",

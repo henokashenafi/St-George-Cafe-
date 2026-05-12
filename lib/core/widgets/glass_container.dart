@@ -28,6 +28,7 @@ class GlassContainer extends StatelessWidget {
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
         child: Stack(
+          alignment: Alignment.center,
           children: [
             Container(
               padding: padding,

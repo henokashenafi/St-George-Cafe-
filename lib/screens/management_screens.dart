@@ -48,10 +48,12 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _Header(
                     title: ref.t('management.categories'),
                     onAdd: () => _showCategoryDialog(context, null),
+                    onClear: clearAllMenuData,
                   ),
                   Expanded(
                     child: categoriesAsync.when(
@@ -103,29 +105,13 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _Header(
-                        title: ref.t('management.products'),
-                        onAdd: selectedCategoryId == null
-                            ? null
-                            : () => _showProductDialog(context, null),
-                      ),
-                      if (selectedCategoryId != null)
-                        TextButton.icon(
-                          icon: const Icon(Icons.library_add_check, size: 18),
-                          label: Text(ref.t('management.bulkAssign')),
-                          style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFFD4AF37),
-                          ),
-                          onPressed: () => _showBulkAssignDialog(
-                            context,
-                            selectedCategoryId!,
-                          ),
-                        ),
-                    ],
+                  _Header(
+                    title: ref.t('management.products'),
+                    onAdd: selectedCategoryId == null
+                        ? null
+                        : () => _showProductDialog(context, null),
                   ),
                   Expanded(
                     child: productsAsync.when(
@@ -202,19 +188,17 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
         backgroundColor: const Color(0xFF1A1A1A),
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         title: Text(
-          existing == null ? 'ADD CATEGORIES (Batch)' : ref.t('common.edit'),
+          existing == null
+              ? ref.t('management.addCategory')
+              : ref.t('common.edit'),
         ),
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          maxLines: existing == null ? 5 : 1,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            labelText: existing == null
-                ? 'Category Names (One per line)'
-                : ref.t('management.name'),
+            labelText: ref.t('management.name'),
             labelStyle: const TextStyle(color: Colors.white54),
-            hintText: existing == null ? 'Coffee\nTea\nJuice' : null,
           ),
           onSubmitted: (_) => doSave(ctx),
         ),
@@ -228,24 +212,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
               backgroundColor: const Color(0xFFD4AF37),
               foregroundColor: Colors.black,
             ),
-            onPressed: () async {
-              if (existing == null) {
-                final names = ctrl.text
-                    .split('\n')
-                    .map((e) => e.trim())
-                    .where((e) => e.isNotEmpty);
-                for (final name in names) {
-                  await ref.read(posRepositoryProvider).addCategory(name);
-                }
-              } else {
-                // Update logic if needed (repo needs update for category edit)
-                await ref
-                    .read(posRepositoryProvider)
-                    .addCategory(ctrl.text.trim());
-              }
-              ref.invalidate(categoriesProvider);
-              Navigator.pop(ctx);
-            },
+            onPressed: () => doSave(ctx),
             child: Text(ref.t('management.save')),
           ),
         ],
@@ -259,19 +226,17 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
       text: existing != null ? existing.price.toString() : '',
     );
     final priceFocus = FocusNode();
-    List<int> selectedIds =
-        existing?.categoryIds ??
-        (selectedCategoryId != null ? [selectedCategoryId!] : []);
 
     Future<void> doSave(BuildContext ctx) async {
       final price = double.tryParse(priceCtrl.text);
-      if (nameCtrl.text.trim().isEmpty || price == null || selectedIds.isEmpty)
-        return;
+      if (nameCtrl.text.trim().isEmpty ||
+          price == null ||
+          selectedCategoryId == null) return;
       final repo = ref.read(posRepositoryProvider);
       if (existing == null) {
         await repo.addProduct(
           Product(
-            categoryIds: selectedIds,
+            categoryId: selectedCategoryId!,
             name: nameCtrl.text.trim(),
             price: price,
           ),
@@ -280,7 +245,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
         await repo.updateProduct(
           Product(
             id: existing.id,
-            categoryIds: selectedIds,
+            categoryId: selectedCategoryId!,
             name: nameCtrl.text.trim(),
             price: price,
           ),
@@ -300,83 +265,44 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
               ? ref.t('management.addProduct')
               : ref.t('common.edit'),
         ),
-        content: StatefulBuilder(
-          builder: (context, setDialogState) => SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  autofocus: true,
-                  style: const TextStyle(color: Colors.white),
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: ref.t('management.productName'),
-                    labelStyle: const TextStyle(color: Colors.white54),
-                  ),
-                  onSubmitted: (_) => priceFocus.requestFocus(),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  labelText: ref.t('management.productName'),
+                  labelStyle: const TextStyle(color: Colors.white54),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: priceCtrl,
-                  focusNode: priceFocus,
-                  style: const TextStyle(color: Colors.white),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  textInputAction: TextInputAction.done,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-                  ],
-                  decoration: InputDecoration(
-                    labelText: ref.t(
-                      'management.priceLabel',
-                      replacements: {'currency': ref.t('common.currency')},
-                    ),
-                    labelStyle: const TextStyle(color: Colors.white54),
-                  ),
-                  onSubmitted: (_) => doSave(ctx),
+                onSubmitted: (_) => priceFocus.requestFocus(),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: priceCtrl,
+                focusNode: priceFocus,
+                style: const TextStyle(color: Colors.white),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  ref.t('management.categoriesLabel'),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white38,
+                textInputAction: TextInputAction.done,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                ],
+                decoration: InputDecoration(
+                  labelText: ref.t(
+                    'management.priceLabel',
+                    replacements: {'currency': ref.t('common.currency')},
                   ),
+                  labelStyle: const TextStyle(color: Colors.white54),
                 ),
-                const SizedBox(height: 8),
-                Consumer(
-                  builder: (context, ref, _) {
-                    final cats = ref.watch(categoriesProvider).value ?? [];
-                    return Wrap(
-                      spacing: 8,
-                      children: cats
-                          .map(
-                            (c) => FilterChip(
-                              label: Text(
-                                c.name,
-                                style: const TextStyle(fontSize: 11),
-                              ),
-                              selected: selectedIds.contains(c.id),
-                              onSelected: (val) {
-                                setDialogState(() {
-                                  if (val)
-                                    selectedIds.add(c.id!);
-                                  else
-                                    selectedIds.remove(c.id);
-                                });
-                              },
-                            ),
-                          )
-                          .toList(),
-                    );
-                  },
-                ),
-              ],
-            ),
+                onSubmitted: (_) => doSave(ctx),
+              ),
+            ],
           ),
         ),
         actions: [
@@ -410,88 +336,41 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
     ref.invalidate(productsProvider(null));
   }
 
-  void _showBulkAssignDialog(BuildContext context, int categoryId) async {
-    final allProducts = await ref.read(productsProvider(null).future);
-    final categoryProducts = allProducts
-        .where((p) => p.categoryIds.contains(categoryId))
-        .map((e) => e.id!)
-        .toSet();
-    Set<int> selectedProductIds = Set.from(categoryProducts);
-
-    if (!mounted) return;
-
-    showDialog(
+  Future<void> clearAllMenuData() async {
+    final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          title: Text(ref.t('management.bulkAssignTitle')),
-          content: SizedBox(
-            width: 400,
-            height: 400,
-            child: ListView.builder(
-              itemCount: allProducts.length,
-              itemBuilder: (_, i) {
-                final p = allProducts[i];
-                final isSelected = selectedProductIds.contains(p.id!);
-                return CheckboxListTile(
-                  value: isSelected,
-                  title: Text(
-                    p.name,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  activeColor: const Color(0xFFD4AF37),
-                  checkColor: Colors.black,
-                  side: const BorderSide(color: Colors.white54),
-                  onChanged: (val) {
-                    setDialogState(() {
-                      if (val == true)
-                        selectedProductIds.add(p.id!);
-                      else
-                        selectedProductIds.remove(p.id!);
-                    });
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(ref.t('common.cancel')),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD4AF37),
-                foregroundColor: Colors.black,
-              ),
-              onPressed: () async {
-                final repo = ref.read(posRepositoryProvider);
-                for (final p in allProducts) {
-                  final shouldBeInCategory = selectedProductIds.contains(p.id!);
-                  final isInCategory = p.categoryIds.contains(categoryId);
-
-                  if (shouldBeInCategory && !isInCategory) {
-                    final newIds = List<int>.from(p.categoryIds)
-                      ..add(categoryId);
-                    await repo.updateProduct(p.copyWith(categoryIds: newIds));
-                  } else if (!shouldBeInCategory && isInCategory) {
-                    final newIds = List<int>.from(p.categoryIds)
-                      ..remove(categoryId);
-                    await repo.updateProduct(p.copyWith(categoryIds: newIds));
-                  }
-                }
-                ref.invalidate(productsProvider(categoryId));
-                ref.invalidate(productsProvider(null));
-                if (mounted) Navigator.pop(ctx);
-              },
-              child: Text(ref.t('management.save')),
-            ),
-          ],
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: Text(ref.t('management.clearAllTitle') ?? 'WIPE ALL MENU DATA?'),
+        content: Text(
+          ref.t('management.clearAllConfirm') ??
+              'This will permanently delete all products and categories. This cannot be undone.',
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(ref.t('common.cancel')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(ref.t('common.delete')),
+          ),
+        ],
       ),
     );
+
+    if (confirm != true) return;
+
+    await ref.read(posRepositoryProvider).clearAllMenuData();
+    ref.invalidate(categoriesProvider);
+    ref.invalidate(productsProvider(null));
+    if (selectedCategoryId != null) {
+      ref.invalidate(productsProvider(selectedCategoryId));
+      setState(() => selectedCategoryId = null);
+    }
   }
+
 }
 
 // ── Waiter Management ─────────────────────────────────────────────────────
@@ -3221,7 +3100,8 @@ class _DateFilterChips extends ConsumerWidget {
 class _Header extends ConsumerWidget {
   final String title;
   final VoidCallback? onAdd;
-  const _Header({required this.title, this.onAdd});
+  final VoidCallback? onClear;
+  const _Header({required this.title, this.onAdd, this.onClear});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -3229,24 +3109,38 @@ class _Header extends ConsumerWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
-        if (onAdd != null)
-          ElevatedButton.icon(
-            icon: const Icon(Icons.add),
-            label: Text(ref.t('management.addNew')),
-            onPressed: onAdd,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD4AF37),
-              foregroundColor: Colors.black,
-            ),
-          ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (onClear != null)
+              IconButton(
+                icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
+                onPressed: onClear,
+                tooltip: 'Wipe All',
+              ),
+            if (onAdd != null)
+              ElevatedButton.icon(
+                icon: const Icon(Icons.add),
+                label: Text(ref.t('management.addNew')),
+                onPressed: onAdd,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD4AF37),
+                  foregroundColor: Colors.black,
+                ),
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -3303,6 +3197,7 @@ class _ReportCard extends StatelessWidget {
     );
   }
 }
+
 
 class _SummaryRow extends StatelessWidget {
   final String label;

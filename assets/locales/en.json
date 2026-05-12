@@ -127,6 +127,8 @@
     "addNew": "Add New",
     "categoryName": "Category Name",
     "productName": "Product Name",
+    "clearAllTitle": "WIPE ALL MENU DATA?",
+    "clearAllConfirm": "This will permanently delete all products and categories. This cannot be undone.",
     "price": "Price",
     "waiterName": "Waiter Name",
     "code": "Code",
