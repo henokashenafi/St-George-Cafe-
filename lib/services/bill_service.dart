@@ -820,7 +820,9 @@ class BillService {
             onLayout: (_) async => pdf.save(),
             name: documentName,
             format: format,
-          ).timeout(const Duration(seconds: 5), onTimeout: () => false);
+          );
+          // Note: Removing .timeout here because directPrintPdf might return FutureOr
+          // and we'll rely on the overall flow resilience.
           if (success) return;
         }
         debugPrint('Direct printing returned false, falling back to layoutPdf');
