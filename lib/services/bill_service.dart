@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb; // Triggering recompile
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -8,6 +8,7 @@ import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/models/charge.dart';
 import 'package:st_george_pos/models/settings.dart';
+import 'package:st_george_pos/models/z_report.dart';
 
 class BillService {
   // ── Kitchen Slip PDF (A5 compact) ────────────────────────────────────────
@@ -356,6 +357,19 @@ class BillService {
   }
 
   // ── X/Z Report Printing ──────────────────────────────────────────────────
+
+  static Future<void> reprintZReport({
+    required ZReportModel report,
+    required CafeSettings settings,
+    required String Function(String key, {Map<String, String>? replacements}) t,
+  }) async {
+    await printReport(
+      reportData: report.reportData,
+      settings: settings,
+      t: t,
+      isZReport: true,
+    );
+  }
 
   static Future<void> printReport({
     required Map<String, dynamic> reportData,

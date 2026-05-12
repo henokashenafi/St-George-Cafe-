@@ -350,7 +350,19 @@
     "settingsSaved": "ቅንብሮች በተሳካ ሁኔታ ተቀምጠዋል",
     "saveChanges": "ለውጦችን አስቀምጥ"
   },
-  "errors": {
-    "error": "ስህተት"
+  "reports": {
+    "liveSummary": "የቀጥታ ማጠቃለያ (X-ሪፖርት)",
+    "shiftArchive": "የሺፍት ማህደር (Z-ሪፖርቶች)",
+    "currentShiftX": "የአሁኑ ሺፍት: X-ሪፖርት",
+    "archiveZ": "የZ-ሪፖርት ማህደር (የተጠናቀቀ ታሪክ)",
+    "printXReport": "X-ሪፖርት አትም",
+    "reprintZReport": "Z-ሪፖርት እንደገና አትም",
+    "noArchive": "ምንም የተቀመጡ Z-ሪፖርቶች የሉም።",
+    "livePulse": "የቀጥታ",
+    "shiftId": "ሺፍት #{id}",
+    "closedBy": "የተዘጋው በ: {name}",
+    "total": "ጠቅላላ: {amount}",
+    "bestSellers": "ከፍተኛ ተከታይ እቃዎች",
+    "salesByCategory": "ሽያጭ በምድብ"
   }
 }
