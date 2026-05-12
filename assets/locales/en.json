@@ -449,13 +449,19 @@
     "settingsSaved": "Settings saved successfully",
     "saveChanges": "SAVE CHANGES"
   },
-  "audit": {
-    "title": "SYSTEM AUDIT LOGS",
-    "noLogs": "No audit logs found.",
-    "error": "Error"
-  },
-  "errors": {
-    "error": "Error",
-    "errorWithMessage": "Error: {message}"
+  "reports": {
+    "liveSummary": "Live Summary (X-Report)",
+    "shiftArchive": "Shift Archive (Z-Reports)",
+    "currentShiftX": "CURRENT SHIFT: X-REPORT",
+    "archiveZ": "Z-REPORT ARCHIVE (Finalized History)",
+    "printXReport": "PRINT X-REPORT",
+    "reprintZReport": "REPRINT Z-REPORT",
+    "noArchive": "No Z-Reports archived.",
+    "livePulse": "LIVE",
+    "shiftId": "Shift #{id}",
+    "closedBy": "Closed by: {name}",
+    "total": "Total: {amount}",
+    "bestSellers": "Best Sellers",
+    "salesByCategory": "Sales by Category"
   }
 }

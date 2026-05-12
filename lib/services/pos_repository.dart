@@ -738,7 +738,7 @@ class PosRepository {
     if (maps.isEmpty) return null;
     final orderId = maps.first['id'];
     final itemMaps = await db.rawQuery(
-      'SELECT oi.*, p.name as product_name, c.name as category_name FROM order_items oi JOIN products p ON oi.product_id = p.id LEFT JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
+      'SELECT oi.*, p.name as product_name, c.name as category_name FROM order_items oi JOIN products p ON oi.product_id = p.id JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
       [orderId],
     );
     final items = itemMaps.map((i) => OrderItem.fromMap(i)).toList();
@@ -1040,7 +1040,7 @@ class PosRepository {
     List<OrderModel> orders = [];
     for (var map in maps) {
       final itemMaps = await db.rawQuery(
-        'SELECT oi.*, p.name as product_name FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?',
+        'SELECT oi.*, p.name as product_name, c.name as category_name FROM order_items oi JOIN products p ON oi.product_id = p.id JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
         [map['id']],
       );
       orders.add(
@@ -1541,7 +1541,7 @@ class PosRepository {
     List<OrderModel> orders = [];
     for (var map in maps) {
       final itemMaps = await db.rawQuery(
-        'SELECT oi.*, p.name as product_name FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?',
+        'SELECT oi.*, p.name as product_name, c.name as category_name FROM order_items oi JOIN products p ON oi.product_id = p.id JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
         [map['id']],
       );
       orders.add(
