@@ -807,10 +807,12 @@ class BillService {
           const Duration(seconds: 2),
           onTimeout: () => [],
         );
-        final printer = printers.firstWhere(
-          (p) => p.name == printerName,
-          orElse: () => printers.isEmpty ? null : printers.first,
-        );
+        final printer = printers.isNotEmpty
+            ? printers.firstWhere(
+                (p) => p.name == printerName,
+                orElse: () => printers.first,
+              )
+            : null;
 
         if (printer != null) {
           final success = await Printing.directPrintPdf(
