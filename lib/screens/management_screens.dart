@@ -120,7 +120,10 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                           style: TextButton.styleFrom(
                             foregroundColor: const Color(0xFFD4AF37),
                           ),
-                          onPressed: () => _showBulkAssignDialog(context, selectedCategoryId!),
+                          onPressed: () => _showBulkAssignDialog(
+                            context,
+                            selectedCategoryId!,
+                          ),
                         ),
                     ],
                   ),
@@ -153,7 +156,8 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                                     color: Colors.white54,
                                     size: 20,
                                   ),
-                                  onPressed: () => _showProductDialog(context, p),
+                                  onPressed: () =>
+                                      _showProductDialog(context, p),
                                 ),
                                 IconButton(
                                   icon: const Icon(
@@ -198,9 +202,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
         backgroundColor: const Color(0xFF1A1A1A),
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         title: Text(
-          existing == null
-              ? 'ADD CATEGORIES (Batch)'
-              : ref.t('common.edit'),
+          existing == null ? 'ADD CATEGORIES (Batch)' : ref.t('common.edit'),
         ),
         content: TextField(
           controller: ctrl,
@@ -208,7 +210,9 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
           maxLines: existing == null ? 5 : 1,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            labelText: existing == null ? 'Category Names (One per line)' : ref.t('management.name'),
+            labelText: existing == null
+                ? 'Category Names (One per line)'
+                : ref.t('management.name'),
             labelStyle: const TextStyle(color: Colors.white54),
             hintText: existing == null ? 'Coffee\nTea\nJuice' : null,
           ),
@@ -226,13 +230,18 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             ),
             onPressed: () async {
               if (existing == null) {
-                final names = ctrl.text.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty);
+                final names = ctrl.text
+                    .split('\n')
+                    .map((e) => e.trim())
+                    .where((e) => e.isNotEmpty);
                 for (final name in names) {
                   await ref.read(posRepositoryProvider).addCategory(name);
                 }
               } else {
                 // Update logic if needed (repo needs update for category edit)
-                await ref.read(posRepositoryProvider).addCategory(ctrl.text.trim());
+                await ref
+                    .read(posRepositoryProvider)
+                    .addCategory(ctrl.text.trim());
               }
               ref.invalidate(categoriesProvider);
               Navigator.pop(ctx);
@@ -250,11 +259,14 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
       text: existing != null ? existing.price.toString() : '',
     );
     final priceFocus = FocusNode();
-    List<int> selectedIds = existing?.categoryIds ?? (selectedCategoryId != null ? [selectedCategoryId!] : []);
+    List<int> selectedIds =
+        existing?.categoryIds ??
+        (selectedCategoryId != null ? [selectedCategoryId!] : []);
 
     Future<void> doSave(BuildContext ctx) async {
       final price = double.tryParse(priceCtrl.text);
-      if (nameCtrl.text.trim().isEmpty || price == null || selectedIds.isEmpty) return;
+      if (nameCtrl.text.trim().isEmpty || price == null || selectedIds.isEmpty)
+        return;
       final repo = ref.read(posRepositoryProvider);
       if (existing == null) {
         await repo.addProduct(
@@ -327,24 +339,42 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                   onSubmitted: (_) => doSave(ctx),
                 ),
                 const SizedBox(height: 20),
-                const Text('CATEGORIES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white38)),
+                const Text(
+                  'CATEGORIES',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white38,
+                  ),
+                ),
                 const SizedBox(height: 8),
-                Consumer(builder: (context, ref, _) {
-                  final cats = ref.watch(categoriesProvider).value ?? [];
-                  return Wrap(
-                    spacing: 8,
-                    children: cats.map((c) => FilterChip(
-                      label: Text(c.name, style: const TextStyle(fontSize: 11)),
-                      selected: selectedIds.contains(c.id),
-                      onSelected: (val) {
-                        setDialogState(() {
-                          if (val) selectedIds.add(c.id!);
-                          else selectedIds.remove(c.id);
-                        });
-                      },
-                    )).toList(),
-                  );
-                }),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final cats = ref.watch(categoriesProvider).value ?? [];
+                    return Wrap(
+                      spacing: 8,
+                      children: cats
+                          .map(
+                            (c) => FilterChip(
+                              label: Text(
+                                c.name,
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                              selected: selectedIds.contains(c.id),
+                              onSelected: (val) {
+                                setDialogState(() {
+                                  if (val)
+                                    selectedIds.add(c.id!);
+                                  else
+                                    selectedIds.remove(c.id);
+                                });
+                              },
+                            ),
+                          )
+                          .toList(),
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -382,7 +412,10 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
 
   void _showBulkAssignDialog(BuildContext context, int categoryId) async {
     final allProducts = await ref.read(productsProvider(null).future);
-    final categoryProducts = allProducts.where((p) => p.categoryIds.contains(categoryId)).map((e) => e.id!).toSet();
+    final categoryProducts = allProducts
+        .where((p) => p.categoryIds.contains(categoryId))
+        .map((e) => e.id!)
+        .toSet();
     Set<int> selectedProductIds = Set.from(categoryProducts);
 
     if (!mounted) return;
@@ -403,14 +436,19 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                 final isSelected = selectedProductIds.contains(p.id!);
                 return CheckboxListTile(
                   value: isSelected,
-                  title: Text(p.name, style: const TextStyle(color: Colors.white)),
+                  title: Text(
+                    p.name,
+                    style: const TextStyle(color: Colors.white),
+                  ),
                   activeColor: const Color(0xFFD4AF37),
                   checkColor: Colors.black,
                   side: const BorderSide(color: Colors.white54),
                   onChanged: (val) {
                     setDialogState(() {
-                      if (val == true) selectedProductIds.add(p.id!);
-                      else selectedProductIds.remove(p.id!);
+                      if (val == true)
+                        selectedProductIds.add(p.id!);
+                      else
+                        selectedProductIds.remove(p.id!);
                     });
                   },
                 );
@@ -432,12 +470,14 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                 for (final p in allProducts) {
                   final shouldBeInCategory = selectedProductIds.contains(p.id!);
                   final isInCategory = p.categoryIds.contains(categoryId);
-                  
+
                   if (shouldBeInCategory && !isInCategory) {
-                    final newIds = List<int>.from(p.categoryIds)..add(categoryId);
+                    final newIds = List<int>.from(p.categoryIds)
+                      ..add(categoryId);
                     await repo.updateProduct(p.copyWith(categoryIds: newIds));
                   } else if (!shouldBeInCategory && isInCategory) {
-                    final newIds = List<int>.from(p.categoryIds)..remove(categoryId);
+                    final newIds = List<int>.from(p.categoryIds)
+                      ..remove(categoryId);
                     await repo.updateProduct(p.copyWith(categoryIds: newIds));
                   }
                 }
@@ -460,10 +500,12 @@ class WaiterManagementScreen extends ConsumerStatefulWidget {
   const WaiterManagementScreen({super.key});
 
   @override
-  ConsumerState<WaiterManagementScreen> createState() => _WaiterManagementScreenState();
+  ConsumerState<WaiterManagementScreen> createState() =>
+      _WaiterManagementScreenState();
 }
 
-class _WaiterManagementScreenState extends ConsumerState<WaiterManagementScreen> with SingleTickerProviderStateMixin {
+class _WaiterManagementScreenState extends ConsumerState<WaiterManagementScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -497,10 +539,7 @@ class _WaiterManagementScreenState extends ConsumerState<WaiterManagementScreen>
         Expanded(
           child: TabBarView(
             controller: _tabController,
-            children: [
-              _buildWaitersList(),
-              const TableManagementScreen(),
-            ],
+            children: [_buildWaitersList(), const TableManagementScreen()],
           ),
         ),
       ],
@@ -658,10 +697,19 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                       style: const TextStyle(fontSize: 13, color: Colors.white),
                       decoration: InputDecoration(
                         hintText: 'Search by Waiter...',
-                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13),
-                        prefixIcon: Icon(Icons.search, size: 16, color: Colors.white.withOpacity(0.3)),
+                        hintStyle: TextStyle(
+                          color: Colors.white.withOpacity(0.3),
+                          fontSize: 13,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          size: 16,
+                          color: Colors.white.withOpacity(0.3),
+                        ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 10,
+                        ),
                       ),
                     ),
                   ),
@@ -679,17 +727,27 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
           Expanded(
             child: ordersAsync.when(
               data: (list) {
-                final filtered = list.where((o) => o.waiterName.toLowerCase().contains(searchQuery.toLowerCase())).toList();
-                
+                final filtered = list
+                    .where(
+                      (o) => o.waiterName.toLowerCase().contains(
+                        searchQuery.toLowerCase(),
+                      ),
+                    )
+                    .toList();
+
                 if (filtered.isEmpty) {
                   return Center(
                     child: Opacity(
                       opacity: 0.4,
-                      child: Text(searchQuery.isEmpty ? ref.t('management.noOrdersInRange') : 'No matching orders for this waiter'),
+                      child: Text(
+                        searchQuery.isEmpty
+                            ? ref.t('management.noOrdersInRange')
+                            : 'No matching orders for this waiter',
+                      ),
                     ),
                   );
                 }
-                
+
                 return ListView.builder(
                   itemCount: filtered.length,
                   itemBuilder: (_, i) {
@@ -698,10 +756,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                       title: Text(
                         ref.t(
                           'management.order',
-                          replacements: {
-                            'id': '${o.id}',
-                            'table': o.tableName,
-                          },
+                          replacements: {'id': '${o.id}', 'table': o.tableName},
                         ),
                       ),
                       subtitle: Text(
@@ -730,9 +785,9 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                                 final settings = await ref.read(
                                   cafeSettingsProvider.future,
                                 );
-                                final charges = (await ref.read(chargesProvider.future))
-                                    .where((c) => c.isActive)
-                                    .toList();
+                                final charges = (await ref.read(
+                                  chargesProvider.future,
+                                )).where((c) => c.isActive).toList();
                                 await BillService.generateAndDownloadBill(
                                   order: o,
                                   items: o.items,
@@ -740,34 +795,36 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                                   cashierName: o.cashierName,
                                   activeCharges: charges,
                                   t: (key, {replacements}) =>
-                                      AppLocalizations.getEnglish(key, replacements: replacements),
+                                      AppLocalizations.getEnglish(
+                                        key,
+                                        replacements: replacements,
+                                      ),
                                 );
                               },
                             ),
                         ],
                       ),
                       children: o.items
-                              .map(
-                                (item) => ListTile(
-                                  dense: true,
-                                  title: Text(item.productName),
-                                  subtitle:
-                                      item.notes != null &&
-                                          item.notes!.isNotEmpty
-                                      ? Text(
-                                          item.notes!,
-                                          style: const TextStyle(
-                                            color: Colors.white38,
-                                            fontSize: 11,
-                                          ),
-                                        )
-                                      : null,
-                                  trailing: Text(
-                                    '${item.quantity} × ${item.unitPrice.toStringAsFixed(2)}',
-                                  ),
-                                ),
-                              )
-                              .toList(),
+                          .map(
+                            (item) => ListTile(
+                              dense: true,
+                              title: Text(item.productName),
+                              subtitle:
+                                  item.notes != null && item.notes!.isNotEmpty
+                                  ? Text(
+                                      item.notes!,
+                                      style: const TextStyle(
+                                        color: Colors.white38,
+                                        fontSize: 11,
+                                      ),
+                                    )
+                                  : null,
+                              trailing: Text(
+                                '${item.quantity} × ${item.unitPrice.toStringAsFixed(2)}',
+                              ),
+                            ),
+                          )
+                          .toList(),
                     );
                   },
                 );
@@ -838,13 +895,21 @@ class _HeldOrdersScreenState extends ConsumerState<HeldOrdersScreen> {
                     ),
                     child: TextField(
                       controller: _searchCtrl,
-                      onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                      onChanged: (v) =>
+                          setState(() => _searchQuery = v.toLowerCase()),
                       style: const TextStyle(fontSize: 13, color: Colors.white),
                       decoration: InputDecoration(
                         hintText: 'Search waiter, table or item...',
-                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13),
-                        prefixIcon: Icon(Icons.search, size: 16, color: Colors.white.withOpacity(0.3)),
-                        suffixIcon: _searchQuery.isNotEmpty 
+                        hintStyle: TextStyle(
+                          color: Colors.white.withOpacity(0.3),
+                          fontSize: 13,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          size: 16,
+                          color: Colors.white.withOpacity(0.3),
+                        ),
+                        suffixIcon: _searchQuery.isNotEmpty
                             ? IconButton(
                                 icon: const Icon(Icons.clear, size: 16),
                                 onPressed: () {
@@ -854,7 +919,9 @@ class _HeldOrdersScreenState extends ConsumerState<HeldOrdersScreen> {
                               )
                             : null,
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 10,
+                        ),
                       ),
                     ),
                   ),
@@ -869,9 +936,16 @@ class _HeldOrdersScreenState extends ConsumerState<HeldOrdersScreen> {
                     .where((o) => o.status == OrderStatus.pending)
                     .where((o) {
                       if (_searchQuery.isEmpty) return true;
-                      final matchesWaiter = o.waiterName.toLowerCase().contains(_searchQuery);
-                      final matchesTable = o.tableName.toLowerCase().contains(_searchQuery);
-                      final matchesItem = o.items.any((it) => it.productName.toLowerCase().contains(_searchQuery));
+                      final matchesWaiter = o.waiterName.toLowerCase().contains(
+                        _searchQuery,
+                      );
+                      final matchesTable = o.tableName.toLowerCase().contains(
+                        _searchQuery,
+                      );
+                      final matchesItem = o.items.any(
+                        (it) =>
+                            it.productName.toLowerCase().contains(_searchQuery),
+                      );
                       return matchesWaiter || matchesTable || matchesItem;
                     })
                     .toList();
@@ -880,7 +954,11 @@ class _HeldOrdersScreenState extends ConsumerState<HeldOrdersScreen> {
                   return Center(
                     child: Opacity(
                       opacity: 0.4,
-                      child: Text(_searchQuery.isEmpty ? ref.t('held.noHeldOrders') : 'No matching orders found'),
+                      child: Text(
+                        _searchQuery.isEmpty
+                            ? ref.t('held.noHeldOrders')
+                            : 'No matching orders found',
+                      ),
                     ),
                   );
                 }
@@ -894,7 +972,11 @@ class _HeldOrdersScreenState extends ConsumerState<HeldOrdersScreen> {
                     OrderItem? matchedItem;
                     if (_searchQuery.isNotEmpty) {
                       try {
-                        matchedItem = o.items.firstWhere((it) => it.productName.toLowerCase().contains(_searchQuery));
+                        matchedItem = o.items.firstWhere(
+                          (it) => it.productName.toLowerCase().contains(
+                            _searchQuery,
+                          ),
+                        );
                       } catch (_) {}
                     }
 
@@ -913,7 +995,8 @@ class _HeldOrdersScreenState extends ConsumerState<HeldOrdersScreen> {
                             status: TableStatus.occupied,
                           );
                           ref.read(selectedTableProvider.notifier).set(table);
-                          ref.read(dashboardViewProvider.notifier).state = DashboardView.pos;
+                          ref.read(dashboardViewProvider.notifier).state =
+                              DashboardView.pos;
                         },
                         title: Row(
                           children: [
@@ -925,13 +1008,20 @@ class _HeldOrdersScreenState extends ConsumerState<HeldOrdersScreen> {
                                   'table': o.tableName,
                                 },
                               ),
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             if (matchedItem != null) ...[
                               const SizedBox(width: 12),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                color: const Color(0xFFD4AF37).withOpacity(0.15),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                color: const Color(
+                                  0xFFD4AF37,
+                                ).withOpacity(0.15),
                                 child: Text(
                                   '${matchedItem.productName} ×${matchedItem.quantity}',
                                   style: const TextStyle(
@@ -1054,7 +1144,9 @@ class ShiftManagementScreen extends ConsumerWidget {
               backgroundColor: const Color(0xFFD4AF37),
               foregroundColor: Colors.black,
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.zero,
+              ),
             ),
             icon: const Icon(Icons.play_arrow),
             label: const Text(
@@ -1068,7 +1160,11 @@ class ShiftManagementScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildActiveShift(BuildContext context, WidgetRef ref, ShiftModel shift) {
+  Widget _buildActiveShift(
+    BuildContext context,
+    WidgetRef ref,
+    ShiftModel shift,
+  ) {
     final startTime = DateFormat('MMM d, HH:mm').format(shift.startTime);
 
     return SingleChildScrollView(
@@ -1087,7 +1183,10 @@ class ShiftManagementScreen extends ConsumerWidget {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.green.withOpacity(0.2),
                               border: Border.all(color: Colors.green),
@@ -1134,7 +1233,11 @@ class ShiftManagementScreen extends ConsumerWidget {
                   children: [
                     const Text(
                       'STARTING CASH',
-                      style: TextStyle(fontSize: 10, color: Colors.white38, letterSpacing: 1),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.white38,
+                        letterSpacing: 1,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -1229,13 +1332,20 @@ class ShiftManagementScreen extends ConsumerWidget {
     );
   }
 
-  void _showEndShiftDialog(BuildContext context, WidgetRef ref, ShiftModel shift) async {
-    final reportData = await ref.read(posRepositoryProvider).getShiftReportData(shift.id!);
-    final cashSales = (reportData['payment_methods'] as Map<String, dynamic>)['cash'] ?? 0.0;
+  void _showEndShiftDialog(
+    BuildContext context,
+    WidgetRef ref,
+    ShiftModel shift,
+  ) async {
+    final reportData = await ref
+        .read(posRepositoryProvider)
+        .getShiftReportData(shift.id!);
+    final cashSales =
+        (reportData['payment_methods'] as Map<String, dynamic>)['cash'] ?? 0.0;
     final expectedCash = shift.startingCash + cashSales;
 
     final controller = TextEditingController();
-    
+
     if (!context.mounted) return;
     showDialog(
       context: context,
@@ -1263,7 +1373,11 @@ class ShiftManagementScreen extends ConsumerWidget {
                         _reconcileRow('Opening Float', shift.startingCash),
                         _reconcileRow('Cash Sales', cashSales),
                         const Divider(color: Colors.white10),
-                        _reconcileRow('Expected in Drawer', expectedCash, isBold: true),
+                        _reconcileRow(
+                          'Expected in Drawer',
+                          expectedCash,
+                          isBold: true,
+                        ),
                       ],
                     ),
                   ),
@@ -1273,7 +1387,10 @@ class ShiftManagementScreen extends ConsumerWidget {
                     keyboardType: TextInputType.number,
                     autofocus: true,
                     onChanged: (_) => setState(() {}),
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Actual Cash Counted',
                       prefixText: 'ETB ',
@@ -1285,24 +1402,34 @@ class ShiftManagementScreen extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: diff == 0 ? Colors.green.withOpacity(0.1) : (diff > 0 ? Colors.blue.withOpacity(0.1) : Colors.red.withOpacity(0.1)),
+                        color: diff == 0
+                            ? Colors.green.withOpacity(0.1)
+                            : (diff > 0
+                                  ? Colors.blue.withOpacity(0.1)
+                                  : Colors.red.withOpacity(0.1)),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            diff == 0 ? 'BALANCED' : (diff > 0 ? 'OVERAGE' : 'SHORTAGE'),
+                            diff == 0
+                                ? 'BALANCED'
+                                : (diff > 0 ? 'OVERAGE' : 'SHORTAGE'),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: diff == 0 ? Colors.green : (diff > 0 ? Colors.blue : Colors.red),
+                              color: diff == 0
+                                  ? Colors.green
+                                  : (diff > 0 ? Colors.blue : Colors.red),
                             ),
                           ),
                           Text(
                             '${diff > 0 ? "+" : ""}${diff.toStringAsFixed(2)} ETB',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: diff == 0 ? Colors.green : (diff > 0 ? Colors.blue : Colors.red),
+                              color: diff == 0
+                                  ? Colors.green
+                                  : (diff > 0 ? Colors.blue : Colors.red),
                             ),
                           ),
                         ],
@@ -1323,34 +1450,48 @@ class ShiftManagementScreen extends ConsumerWidget {
                 ),
                 onPressed: () async {
                   final cash = double.tryParse(controller.text) ?? 0.0;
-                  
+
                   // 1. Generate Report Data Snapshot
-                  final reportData = await ref.read(posRepositoryProvider).getShiftReportData(shift.id!);
-                  
+                  final reportData = await ref
+                      .read(posRepositoryProvider)
+                      .getShiftReportData(shift.id!);
+
                   // 2. Inject actual cash declared into the snapshot
-                  final cashRec = reportData['cash_reconciliation'] as Map<String, dynamic>;
+                  final cashRec =
+                      reportData['cash_reconciliation'] as Map<String, dynamic>;
                   cashRec['actual_counted'] = cash;
-                  cashRec['difference'] = cash - (cashRec['expected_cash'] as num);
-                  
+                  cashRec['difference'] =
+                      cash - (cashRec['expected_cash'] as num);
+
                   // 3. Save Z-Report to Database
-                  await ref.read(posRepositoryProvider).createZReport(shift.id!, reportData);
-                  
+                  await ref
+                      .read(posRepositoryProvider)
+                      .createZReport(shift.id!, reportData);
+
                   // 4. End the shift in DB
-                  await ref.read(activeOrderServiceProvider).endShift(shift.id!, cash);
-                  
+                  await ref
+                      .read(activeOrderServiceProvider)
+                      .endShift(shift.id!, cash);
+
                   // 5. Print the Z-Slip
-                  final settings = await ref.read(posRepositoryProvider).getCafeSettings();
+                  final settings = await ref
+                      .read(posRepositoryProvider)
+                      .getCafeSettings();
                   await BillService.printReport(
                     reportData: reportData,
                     settings: settings,
                     t: ref.t,
                     isZReport: true,
                   );
-                  
+
                   if (!context.mounted) return;
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Shift closed, Snapshot saved & Z-Slip printed.')),
+                    const SnackBar(
+                      content: Text(
+                        'Shift closed, Snapshot saved & Z-Slip printed.',
+                      ),
+                    ),
                   );
                 },
                 child: const Text('CLOSE SHIFT'),
@@ -1362,27 +1503,40 @@ class ShiftManagementScreen extends ConsumerWidget {
     );
   }
 
-  Widget _reconcileRow(String label, double value, {bool isBold = false}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: TextStyle(color: isBold ? Colors.white : Colors.white54, fontSize: 13)),
-        Text(
-          '${value.toStringAsFixed(2)} ETB',
-          style: TextStyle(
-            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-            color: isBold ? const Color(0xFFD4AF37) : Colors.white,
-          ),
+  Widget _reconcileRow(String label, double value, {bool isBold = false}) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: isBold ? Colors.white : Colors.white54,
+                fontSize: 13,
+              ),
+            ),
+            Text(
+              '${value.toStringAsFixed(2)} ETB',
+              style: TextStyle(
+                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+                color: isBold ? const Color(0xFFD4AF37) : Colors.white,
+              ),
+            ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 
-  void _printXReport(BuildContext context, WidgetRef ref, ShiftModel shift) async {
-    final reportData = await ref.read(posRepositoryProvider).getShiftReportData(shift.id!);
+  void _printXReport(
+    BuildContext context,
+    WidgetRef ref,
+    ShiftModel shift,
+  ) async {
+    final reportData = await ref
+        .read(posRepositoryProvider)
+        .getShiftReportData(shift.id!);
     final settings = await ref.read(posRepositoryProvider).getCafeSettings();
-    
+
     await BillService.printReport(
       reportData: reportData,
       settings: settings,
@@ -1444,11 +1598,17 @@ class _ShiftActionCard extends StatelessWidget {
 
 // ── Reports ───────────────────────────────────────────────────────────────
 
-class ReportsScreen extends ConsumerWidget {
+class ReportsScreen extends ConsumerStatefulWidget {
   const ReportsScreen({super.key});
+  @override
+  ConsumerState<ReportsScreen> createState() => _ReportsScreenState();
+}
+
+class _ReportsScreenState extends ConsumerState<ReportsScreen> {
+  bool _showDetailView = false;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     ref.watch(languageProvider);
     final orders = ref.watch(ordersProvider);
     final filter = ref.watch(reportDateFilterProvider);
@@ -1472,43 +1632,98 @@ class ReportsScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 16),
-              // New Print Summary Button
-              orders.when(
-                data: (list) => Row(
+              // View toggle
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: Row(
                   children: [
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.print_outlined, size: 18),
-                      label: const Text('PRINT SUMMARY', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFD4AF37),
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                      ),
-                      onPressed: () => _printFilteredReport(context, ref, list, filter),
+                    _toggleBtn(
+                      'Summary',
+                      !_showDetailView,
+                      () => setState(() => _showDetailView = false),
                     ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.download_for_offline_outlined, size: 18),
-                      label: const Text('EXPORT CSV', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.05),
-                        foregroundColor: const Color(0xFFD4AF37),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                        side: const BorderSide(color: Color(0xFFD4AF37), width: 1.5),
-                      ),
-                      onPressed: () => ExportService.exportOrdersToCSV(
-                        list.where((o) => o.status == OrderStatus.completed).toList(),
-                      ),
+                    _toggleBtn(
+                      'Details',
+                      _showDetailView,
+                      () => setState(() => _showDetailView = true),
                     ),
                   ],
                 ),
-
-
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
               ),
+              const SizedBox(width: 16),
+              // New Print Summary Button
+              if (!_showDetailView)
+                orders.when(
+                  data: (list) => Row(
+                    children: [
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.print_outlined, size: 18),
+                        label: const Text(
+                          'PRINT SUMMARY',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFD4AF37),
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        onPressed: () =>
+                            _printFilteredReport(context, ref, list, filter),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        icon: const Icon(
+                          Icons.download_for_offline_outlined,
+                          size: 18,
+                        ),
+                        label: const Text(
+                          'EXPORT CSV',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white.withOpacity(0.05),
+                          foregroundColor: const Color(0xFFD4AF37),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          side: const BorderSide(
+                            color: Color(0xFFD4AF37),
+                            width: 1.5,
+                          ),
+                        ),
+                        onPressed: () => ExportService.exportOrdersToCSV(
+                          list
+                              .where((o) => o.status == OrderStatus.completed)
+                              .toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
               const Spacer(),
               // Waiter Filter
               if (waitersAsync.hasValue)
@@ -1522,14 +1737,26 @@ class ReportsScreen extends ConsumerWidget {
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<int?>(
                       value: selectedWaiterId,
-                      hint: const Text('All Waiters', style: TextStyle(fontSize: 13, color: Colors.white54)),
+                      hint: const Text(
+                        'All Waiters',
+                        style: TextStyle(fontSize: 13, color: Colors.white54),
+                      ),
                       isExpanded: true,
                       dropdownColor: const Color(0xFF1A1A1A),
                       items: [
-                        const DropdownMenuItem(value: null, child: Text('All Waiters')),
-                        ...waitersAsync.value!.map((w) => DropdownMenuItem(value: w.id, child: Text(w.name))),
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('All Waiters'),
+                        ),
+                        ...waitersAsync.value!.map(
+                          (w) => DropdownMenuItem(
+                            value: w.id,
+                            child: Text(w.name),
+                          ),
+                        ),
                       ],
-                      onChanged: (v) => ref.read(reportWaiterFilterProvider.notifier).set(v),
+                      onChanged: (v) =>
+                          ref.read(reportWaiterFilterProvider.notifier).set(v),
                     ),
                   ),
                 ),
@@ -1547,8 +1774,17 @@ class ReportsScreen extends ConsumerWidget {
             data: (orderList) {
               final completed = orderList
                   .where((o) => o.status == OrderStatus.completed)
-                  .where((o) => selectedWaiterId == null || o.waiterId == selectedWaiterId)
+                  .where(
+                    (o) =>
+                        selectedWaiterId == null ||
+                        o.waiterId == selectedWaiterId,
+                  )
                   .toList();
+
+              if (_showDetailView) {
+                return _buildDetailView(completed);
+              }
+
               final subtotalSum = completed.fold(
                 0.0,
                 (s, o) => s + o.totalAmount,
@@ -1567,34 +1803,46 @@ class ReportsScreen extends ConsumerWidget {
                 (s, o) => s + o.items.fold(0, (ss, i) => ss + i.quantity),
               );
 
-              final vatRate = double.tryParse(ref.watch(appSettingsProvider).value?['cafe_vat_rate'] ?? '0.0') ?? 0.0;
+              final vatRate =
+                  double.tryParse(
+                    ref.watch(appSettingsProvider).value?['cafe_vat_rate'] ??
+                        '0.0',
+                  ) ??
+                  0.0;
               final vatSum = subtotalSum * (vatRate / 100);
 
               // Per-category & Payment Method
               final categoryMap = <String, double>{};
               final paymentMap = <String, double>{};
-              final orderTypeMap = {'Dine-in': 0.0, 'Takeaway': 0.0, 'Delivery': 0.0};
-              
+              final orderTypeMap = {
+                'Dine-in': 0.0,
+                'Takeaway': 0.0,
+                'Delivery': 0.0,
+              };
+
               for (final o in completed) {
-                paymentMap[o.paymentMethod] = (paymentMap[o.paymentMethod] ?? 0) + o.grandTotal;
-                
+                paymentMap[o.paymentMethod] =
+                    (paymentMap[o.paymentMethod] ?? 0) + o.grandTotal;
+
                 final tName = o.tableName.toLowerCase();
                 if (tName.contains('takeaway')) {
-                  orderTypeMap['Takeaway'] = orderTypeMap['Takeaway']! + o.grandTotal;
+                  orderTypeMap['Takeaway'] =
+                      orderTypeMap['Takeaway']! + o.grandTotal;
                 } else if (tName.contains('delivery')) {
-                  orderTypeMap['Delivery'] = orderTypeMap['Delivery']! + o.grandTotal;
+                  orderTypeMap['Delivery'] =
+                      orderTypeMap['Delivery']! + o.grandTotal;
                 } else {
-                  orderTypeMap['Dine-in'] = orderTypeMap['Dine-in']! + o.grandTotal;
+                  orderTypeMap['Dine-in'] =
+                      orderTypeMap['Dine-in']! + o.grandTotal;
                 }
 
                 for (final item in o.items) {
-                   // More robust Category aggregation for the Dashboard
-                   final catName = "General"; 
-                   categoryMap[catName] = (categoryMap[catName] ?? 0) + item.subtotal;
+                  // More robust Category aggregation for the Dashboard
+                  final catName = "General";
+                  categoryMap[catName] =
+                      (categoryMap[catName] ?? 0) + item.subtotal;
                 }
               }
-
-
 
               // Per-waiter
               final waiterMap = <String, double>{};
@@ -1608,17 +1856,18 @@ class ReportsScreen extends ConsumerWidget {
               for (final o in completed) {
                 for (final item in o.items) {
                   if (!itemSalesMap.containsKey(item.productName)) {
-                    itemSalesMap[item.productName] = {
-                      'qty': 0,
-                      'revenue': 0.0,
-                    };
+                    itemSalesMap[item.productName] = {'qty': 0, 'revenue': 0.0};
                   }
                   itemSalesMap[item.productName]!['qty'] += item.quantity;
                   itemSalesMap[item.productName]!['revenue'] += item.subtotal;
                 }
               }
               final sortedItemSales = itemSalesMap.entries.toList()
-                ..sort((a, b) => (b.value['revenue'] as double).compareTo(a.value['revenue'] as double));
+                ..sort(
+                  (a, b) => (b.value['revenue'] as double).compareTo(
+                    a.value['revenue'] as double,
+                  ),
+                );
 
               // Per-cashier
               final cashierMap = <String, double>{};
@@ -1635,13 +1884,31 @@ class ReportsScreen extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        _ReportMetricTile(label: ref.t('management.subtotal'), value: subtotalSum),
-                        _ReportMetricTile(label: ref.t('management.serviceCharge'), value: serviceSum),
-                        _ReportMetricTile(label: ref.t('management.discountsGiven'), value: -discountSum, color: Colors.redAccent),
+                        _ReportMetricTile(
+                          label: ref.t('management.subtotal'),
+                          value: subtotalSum,
+                        ),
+                        _ReportMetricTile(
+                          label: ref.t('management.serviceCharge'),
+                          value: serviceSum,
+                        ),
+                        _ReportMetricTile(
+                          label: ref.t('management.discountsGiven'),
+                          value: -discountSum,
+                          color: Colors.redAccent,
+                        ),
                         // VAT hidden per request if 0
                         if (vatSum > 0)
-                          _ReportMetricTile(label: 'VAT ($vatRate%)', value: vatSum, color: Colors.blueAccent),
-                        _ReportMetricTile(label: ref.t('management.grandTotal'), value: grandSum, isGrand: true),
+                          _ReportMetricTile(
+                            label: 'VAT ($vatRate%)',
+                            value: vatSum,
+                            color: Colors.blueAccent,
+                          ),
+                        _ReportMetricTile(
+                          label: ref.t('management.grandTotal'),
+                          value: grandSum,
+                          isGrand: true,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 32),
@@ -1655,11 +1922,8 @@ class ReportsScreen extends ConsumerWidget {
                     // ── Order Type Breakdown ─────────────────────────────
                     _SectionHeader('ORDER TYPE DISTRIBUTION'),
                     const SizedBox(height: 16),
-                    _OrderTypeDashboard(orderTypeMap: orderTypeMap), 
+                    _OrderTypeDashboard(orderTypeMap: orderTypeMap),
                     const SizedBox(height: 32),
-
-
-
 
                     // ── Z-Reports History ────────────────────────────────
                     _SectionHeader('SHIFT CLOSING HISTORY'),
@@ -1721,11 +1985,286 @@ class ReportsScreen extends ConsumerWidget {
     );
   }
 
-  void _printFilteredReport(BuildContext context, WidgetRef ref, List<OrderModel> allOrders, DateFilter filter) async {
+  Widget _toggleBtn(String label, bool active, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFFD4AF37) : Colors.transparent,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: active ? Colors.black : Colors.white70,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailView(List<OrderModel> completed) {
+    if (completed.isEmpty) {
+      return Center(
+        child: Opacity(
+          opacity: 0.4,
+          child: Text(ref.t('management.noOrdersInRange')),
+        ),
+      );
+    }
+
+    final waiterGroups = <String, List<OrderModel>>{};
+    for (final o in completed) {
+      waiterGroups.putIfAbsent(o.waiterName, () => []).add(o);
+    }
+
+    return ListView(
+      children: waiterGroups.entries.map((entry) {
+        final waiterTotal = entry.value.fold<double>(
+          0,
+          (s, o) => s + o.grandTotal,
+        );
+        final orderCount = entry.value.length;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: GlassContainer(
+            opacity: 0.05,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.person_outline,
+                      size: 20,
+                      color: Color(0xFFD4AF37),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      entry.key.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '$orderCount orders',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white38,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      '${waiterTotal.toStringAsFixed(2)} ETB',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFFD4AF37),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Divider(height: 1, color: Colors.white10),
+                const SizedBox(height: 8),
+                ...entry.value.map(
+                  (o) => ExpansionTile(
+                    tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+                    childrenPadding: const EdgeInsets.only(left: 16, bottom: 8),
+                    title: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          color: const Color(0xFFD4AF37).withOpacity(0.15),
+                          child: Text(
+                            '#${o.id}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFD4AF37),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '${o.tableName}',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        const Spacer(),
+                        Text(
+                          DateFormat('dd/MM HH:mm').format(o.createdAt),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.white54,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Text(
+                          '${o.grandTotal.toStringAsFixed(2)} ETB',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFD4AF37),
+                          ),
+                        ),
+                      ],
+                    ),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 4,
+                              child: Text(
+                                'Item',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.white.withOpacity(0.4),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 40,
+                              child: Text(
+                                'Qty',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.white.withOpacity(0.4),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 60,
+                              child: Text(
+                                'Price',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.white.withOpacity(0.4),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 70,
+                              child: Text(
+                                'Total',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.white.withOpacity(0.4),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ...o.items.map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 4,
+                                child: Text(
+                                  item.productName,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 40,
+                                child: Text(
+                                  '${item.quantity}',
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 60,
+                                child: Text(
+                                  item.unitPrice.toStringAsFixed(2),
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 70,
+                                child: Text(
+                                  item.subtotal.toStringAsFixed(2),
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const Divider(height: 16, color: Colors.white10),
+                      Row(
+                        children: [
+                          const Spacer(),
+                          Text(
+                            'Subtotal: ${o.totalAmount.toStringAsFixed(2)}  |  SC: ${o.serviceCharge.toStringAsFixed(2)}  |  Disc: -${o.discountAmount.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.white54,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          const Spacer(),
+                          Text(
+                            'Order Total: ${o.grandTotal.toStringAsFixed(2)} ETB',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFD4AF37),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  void _printFilteredReport(
+    BuildContext context,
+    WidgetRef ref,
+    List<OrderModel> allOrders,
+    DateFilter filter,
+  ) async {
     final selectedWaiterId = ref.read(reportWaiterFilterProvider);
     final completed = allOrders
         .where((o) => o.status == OrderStatus.completed)
-        .where((o) => selectedWaiterId == null || o.waiterId == selectedWaiterId)
+        .where(
+          (o) => selectedWaiterId == null || o.waiterId == selectedWaiterId,
+        )
         .toList();
 
     if (completed.isEmpty) {
@@ -1736,17 +2275,48 @@ class ReportsScreen extends ConsumerWidget {
     }
 
     final settings = await ref.read(posRepositoryProvider).getCafeSettings();
-    
+
     // We use a dummy shift ID (-1) to signal a generic date-range report
-    // In a production app, we'd have a specific method for this, 
-    // but we've updated getShiftReportData to handle it.
-    final reportData = await ref.read(posRepositoryProvider).getShiftReportData(-1);
-    
+    final reportData = await ref
+        .read(posRepositoryProvider)
+        .getShiftReportData(-1);
+
     // Overwrite times with filter range
     final header = reportData['report_header'] as Map<String, dynamic>;
-    header['opening_time'] = filter.from?.toIso8601String() ?? DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
-    header['closing_time'] = filter.to?.toIso8601String() ?? DateTime.now().toIso8601String();
+    header['opening_time'] =
+        filter.from?.toIso8601String() ??
+        DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
+    header['closing_time'] =
+        filter.to?.toIso8601String() ?? DateTime.now().toIso8601String();
     header['report_type'] = 'X REPORT (FILTERED)';
+
+    // Inject real filtered orders into report data for detailed printing
+    reportData['orders_detail'] = completed
+        .map(
+          (o) => {
+            'id': o.id,
+            'table_name': o.tableName,
+            'waiter_name': o.waiterName,
+            'waiter_id': o.waiterId,
+            'cashier_name': o.cashierName,
+            'created_at': o.createdAt.toIso8601String(),
+            'total_amount': o.totalAmount,
+            'service_charge': o.serviceCharge,
+            'discount_amount': o.discountAmount,
+            'grand_total': o.grandTotal,
+            'items': o.items
+                .map(
+                  (i) => {
+                    'product_name': i.productName,
+                    'quantity': i.quantity,
+                    'unit_price': i.unitPrice,
+                    'subtotal': i.subtotal,
+                  },
+                )
+                .toList(),
+          },
+        )
+        .toList();
 
     await BillService.printReport(
       reportData: reportData,
@@ -1755,7 +2325,6 @@ class ReportsScreen extends ConsumerWidget {
       isZReport: false,
     );
   }
-
 }
 
 class _ZReportHistorySection extends ConsumerWidget {
@@ -1767,13 +2336,15 @@ class _ZReportHistorySection extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         reports.when(
-
           data: (list) {
             if (list.isEmpty) {
               return const Center(
                 child: Padding(
                   padding: EdgeInsets.all(40),
-                  child: Text('No Z-Reports archived.', style: TextStyle(color: Colors.white24)),
+                  child: Text(
+                    'No Z-Reports archived.',
+                    style: TextStyle(color: Colors.white24),
+                  ),
                 ),
               );
             }
@@ -1784,10 +2355,13 @@ class _ZReportHistorySection extends ConsumerWidget {
                 itemCount: list.length,
                 itemBuilder: (context, index) {
                   final r = list[index];
-                  final header = r.reportData['report_header'] as Map<String, dynamic>;
-                  final cashRec = r.reportData['cash_reconciliation'] as Map<String, dynamic>?;
+                  final header =
+                      r.reportData['report_header'] as Map<String, dynamic>;
+                  final cashRec =
+                      r.reportData['cash_reconciliation']
+                          as Map<String, dynamic>?;
                   final variance = (cashRec?['difference'] as num? ?? 0.0);
-                  
+
                   return Container(
                     width: 320,
                     margin: const EdgeInsets.only(right: 16),
@@ -1802,20 +2376,32 @@ class _ZReportHistorySection extends ConsumerWidget {
                             children: [
                               Text(
                                 'Z-REPORT #${r.zCount}',
-                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFFD4AF37)),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16,
+                                  color: Color(0xFFD4AF37),
+                                ),
                               ),
                               _VarianceBadge(variance: variance),
                             ],
                           ),
                           const Spacer(),
                           Text(
-                            header['cashier_name']?.toString().toUpperCase() ?? 'UNKNOWN',
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1),
+                            header['cashier_name']?.toString().toUpperCase() ??
+                                'UNKNOWN',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1,
+                            ),
                           ),
 
                           Text(
                             DateFormat('MMM d, HH:mm').format(r.createdAt),
-                            style: const TextStyle(fontSize: 12, color: Colors.white54),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white54,
+                            ),
                           ),
 
                           const Divider(height: 24, color: Colors.white10),
@@ -1825,20 +2411,40 @@ class _ZReportHistorySection extends ConsumerWidget {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('NET SALES', style: TextStyle(fontSize: 9, color: Colors.white38)),
-                                  Text('${(r.reportData['sales_totals']?['net_sales'] as num? ?? 0).toStringAsFixed(2)} ETB', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  const Text(
+                                    'NET SALES',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      color: Colors.white38,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${(r.reportData['sales_totals']?['net_sales'] as num? ?? 0).toStringAsFixed(2)} ETB',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ],
                               ),
                               Row(
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.visibility_outlined, size: 20),
-                                    onPressed: () => _showZReportDetail(context, r),
+                                    icon: const Icon(
+                                      Icons.visibility_outlined,
+                                      size: 20,
+                                    ),
+                                    onPressed: () =>
+                                        _showZReportDetail(context, r),
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.print_outlined, size: 20),
+                                    icon: const Icon(
+                                      Icons.print_outlined,
+                                      size: 20,
+                                    ),
                                     onPressed: () async {
-                                      final settings = await ref.read(posRepositoryProvider).getCafeSettings();
+                                      final settings = await ref
+                                          .read(posRepositoryProvider)
+                                          .getCafeSettings();
                                       await BillService.printReport(
                                         reportData: r.reportData,
                                         settings: settings,
@@ -1878,30 +2484,74 @@ class _ZReportHistorySection extends ConsumerWidget {
           child: SingleChildScrollView(
             child: Column(
               children: [
-                const Icon(Icons.receipt_long, color: Color(0xFFD4AF37), size: 40),
+                const Icon(
+                  Icons.receipt_long,
+                  color: Color(0xFFD4AF37),
+                  size: 40,
+                ),
                 const SizedBox(height: 16),
-                const Text('DIGITAL Z-REPORT', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)),
+                const Text(
+                  'DIGITAL Z-REPORT',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
+                ),
                 const Divider(height: 32, color: Colors.white10),
                 _DigitalSlipRow('Report #', '${report.zCount}'),
-                _DigitalSlipRow('Cashier', report.reportData['report_header']['cashier_name']),
-                _DigitalSlipRow('Date', DateFormat('dd/MM/yyyy').format(report.createdAt)),
+                _DigitalSlipRow(
+                  'Cashier',
+                  report.reportData['report_header']['cashier_name'],
+                ),
+                _DigitalSlipRow(
+                  'Date',
+                  DateFormat('dd/MM/yyyy').format(report.createdAt),
+                ),
                 const Divider(height: 32, color: Colors.white10),
-                _DigitalSlipRow('Gross Sales', '${report.reportData['sales_totals']['gross_sales']}'),
+                _DigitalSlipRow(
+                  'Gross Sales',
+                  '${report.reportData['sales_totals']['gross_sales']}',
+                ),
                 if ((report.reportData['sales_totals']['vat'] as num? ?? 0) > 0)
-                  _DigitalSlipRow('VAT', '${report.reportData['sales_totals']['vat']}'),
-                _DigitalSlipRow('Discount', '${report.reportData['sales_totals']['discounts']}'),
-                _DigitalSlipRow('NET TOTAL', '${report.reportData['sales_totals']['net_sales']}', isBold: true),
+                  _DigitalSlipRow(
+                    'VAT',
+                    '${report.reportData['sales_totals']['vat']}',
+                  ),
+                _DigitalSlipRow(
+                  'Discount',
+                  '${report.reportData['sales_totals']['discounts']}',
+                ),
+                _DigitalSlipRow(
+                  'NET TOTAL',
+                  '${report.reportData['sales_totals']['net_sales']}',
+                  isBold: true,
+                ),
 
                 const Divider(height: 32, color: Colors.white10),
-                const Text('PAYMENT METHODS', style: TextStyle(fontSize: 10, color: Colors.white38)),
+                const Text(
+                  'PAYMENT METHODS',
+                  style: TextStyle(fontSize: 10, color: Colors.white38),
+                ),
                 const SizedBox(height: 8),
-                ...(report.reportData['payment_methods'] as Map<String, dynamic>).entries.map((e) => _DigitalSlipRow(e.key.toUpperCase(), '${e.value}')),
+                ...(report.reportData['payment_methods']
+                        as Map<String, dynamic>)
+                    .entries
+                    .map(
+                      (e) => _DigitalSlipRow(e.key.toUpperCase(), '${e.value}'),
+                    ),
                 const Divider(height: 32, color: Colors.white10),
-                _DigitalSlipRow('CASH VARIANCE', '${report.reportData['cash_reconciliation']['difference']}', isBold: true),
+                _DigitalSlipRow(
+                  'CASH VARIANCE',
+                  '${report.reportData['cash_reconciliation']['difference']}',
+                  isBold: true,
+                ),
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(ctx),
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD4AF37),
+                    foregroundColor: Colors.black,
+                  ),
                   child: const Text('CLOSE PREVIEW'),
                 ),
               ],
@@ -1926,8 +2576,18 @@ class _DigitalSlipRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-          Text(value, style: TextStyle(fontSize: 12, fontWeight: isBold ? FontWeight.bold : FontWeight.normal, color: isBold ? const Color(0xFFD4AF37) : Colors.white)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Colors.white70),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              color: isBold ? const Color(0xFFD4AF37) : Colors.white,
+            ),
+          ),
         ],
       ),
     );
@@ -1945,7 +2605,11 @@ class _VarianceBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: isBalanced ? Colors.green.withOpacity(0.1) : (isShort ? Colors.red.withOpacity(0.1) : Colors.blue.withOpacity(0.1)),
+        color: isBalanced
+            ? Colors.green.withOpacity(0.1)
+            : (isShort
+                  ? Colors.red.withOpacity(0.1)
+                  : Colors.blue.withOpacity(0.1)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -1953,7 +2617,9 @@ class _VarianceBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.bold,
-          color: isBalanced ? Colors.green : (isShort ? Colors.red : Colors.blue),
+          color: isBalanced
+              ? Colors.green
+              : (isShort ? Colors.red : Colors.blue),
         ),
       ),
     );
@@ -1966,7 +2632,12 @@ class _ReportMetricTile extends StatelessWidget {
   final Color? color;
   final bool isGrand;
 
-  const _ReportMetricTile({required this.label, required this.value, this.color, this.isGrand = false});
+  const _ReportMetricTile({
+    required this.label,
+    required this.value,
+    this.color,
+    this.isGrand = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1979,27 +2650,40 @@ class _ReportMetricTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label.toUpperCase(), style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5), letterSpacing: 1.2)), // Increased font and opacity
+              Text(
+                label.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.white.withOpacity(0.5),
+                  letterSpacing: 1.2,
+                ),
+              ), // Increased font and opacity
               const SizedBox(height: 12),
               Text(
                 '${value.toStringAsFixed(2)}',
                 style: TextStyle(
                   fontSize: isGrand ? 32 : 24, // Increased font size
                   fontWeight: FontWeight.w900,
-                  color: color ?? (isGrand ? const Color(0xFFD4AF37) : Colors.white),
+                  color:
+                      color ??
+                      (isGrand ? const Color(0xFFD4AF37) : Colors.white),
                 ),
               ),
               Text(
-                'ETB', 
+                'ETB',
                 style: TextStyle(
-                  fontSize: 12, 
-                  color: (color ?? (isGrand ? const Color(0xFFD4AF37) : Colors.white)).withOpacity(0.4),
-                  fontWeight: FontWeight.bold
-                )
+                  fontSize: 12,
+                  color:
+                      (color ??
+                              (isGrand
+                                  ? const Color(0xFFD4AF37)
+                                  : Colors.white))
+                          .withOpacity(0.4),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
-
         ),
       ),
     );
@@ -2013,7 +2697,15 @@ class _BestSellersDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (sortedItemSales.isEmpty) {
-      return const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No item sales to visualize.', style: TextStyle(color: Colors.white24))));
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Text(
+            'No item sales to visualize.',
+            style: TextStyle(color: Colors.white24),
+          ),
+        ),
+      );
     }
 
     final maxRevenue = sortedItemSales.first.value['revenue'] as double;
@@ -2025,7 +2717,7 @@ class _BestSellersDashboard extends StatelessWidget {
         children: sortedItemSales.take(10).map((entry) {
           final revenue = entry.value['revenue'] as double;
           final percentage = maxRevenue > 0 ? (revenue / maxRevenue) : 0.0;
-          
+
           return Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: Column(
@@ -2037,13 +2729,20 @@ class _BestSellersDashboard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         entry.key.toUpperCase(),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     Text(
                       '${revenue.toStringAsFixed(2)} ETB',
-                      style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.w900, fontSize: 13),
+                      style: const TextStyle(
+                        color: Color(0xFFD4AF37),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -2064,7 +2763,11 @@ class _BestSellersDashboard extends StatelessWidget {
                     const SizedBox(width: 12),
                     Text(
                       'x${entry.value['qty']}',
-                      style: const TextStyle(fontSize: 12, color: Colors.white54, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white54,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -2084,7 +2787,15 @@ class _CategoryBreakdownDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (categoryMap.isEmpty) {
-      return const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No category data available.', style: TextStyle(color: Colors.white24))));
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Text(
+            'No category data available.',
+            style: TextStyle(color: Colors.white24),
+          ),
+        ),
+      );
     }
 
     final total = categoryMap.values.fold(0.0, (s, v) => s + v);
@@ -2103,7 +2814,13 @@ class _CategoryBreakdownDashboard extends StatelessWidget {
               children: [
                 Expanded(
                   flex: 3,
-                  child: Text(entry.key.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  child: Text(
+                    entry.key.toUpperCase(),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
                 Expanded(
                   flex: 5,
@@ -2123,7 +2840,11 @@ class _CategoryBreakdownDashboard extends StatelessWidget {
                   child: Text(
                     '${entry.value.toStringAsFixed(2)} ETB',
                     textAlign: TextAlign.right,
-                    style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFD4AF37), fontSize: 12),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFFD4AF37),
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ],
@@ -2158,12 +2879,20 @@ class _OrderTypeDashboard extends StatelessWidget {
             children: [
               Text(
                 entry.key.toUpperCase(),
-                style: const TextStyle(fontSize: 10, color: Colors.white38, letterSpacing: 1),
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.white38,
+                  letterSpacing: 1,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 '${percentage.toStringAsFixed(1)}%',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFFD4AF37)),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFFD4AF37),
+                ),
               ),
               Text(
                 '${entry.value.toStringAsFixed(2)} ETB',
@@ -2176,8 +2905,6 @@ class _OrderTypeDashboard extends StatelessWidget {
     );
   }
 }
-
-
 
 // ── Date filter chips ─────────────────────────────────────────────────────
 
@@ -2199,14 +2926,10 @@ class _DateFilterChips extends ConsumerWidget {
 
     return Row(
       children: [
-        _chip(
-          ref.t('filters.today'),
-          selectedType == DateFilterType.today,
-          () {
-            ref.read(reportDateTypeProvider.notifier).set(DateFilterType.today);
-            onChanged(DateFilter(from: todayStart, to: todayEnd));
-          },
-        ),
+        _chip(ref.t('filters.today'), selectedType == DateFilterType.today, () {
+          ref.read(reportDateTypeProvider.notifier).set(DateFilterType.today);
+          onChanged(DateFilter(from: todayStart, to: todayEnd));
+        }),
         const SizedBox(width: 8),
         _chip(
           ref.t('filters.thisWeek'),
@@ -2226,14 +2949,10 @@ class _DateFilterChips extends ConsumerWidget {
           },
         ),
         const SizedBox(width: 8),
-        _chip(
-          ref.t('filters.allTime'),
-          selectedType == DateFilterType.all,
-          () {
-            ref.read(reportDateTypeProvider.notifier).set(DateFilterType.all);
-            onChanged(const DateFilter());
-          },
-        ),
+        _chip(ref.t('filters.allTime'), selectedType == DateFilterType.all, () {
+          ref.read(reportDateTypeProvider.notifier).set(DateFilterType.all);
+          onChanged(const DateFilter());
+        }),
         const SizedBox(width: 12),
         IconButton(
           icon: Icon(
@@ -2253,7 +2972,9 @@ class _DateFilterChips extends ConsumerWidget {
               helpText: 'START DATE',
               builder: (context, child) => Theme(
                 data: Theme.of(context).copyWith(
-                  colorScheme: const ColorScheme.dark(primary: Color(0xFFD4AF37)),
+                  colorScheme: const ColorScheme.dark(
+                    primary: Color(0xFFD4AF37),
+                  ),
                 ),
                 child: child!,
               ),
@@ -2269,18 +2990,28 @@ class _DateFilterChips extends ConsumerWidget {
                 helpText: 'END DATE',
                 builder: (context, child) => Theme(
                   data: Theme.of(context).copyWith(
-                    colorScheme: const ColorScheme.dark(primary: Color(0xFFD4AF37)),
+                    colorScheme: const ColorScheme.dark(
+                      primary: Color(0xFFD4AF37),
+                    ),
                   ),
                   child: child!,
                 ),
               );
 
               if (toDate != null) {
-                ref.read(reportDateTypeProvider.notifier).set(DateFilterType.custom);
-                onChanged(DateFilter(
-                  from: DateTime(fromDate.year, fromDate.month, fromDate.day),
-                  to: DateTime(toDate.year, toDate.month, toDate.day).add(const Duration(days: 1)),
-                ));
+                ref
+                    .read(reportDateTypeProvider.notifier)
+                    .set(DateFilterType.custom);
+                onChanged(
+                  DateFilter(
+                    from: DateTime(fromDate.year, fromDate.month, fromDate.day),
+                    to: DateTime(
+                      toDate.year,
+                      toDate.month,
+                      toDate.day,
+                    ).add(const Duration(days: 1)),
+                  ),
+                );
               }
             }
           },
@@ -2494,7 +3225,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     const SizedBox(height: 24),
                     _buildSectionTitle('HARDWARE & PRINTERS'),
                     FutureBuilder<List<Printer>>(
-                      future: kIsWeb ? Future.value(<Printer>[]) : Printing.listPrinters().catchError((_) => <Printer>[]),
+                      future: kIsWeb
+                          ? Future.value(<Printer>[])
+                          : Printing.listPrinters().catchError(
+                              (_) => <Printer>[],
+                            ),
                       builder: (context, snapshot) {
                         final printers = snapshot.data ?? [];
                         return Column(
@@ -2502,31 +3237,52 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           children: [
                             const Text(
                               'Select Default Thermal Printer (80mm)',
-                              style: TextStyle(fontSize: 12, color: Colors.white54),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white54,
+                              ),
                             ),
                             const SizedBox(height: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white.withOpacity(0.05),
                                 border: Border.all(color: Colors.white10),
                               ),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<String>(
-                                  value: settings.defaultPrinterName.isNotEmpty && printers.any((p) => p.name == settings.defaultPrinterName)
+                                  value:
+                                      settings.defaultPrinterName.isNotEmpty &&
+                                          printers.any(
+                                            (p) =>
+                                                p.name ==
+                                                settings.defaultPrinterName,
+                                          )
                                       ? settings.defaultPrinterName
-                                      : (printers.isNotEmpty ? printers.first.name : null),
+                                      : (printers.isNotEmpty
+                                            ? printers.first.name
+                                            : null),
                                   isExpanded: true,
                                   dropdownColor: const Color(0xFF1A1A1A),
                                   hint: const Text('No Printers Found'),
-                                  items: printers.map((p) => DropdownMenuItem<String>(
-                                    value: p.name,
-                                    child: Text(p.name),
-                                  )).toList(),
+                                  items: printers
+                                      .map(
+                                        (p) => DropdownMenuItem<String>(
+                                          value: p.name,
+                                          child: Text(p.name),
+                                        ),
+                                      )
+                                      .toList(),
                                   onChanged: (val) async {
                                     if (val != null) {
-                                      final newSettings = settings.copyWith(defaultPrinterName: val);
-                                      await ref.read(activeOrderServiceProvider).saveSettings(newSettings);
+                                      final newSettings = settings.copyWith(
+                                        defaultPrinterName: val,
+                                      );
+                                      await ref
+                                          .read(activeOrderServiceProvider)
+                                          .saveSettings(newSettings);
                                     }
                                   },
                                 ),
@@ -2537,7 +3293,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 padding: EdgeInsets.only(top: 8),
                                 child: Text(
                                   'Note: Direct printing is not supported in browsers for security. Use PDF dialog instead.',
-                                  style: TextStyle(fontSize: 10, color: Colors.orangeAccent),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.orangeAccent,
+                                  ),
                                 ),
                               ),
                           ],
@@ -2684,7 +3443,8 @@ class _SummaryRow extends StatelessWidget {
             style: TextStyle(
               fontSize: isTotal ? 20 : 14,
               fontWeight: isTotal ? FontWeight.w900 : FontWeight.w700,
-              color: color ?? (isTotal ? const Color(0xFFD4AF37) : Colors.white),
+              color:
+                  color ?? (isTotal ? const Color(0xFFD4AF37) : Colors.white),
             ),
           ),
         ],
@@ -2725,11 +3485,17 @@ class _ReportMetricCard extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.4)),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withOpacity(0.4),
+                ),
               ),
               Text(
                 value,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ],
           ),
@@ -2778,7 +3544,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-
 class _FormalDataTable extends StatelessWidget {
   final List<MapEntry<String, double>> data;
   final IconData icon;
@@ -2804,12 +3569,22 @@ class _FormalDataTable extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'ITEM / NAME',
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.3), letterSpacing: 1),
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white.withOpacity(0.3),
+                      letterSpacing: 1,
+                    ),
                   ),
                 ),
                 Text(
                   'AMOUNT',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.3), letterSpacing: 1),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white.withOpacity(0.3),
+                    letterSpacing: 1,
+                  ),
                 ),
               ],
             ),
@@ -2820,7 +3595,10 @@ class _FormalDataTable extends StatelessWidget {
             return Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   child: Row(
                     children: [
                       Icon(icon, size: 16, color: iconColor.withOpacity(0.7)),
@@ -2828,7 +3606,10 @@ class _FormalDataTable extends StatelessWidget {
                       Expanded(
                         child: Text(
                           e.key,
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                       Text(
@@ -2883,7 +3664,8 @@ class ChargeManagementScreen extends ConsumerWidget {
                 return _ChargeCard(
                   charge: charge,
                   onEdit: () => _showChargeDialog(context, ref, charge),
-                  onDelete: () => ref.read(chargesListProvider.notifier).delete(charge.id!),
+                  onDelete: () =>
+                      ref.read(chargesListProvider.notifier).delete(charge.id!),
                 );
               },
             ),
@@ -2895,7 +3677,11 @@ class ChargeManagementScreen extends ConsumerWidget {
     );
   }
 
-  void _showChargeDialog(BuildContext context, WidgetRef ref, ChargeModel? charge) {
+  void _showChargeDialog(
+    BuildContext context,
+    WidgetRef ref,
+    ChargeModel? charge,
+  ) {
     final nameCtrl = TextEditingController(text: charge?.name);
     final valueCtrl = TextEditingController(text: charge?.value.toString());
     String type = charge?.type ?? 'addition';
@@ -2911,7 +3697,9 @@ class ChargeManagementScreen extends ConsumerWidget {
             children: [
               TextField(
                 controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Name (e.g. VAT, Service)'),
+                decoration: const InputDecoration(
+                  labelText: 'Name (e.g. VAT, Service)',
+                ),
               ),
               TextField(
                 controller: valueCtrl,
@@ -2923,15 +3711,24 @@ class ChargeManagementScreen extends ConsumerWidget {
                 value: type,
                 isExpanded: true,
                 items: const [
-                  DropdownMenuItem(value: 'addition', child: Text('Addition (+)')),
-                  DropdownMenuItem(value: 'deduction', child: Text('Deduction (-)')),
+                  DropdownMenuItem(
+                    value: 'addition',
+                    child: Text('Addition (+)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'deduction',
+                    child: Text('Deduction (-)'),
+                  ),
                 ],
                 onChanged: (v) => setLocalState(() => type = v!),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
               onPressed: () {
                 final newCharge = ChargeModel(
@@ -2983,7 +3780,9 @@ class _ChargeCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: (isAddition ? Colors.green : Colors.red).withOpacity(0.1),
+                  color: (isAddition ? Colors.green : Colors.red).withOpacity(
+                    0.1,
+                  ),
                   borderRadius: BorderRadius.zero,
                 ),
                 child: Text(
@@ -2998,11 +3797,19 @@ class _ChargeCard extends StatelessWidget {
               Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white54),
+                    icon: const Icon(
+                      Icons.edit_outlined,
+                      size: 18,
+                      color: Colors.white54,
+                    ),
                     onPressed: onEdit,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 18,
+                      color: Colors.redAccent,
+                    ),
                     onPressed: onDelete,
                   ),
                 ],
