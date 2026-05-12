@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:sqflite_common/sqlite_api.dart';
 import 'package:st_george_pos/core/database_helper.dart';
 import 'package:st_george_pos/models/app_user.dart';
@@ -1622,5 +1623,109 @@ class PosRepository {
     final db = await _dbHelper.database;
     final maps = await db.query('z_reports', orderBy: 'created_at DESC');
     return maps.map((m) => ZReportModel.fromMap(m)).toList();
+  }
+
+  // ── Mock Data Seeding ─────────────────────────────────────────────────────
+
+  Future<void> seedMockData() async {
+    if (kIsWeb) return; // Seeding is designed for SQLite local files
+    
+    final db = await _dbHelper.database;
+    final random = Random();
+    
+    // 1. Get existing entities
+    final products = await getProducts();
+    final waiters = await getWaiters();
+    final users = await getUsers();
+    
+    if (products.isEmpty || waiters.isEmpty || users.isEmpty) {
+      print('Seeding skipped: Products, Waiters, or Users missing.');
+      return;
+    }
+    
+    final cashier = users.firstWhere((u) => u.role == UserRole.cashier, orElse: () => users.first);
+    final waiter = waiters.first;
+
+    for (int i = 7; i >= 0; i--) {
+      final date = DateTime.now().subtract(Duration(days: i));
+      final startTime = DateTime(date.year, date.month, date.day, 8 + random.nextInt(2), random.nextInt(60));
+      final endTime = startTime.add(const Duration(hours: 10)); 
+      
+      final isCurrentDay = i == 0;
+
+      // 2. Insert Shift
+      final shiftId = await db.insert('shifts', {
+        'cashier_id': cashier.id,
+        'start_time': startTime.toIso8601String(),
+        'starting_cash': 1000.0,
+        'status': isCurrentDay ? 'open' : 'closed',
+        'end_time': isCurrentDay ? null : endTime.toIso8601String(),
+        'actual_cash_declared': isCurrentDay ? null : 0.0, 
+      });
+
+      double shiftTotal = 0;
+      
+      // 3. Create 15-25 orders per shift
+      int orderCount = 15 + random.nextInt(10);
+      for (int j = 0; j < orderCount; j++) {
+        final orderTime = startTime.add(Duration(minutes: random.nextInt(600)));
+        
+        final orderId = await db.insert('orders', {
+          'table_id': 1 + random.nextInt(10),
+          'waiter_id': waiter.id,
+          'cashier_id': cashier.id,
+          'status': 'completed',
+          'created_at': orderTime.toIso8601String(),
+          'updated_at': orderTime.toIso8601String(),
+          'total_amount': 0.0, 
+          'service_charge': 5.0,
+          'discount_amount': random.nextDouble() > 0.8 ? 20.0 : 0.0,
+          'payment_method': random.nextDouble() > 0.3 ? 'cash' : 'telebirr',
+          'shift_id': shiftId,
+        });
+
+        double orderSubtotal = 0;
+        int itemCount = 1 + random.nextInt(5);
+        for (int k = 0; k < itemCount; k++) {
+          final product = products[random.nextInt(products.length)];
+          final qty = 1 + random.nextInt(3);
+          final subtotal = product.price * qty;
+          
+          await db.insert('order_items', {
+            'order_id': orderId,
+            'product_id': product.id,
+            'quantity': qty,
+            'unit_price': product.price,
+            'subtotal': subtotal,
+            'is_printed_to_kitchen': 1,
+            'kitchen_round': 1,
+            'created_at': orderTime.toIso8601String(),
+          });
+          orderSubtotal += subtotal;
+        }
+        
+        await db.update(
+          'orders', 
+          {'total_amount': orderSubtotal}, 
+          where: 'id = ?', 
+          whereArgs: [orderId]
+        );
+        shiftTotal += (orderSubtotal + 5.0 - (random.nextDouble() > 0.8 ? 20.0 : 0.0));
+      }
+      
+      // 4. Finalize Shift and Create Z-Report
+      if (!isCurrentDay) {
+        final actualCash = 1000.0 + shiftTotal;
+        await db.update(
+          'shifts', 
+          {'actual_cash_declared': actualCash}, 
+          where: 'id = ?', 
+          whereArgs: [shiftId]
+        );
+        
+        final reportData = await getShiftReportData(shiftId);
+        await createZReport(shiftId, reportData);
+      }
+    }
   }
 }
