@@ -802,78 +802,82 @@ class BillService {
     String? printerName,
     PdfPageFormat format = PdfPageFormat.roll80,
   }) async {
-    // ── Web: open the browser's built-in print dialog ───────────────────────
+    final pdfBytes = await pdf.save();
+
+    // ── Web: always use browser print dialog ────────────────────────────────
     if (kIsWeb) {
       await Printing.layoutPdf(
-        onLayout: (_) async => pdf.save(),
+        onLayout: (_) async => pdfBytes,
         name: documentName,
         format: format,
       );
       return true;
     }
 
-    // ── Desktop (Windows / Linux / macOS): use directPrintPdf ───────────────
-    // layoutPdf opens a preview window that can appear BEHIND the app on
-    // Windows installed builds, making it look like nothing happened.
-    // directPrintPdf sends straight to the Windows print spooler.
-    try {
-      debugPrint('[Print] Listing printers...');
-      final printers = await Printing.listPrinters().timeout(
-        const Duration(seconds: 3),
-        onTimeout: () {
-          debugPrint('[Print] Printer listing timed out – no printers returned');
-          return [];
-        },
-      );
-      debugPrint('[Print] Found ${printers.length} printer(s): '
-          '${printers.map((p) => p.name).join(', ')}');
+    // ── Desktop: try directPrintPdf if a printer is configured ──────────────
+    // This sends silently to the Windows print spooler with no dialog.
+    if (printerName != null && printerName.isNotEmpty) {
+      try {
+        debugPrint('[Print] Listing printers for direct print...');
+        final printers = await Printing.listPrinters().timeout(
+          const Duration(seconds: 4),
+          onTimeout: () {
+            debugPrint('[Print] listPrinters timed out after 4s');
+            return [];
+          },
+        );
+        debugPrint('[Print] Found ${printers.length} printer(s): '
+            '${printers.map((p) => p.name).join(', ')}');
 
-      if (printers.isEmpty) {
-        debugPrint('[Print] No printers available on this machine.');
-        return false;
-      }
-
-      // Smart printer selection:
-      //   1. Exact name match (case-insensitive)
-      //   2. Partial name match (case-insensitive)
-      //   3. Default printer
-      //   4. First printer in list
-      Printer? target;
-      if (printerName != null && printerName.isNotEmpty) {
-        final lower = printerName.toLowerCase();
-        // Exact (case-insensitive)
-        for (final p in printers) {
-          if (p.name.toLowerCase() == lower) { target = p; break; }
-        }
-        // Partial match
-        if (target == null) {
+        if (printers.isNotEmpty) {
+          // Smart printer selection:
+          //  1. Exact name match (case-insensitive)
+          //  2. Partial name match (case-insensitive)
+          //  3. System default printer
+          //  4. First printer in the list
+          Printer? target;
+          final lower = printerName.toLowerCase();
           for (final p in printers) {
-            if (p.name.toLowerCase().contains(lower)) { target = p; break; }
+            if (p.name.toLowerCase() == lower) { target = p; break; }
           }
-        }
-      }
-      // Default printer fallback
-      if (target == null) {
-        for (final p in printers) {
-          if (p.isDefault) { target = p; break; }
-        }
-      }
-      // First available printer
-      target ??= printers.first;
+          if (target == null) {
+            for (final p in printers) {
+              if (p.name.toLowerCase().contains(lower)) { target = p; break; }
+            }
+          }
+          if (target == null) {
+            for (final p in printers) {
+              if (p.isDefault) { target = p; break; }
+            }
+          }
+          target ??= printers.first;
 
-      debugPrint('[Print] Sending to printer: "${target.name}"');
-      final success = await Printing.directPrintPdf(
-        printer: target,
-        onLayout: (_) async => pdf.save(),
-        name: documentName,
-        format: format,
-      );
-      debugPrint('[Print] directPrintPdf result: $success');
-      return success;
-    } catch (e, st) {
-      debugPrint('[Print] Error during desktop print: $e\n$st');
-      return false;
+          debugPrint('[Print] Sending to: "${target.name}"');
+          final success = await Printing.directPrintPdf(
+            printer: target,
+            onLayout: (_) async => pdfBytes,
+            name: documentName,
+            format: format,
+          );
+          debugPrint('[Print] directPrintPdf result: $success');
+          if (success) return true;
+          debugPrint('[Print] directPrintPdf returned false, falling back to layoutPdf');
+        }
+      } catch (e) {
+        debugPrint('[Print] directPrintPdf error: $e — falling back to layoutPdf');
+      }
     }
+
+    // ── Fallback: layoutPdf opens the system print dialog ───────────────────
+    // This is the original working behaviour before the POS config change.
+    // Used when: no printer configured, printer not found, or direct print fails.
+    debugPrint('[Print] Opening system print dialog via layoutPdf...');
+    await Printing.layoutPdf(
+      onLayout: (_) async => pdfBytes,
+      name: documentName,
+      format: format,
+    );
+    return true;
   }
 
   static pw.Widget _sectionHeader(String title) => pw.Padding(

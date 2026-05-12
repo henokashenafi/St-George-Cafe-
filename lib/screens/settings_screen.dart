@@ -73,14 +73,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (!mounted) return;
     setState(() => _isLoadingPrinters = true);
     try {
-      final printers = await Printing.listPrinters();
+      // 5-second timeout: some Windows printer drivers hang EnumPrinters indefinitely
+      final printers = await Printing.listPrinters().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('[Settings] listPrinters timed out after 5s');
+          return [];
+        },
+      );
       if (mounted) {
-        setState(() {
-          _printers = printers;
-        });
+        setState(() => _printers = printers);
       }
     } catch (e) {
-      debugPrint('Error fetching printers: $e');
+      debugPrint('[Settings] Error fetching printers: $e');
     } finally {
       if (mounted) setState(() => _isLoadingPrinters = false);
     }
