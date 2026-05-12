@@ -395,23 +395,22 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           .map((e) => e.copyWith(isPrintedToKitchen: true))
           .toList();
 
-      TopToaster.show(context, 'Step 1: Adding items to database...', isError: false);
+      TopToaster.show(context, 'Saving order...', isError: false);
       final roundNumber = await ref
           .read(activeOrderServiceProvider)
           .addItems(order.id!, itemsToPrint, selectedTable!.id!);
-      
-      TopToaster.show(context, 'Step 2: Generating PDF...', isError: false);
+
+      TopToaster.show(context, 'Sending to printer...', isError: false);
 
       final printerName = settings['default_printer_name'];
 
-      // Kitchen Printing PDF
-      await BillService.generateKitchenSlip(
+      // Kitchen Printing PDF — returns true if printed successfully
+      final printed = await BillService.generateKitchenSlip(
         order: order,
         items: localItems,
         roundNumber: roundNumber,
         printerName: printerName,
       );
-      TopToaster.show(context, 'Step 3: Sending to Windows print service...', isError: false);
 
       await ref
           .read(auditServiceProvider)
@@ -421,8 +420,21 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                 'Table: ${selectedTable!.name}, Items: ${localItems.length}, Round: $roundNumber',
           );
 
-      if (roundNumber != null) {
-        TopToaster.show(context, ref.t('order.sentToKitchen'));
+      if (mounted) {
+        if (printed) {
+          TopToaster.show(
+            context,
+            roundNumber != null
+                ? 'Kitchen slip printed — Round $roundNumber ✓'
+                : ref.t('order.sentToKitchen'),
+          );
+        } else {
+          TopToaster.show(
+            context,
+            'Order saved but no printer found. Check Settings → Default Printer.',
+            isError: true,
+          );
+        }
       }
     }
     setState(() => localItems = []);
@@ -495,10 +507,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         chargesProvider.future,
       )).where((c) => c.isActive).toList();
 
-      await BillService.generateAndDownloadBill(
+      final printed = await BillService.generateAndDownloadBill(
         order: order.copyWith(
           discountAmount: discount,
-        ), // Ensure order has the discount
+        ),
         items: order.items,
         settings: cafeSettings,
         cashierName: order.cashierName,
@@ -533,6 +545,14 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             details:
                 'ID: ${order.id}, Total: ${subtotal.toStringAsFixed(2)}, Table: ${order.tableName}',
           );
+
+      if (mounted && !printed) {
+        TopToaster.show(
+          context,
+          'Bill saved but no printer found. Check Settings → Default Printer.',
+          isError: true,
+        );
+      }
 
       ref.refresh(tablesProvider);
       ref.read(selectedTableProvider.notifier).set(null);
