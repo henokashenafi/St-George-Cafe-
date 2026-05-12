@@ -820,7 +820,7 @@ class BillService {
             onLayout: (_) async => pdf.save(),
             name: documentName,
             format: format,
-          );
+          ).timeout(const Duration(seconds: 5), onTimeout: () => false);
           if (success) return;
         }
         debugPrint('Direct printing returned false, falling back to layoutPdf');
