@@ -124,17 +124,42 @@ final ordersProvider = FutureProvider.autoDispose<List<OrderModel>>((ref) async 
 class DateFilter {
   final DateTime? from;
   final DateTime? to;
-  const DateFilter({this.from, this.to});
+  final String label;
+
+  const DateFilter({this.from, this.to, this.label = 'Custom'});
+
+  static DateFilter today() {
+    final now = DateTime.now();
+    return DateFilter(
+      from: DateTime(now.year, now.month, now.day),
+      to: DateTime(now.year, now.month, now.day, 23, 59, 59),
+      label: 'TODAY',
+    );
+  }
+
+  static DateFilter yesterday() {
+    final yest = DateTime.now().subtract(const Duration(days: 1));
+    return DateFilter(
+      from: DateTime(yest.year, yest.month, yest.day),
+      to: DateTime(yest.year, yest.month, yest.day, 23, 59, 59),
+      label: 'YESTERDAY',
+    );
+  }
+
+  static DateFilter thisWeek() {
+    final now = DateTime.now();
+    final start = now.subtract(Duration(days: now.weekday - 1));
+    return DateFilter(
+      from: DateTime(start.year, start.month, start.day),
+      to: now,
+      label: 'THIS WEEK',
+    );
+  }
 }
 
 class DateFilterNotifier extends Notifier<DateFilter> {
   @override
-  DateFilter build() {
-    final now = DateTime.now();
-    final start = DateTime(now.year, now.month, now.day);
-    final end = start.add(const Duration(days: 1));
-    return DateFilter(from: start, to: end);
-  }
+  DateFilter build() => DateFilter.today();
 
   void set(DateFilter f) => state = f;
 }

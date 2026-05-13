@@ -23,6 +23,46 @@ import 'package:st_george_pos/models/shift.dart';
 import 'package:st_george_pos/models/z_report.dart';
 import 'package:st_george_pos/screens/table_management_screen.dart';
 
+class _Header extends StatelessWidget {
+  final String title;
+  final VoidCallback? onAdd;
+  final VoidCallback? onClear;
+
+  const _Header({required this.title, this.onAdd, this.onClear});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+          ),
+        ),
+        Row(
+          children: [
+            if (onClear != null)
+              TextButton.icon(
+                onPressed: onClear,
+                icon: const Icon(Icons.delete_sweep, color: Colors.redAccent, size: 18),
+                label: const Text('CLEAR', style: TextStyle(color: Colors.redAccent, fontSize: 10)),
+              ),
+            if (onAdd != null)
+              IconButton(
+                onPressed: onAdd,
+                icon: const Icon(Icons.add_circle, color: Color(0xFFD4AF37), size: 20),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 // ── Menu Management ───────────────────────────────────────────────────────
 
 class MenuManagementScreen extends ConsumerStatefulWidget {
@@ -1593,8 +1633,7 @@ class ReportsScreen extends ConsumerStatefulWidget {
   ConsumerState<ReportsScreen> createState() => _ReportsScreenState();
 }
 
-class _ReportsScreenState extends ConsumerState<ReportsScreen>
-    with SingleTickerProviderStateMixin {
+class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
 
   @override
@@ -1615,717 +1654,185 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
   @override
   Widget build(BuildContext context) {
     ref.watch(languageProvider);
-    final orders = ref.watch(ordersProvider);
-    final filter = ref.watch(reportDateFilterProvider);
-    final selectedWaiterId = ref.watch(reportWaiterFilterProvider);
-    final waitersAsync = ref.watch(waitersProvider);
-
-    return DefaultTabController(
-      length: 2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Bar
-          Padding(
-            padding: const EdgeInsets.only(bottom: 20),
-            child: Row(
-              children: [
-                Text(
-                  ref.t('management.reports'),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-                const SizedBox(width: 24),
-                // TabBar
-                Container(
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: TabBar(
-                    isScrollable: true,
-                    indicator: BoxDecoration(
-                      color: const Color(0xFFD4AF37),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    labelColor: Colors.black,
-                    unselectedLabelColor: Colors.white70,
-                    labelStyle: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                    tabs: [
-                      Tab(text: ref.t('reports.liveSummary').toUpperCase()),
-                      Tab(text: ref.t('reports.shiftArchive').toUpperCase()),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                // Waiter Filter (Keep for X-Report context if needed)
-                if (waitersAsync.hasValue)
-                  Container(
-                    width: 180,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<int?>(
-                        value: selectedWaiterId,
-                        hint: Text(
-                          ref.t('navigation.waiters'),
-                          style: const TextStyle(fontSize: 13, color: Colors.white54),
-                        ),
-                        isExpanded: true,
-                        dropdownColor: const Color(0xFF1A1A1A),
-                        items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text('All Waiters'),
-                          ),
-                          ...waitersAsync.value!.map(
-                            (w) => DropdownMenuItem(
-                              value: w.id,
-                              child: Text(w.name),
-                            ),
-                          ),
-                        ],
-                        onChanged: (v) =>
-                            ref.read(reportWaiterFilterProvider.notifier).set(v),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildXReportTab(context, ref, orders, selectedWaiterId),
-                _buildZReportTab(context, ref),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildXReportTab(
-    BuildContext context,
-    WidgetRef ref,
-    AsyncValue<List<OrderModel>> ordersAsync,
-    int? waiterId,
-  ) {
+    final ordersAsync = ref.watch(ordersProvider);
+    final zReportsAsync = ref.watch(zReportsProvider);
+    
     return ordersAsync.when(
-      data: (list) {
-        final completed = list
-            .where((o) => o.status == OrderStatus.completed)
-            .where((o) => waiterId == null || o.waiterId == waiterId)
-            .toList();
-
-        final subtotalSum = completed.fold(0.0, (s, o) => s + o.totalAmount);
-        final serviceSum = completed.fold(0.0, (s, o) => s + o.serviceCharge);
-        final discountSum = completed.fold(0.0, (s, o) => s + o.discountAmount);
-        final grandTotalSum = completed.fold(0.0, (s, o) => s + o.grandTotal);
-
-        final categoryMap = <String, double>{};
-        final paymentMap = <String, double>{};
-        final orderTypeMap = {
-          'Dine-in': 0.0,
-          'Takeaway': 0.0,
-          'Delivery': 0.0,
-        };
-
+      data: (allOrders) {
+        final completed = allOrders.where((o) => o.status == OrderStatus.completed).toList();
+        
+        // --- Analysis Calculations ---
+        final totalRevenue = completed.fold(0.0, (s, o) => s + o.grandTotal);
+        final totalOrders = completed.length;
+        final atv = totalOrders > 0 ? totalRevenue / totalOrders : 0.0;
+        
+        // Hourly Sales Trend
+        final hourlySales = List.generate(24, (_) => 0.0);
         for (final o in completed) {
-          paymentMap[o.paymentMethod] =
-              (paymentMap[o.paymentMethod] ?? 0) + o.grandTotal;
-
-          final tName = o.tableName.toLowerCase();
-          if (tName.contains('takeaway')) {
-            orderTypeMap['Takeaway'] = orderTypeMap['Takeaway']! + o.grandTotal;
-          } else if (tName.contains('delivery')) {
-            orderTypeMap['Delivery'] = orderTypeMap['Delivery']! + o.grandTotal;
-          } else {
-            orderTypeMap['Dine-in'] = orderTypeMap['Dine-in']! + o.grandTotal;
-          }
-
-          for (final item in o.items) {
-            final catName = item.categoryName ?? "General";
-            categoryMap[catName] = (categoryMap[catName] ?? 0) + item.subtotal;
+          hourlySales[o.createdAt.hour] += o.grandTotal;
+        }
+        
+        // Top Products
+        final itemMap = <String, Map<String, dynamic>>{};
+        for (final o in completed) {
+          for (final it in o.items) {
+            itemMap.putIfAbsent(it.productName, () => {'qty': 0, 'rev': 0.0, 'cat': it.categoryName});
+            itemMap[it.productName]!['qty'] += it.quantity;
+            itemMap[it.productName]!['rev'] += it.subtotal;
           }
         }
+        final sortedItems = itemMap.entries.toList()
+          ..sort((a, b) => (b.value['rev'] as double).compareTo(a.value['rev'] as double));
+        final topItems = sortedItems.take(5).toList();
 
-        // Waiters, Cashiers, Best Sellers aggregations...
-        final waiterMap = <String, double>{};
+        // Category Share
+        final catMap = <String, double>{};
         for (final o in completed) {
-          waiterMap[o.waiterName] = (waiterMap[o.waiterName] ?? 0) + o.grandTotal;
-        }
-
-        final itemSalesMap = <String, Map<String, dynamic>>{};
-        for (final o in completed) {
-          for (final item in o.items) {
-            if (!itemSalesMap.containsKey(item.productName)) {
-              itemSalesMap[item.productName] = {'qty': 0, 'revenue': 0.0};
-            }
-            itemSalesMap[item.productName]!['qty'] += item.quantity;
-            itemSalesMap[item.productName]!['revenue'] += item.subtotal;
+          for (final it in o.items) {
+            final c = it.categoryName ?? 'General';
+            catMap[c] = (catMap[c] ?? 0) + it.subtotal;
           }
         }
-        final sortedItemSales = itemSalesMap.entries.toList()
-          ..sort(
-            (a, b) => (b.value['revenue'] as double).compareTo(
-              a.value['revenue'] as double,
-            ),
-          );
-
-        final cashierMap = <String, double>{};
-        for (final o in completed) {
-          final name = o.cashierName.isNotEmpty
-              ? o.cashierName
-              : ref.t('management.unknown');
-          cashierMap[name] = (cashierMap[name] ?? 0) + o.grandTotal;
-        }
-
+        
         return SingleChildScrollView(
-          padding: const EdgeInsets.only(top: 10),
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // X-Report Header Bar (Gold/Yellow)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFFD4AF37).withOpacity(0.15),
-                      const Color(0xFFD4AF37).withOpacity(0.05),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: const Color(0xFFD4AF37).withOpacity(0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    // Pulse Icon
-                    FadeTransition(
-                      opacity: _pulseController,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFD4AF37),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Color(0xFFD4AF37),
-                              blurRadius: 6,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      ref.t('reports.currentShiftX'),
-                      style: const TextStyle(
-                        color: Color(0xFFD4AF37),
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                        fontSize: 15,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD4AF37).withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        ref.t('reports.livePulse'),
-                        style: const TextStyle(
-                          color: Color(0xFFD4AF37),
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    // Export Excel button
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.table_chart_outlined, size: 18),
-                      label: Text(ref.t('reports.exportExcel')),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1F7A4D),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                      ),
-                      onPressed: () => _exportToExcel(context, ref, list, ref.read(reportDateFilterProvider)),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.print, size: 18),
-                      label: Text(ref.t('reports.printXReport')),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFD4AF37),
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                      ),
-                      onPressed: () => _printFilteredReport(
-                        context,
-                        ref,
-                        list,
-                        ref.read(reportDateFilterProvider),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  _ReportMetricTile(
-                    label: ref.t('management.subtotal'),
-                    value: subtotalSum,
-                  ),
-                  _ReportMetricTile(
-                    label: ref.t('management.serviceCharge'),
-                    value: serviceSum,
-                  ),
-                  _ReportMetricTile(
-                    label: ref.t('management.discountsGiven'),
-                    value: -discountSum,
-                    color: Colors.redAccent,
-                  ),
-                  _ReportMetricTile(
-                    label: ref.t('management.grandTotal'),
-                    value: grandTotalSum,
-                    isGrand: true,
-                  ),
-                ],
-              ),
+              _buildHeader(context, ref, completed),
               const SizedBox(height: 32),
-               const SizedBox(height: 32),
-
-              // ── Category Breakdown ───────────────────────────────
-              _SectionHeader(ref.t('reports.salesByCategory').toUpperCase()),
-              const SizedBox(height: 16),
-              _CategoryBreakdownDashboard(categoryMap: categoryMap),
-              const SizedBox(height: 32),
-
-              // ── Order Type Breakdown ─────────────────────────────
-              _SectionHeader('ORDER TYPE DISTRIBUTION'),
-              const SizedBox(height: 16),
-              _OrderTypeDashboard(orderTypeMap: orderTypeMap),
-              const SizedBox(height: 32),
-
-              // ── Best Sellers Visualization ──────────────────────
-              _SectionHeader(ref.t('reports.bestSellers').toUpperCase()),
-              const SizedBox(height: 16),
-              _BestSellersDashboard(sortedItemSales: sortedItemSales),
-              const SizedBox(height: 32),
-
-              // ── Detailed Breakdowns ─────────────────────────────
+              
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // --- LEFT COLUMN: Metrics & Trends ---
                   Expanded(
+                    flex: 3,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _SectionHeader('PAYMENT BREAKDOWN'),
-                        const SizedBox(height: 12),
-                        _FormalDataTable(
-                          data: paymentMap.entries.toList(),
-                          icon: Icons.payments_outlined,
-                          iconColor: Colors.greenAccent,
+                        _buildKpiGrid(ref, totalRevenue, totalOrders, atv),
+                        const SizedBox(height: 32),
+                        _AnalysisCard(
+                          title: 'HOURLY SALES TREND',
+                          subtitle: 'Revenue distribution across the day',
+                          child: _HourlySalesChart(hourlySales: hourlySales),
                         ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 40),
-
-              // ── Item Sales Detail (By Food) ─────────────────────────────
-              _SectionHeader(ref.t('reports.itemSalesDetail').toUpperCase()),
-              const SizedBox(height: 12),
-              _buildItemSalesTable(sortedItemSales, ref),
-              const SizedBox(height: 40),
-
-              // ── Performance Breakdown (By Waiter & By Table) ─────────────
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _SectionHeader(ref.t('reports.byWaiter').toUpperCase()),
-                        const SizedBox(height: 12),
-                        _buildByWaiterDetail(completed, ref),
+                        const SizedBox(height: 32),
+                        _AnalysisCard(
+                          title: 'ORDER AUDIT',
+                          subtitle: 'Most recent transactions',
+                          child: _OrderAuditList(orders: completed),
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 32),
+                  
+                  // --- RIGHT COLUMN: Performance & Actions ---
                   Expanded(
+                    flex: 2,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _SectionHeader(ref.t('reports.byTable').toUpperCase()),
-                        const SizedBox(height: 12),
-                        _TablePerformanceSection(orders: completed),
+                        _AnalysisCard(
+                          title: 'TOP PERFORMING ITEMS',
+                          subtitle: 'By revenue contribution',
+                          child: _TopProductsAnalysis(items: topItems, totalRevenue: totalRevenue),
+                        ),
+                        const SizedBox(height: 32),
+                        _AnalysisCard(
+                          title: 'CATEGORY REVENUE SHARE',
+                          subtitle: 'Distribution by category',
+                          child: _CategoryShareAnalysis(catMap: catMap, totalRevenue: totalRevenue),
+                        ),
+                        const SizedBox(height: 32),
+                        _QuickActionsSection(
+                          pulseController: _pulseController,
+                          onPrintX: () => _printFilteredReport(context, ref, allOrders, ref.read(reportDateFilterProvider)),
+                          onExport: () => _exportToExcel(context, ref, allOrders, ref.read(reportDateFilterProvider)),
+                        ),
+                        const SizedBox(height: 32),
+                        _AnalysisCard(
+                          title: 'SHIFT ARCHIVE',
+                          subtitle: 'Recent Z-Reports',
+                          child: _ShiftArchivePreview(reportsAsync: zReportsAsync),
+                        ),
                       ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 40),
-
-              // ── Raw Transaction Audit ───────────────────────────────────
-              _SectionHeader('DETAILED ORDER AUDIT'),
-              const SizedBox(height: 12),
-              _OrderAuditList(orders: completed),
-              const SizedBox(height: 60),
             ],
           ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Text('${ref.t('common.error')}: $e'),
+      error: (e, _) => Center(child: Text('Error: $e')),
     );
   }
 
-  Widget _buildZReportTab(BuildContext context, WidgetRef ref) {
-    final reportsAsync = ref.watch(zReportsProvider);
-    String _fmt(double v) => v.toStringAsFixed(2);
-
-    return Column(
+  Widget _buildHeader(BuildContext context, WidgetRef ref, List<OrderModel> completed) {
+    return Row(
       children: [
-        // Z-Report Archive Header (Grey/Green)
-        Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(top: 10, bottom: 16),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.white12),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.archive_outlined, color: Colors.white54, size: 20),
-              const SizedBox(width: 12),
-              Text(
-                ref.t('reports.archiveZ'),
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                  fontSize: 15,
-                ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              ref.t('management.reports').toUpperCase(),
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
+                color: Color(0xFFD4AF37),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Business intelligence and shift analysis',
+              style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
+            ),
+          ],
         ),
-        Expanded(
-          child: reportsAsync.when(
-            data: (reports) {
-              if (reports.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.history_toggle_off,
-                          size: 64, color: Colors.white10),
-                      const SizedBox(height: 16),
-                      Text(
-                        ref.t('reports.noArchive'),
-                        style: const TextStyle(color: Colors.white38),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return ListView.separated(
-                itemCount: reports.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final report = reports[index];
-                  final total = report.reportData['financials']?['grand_total'] ?? 0.0;
-                  final cashier = report.reportData['shift_info']?['cashier_name'] ?? 'Unknown';
-                  final date = DateFormat('MMM dd, yyyy HH:mm').format(report.createdAt);
-
-                  return Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.03),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2E7D32).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.receipt_long,
-                            color: Color(0xFF4CAF50),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                ref.t('reports.shiftId', replacements: {'id': report.zCount.toString()}),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                date,
-                                style: const TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                                ref.t('reports.total', replacements: {'amount': _fmt(total)}),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF4CAF50),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              ref.t('reports.closedBy', replacements: {'name': cashier}),
-                              style: const TextStyle(
-                                color: Colors.white38,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(width: 24),
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.print_outlined, size: 16),
-                          label: Text(ref.t('reports.reprintZReport')),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white70,
-                            side: const BorderSide(color: Colors.white24),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          ),
-                          onPressed: () async {
-                            final settings = await ref.read(posRepositoryProvider).getCafeSettings();
-                            await BillService.reprintZReport(
-                              report: report,
-                              settings: settings,
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, stack) => Center(child: Text('Error: $err')),
-          ),
+        const Spacer(),
+        _DateFilterChips(
+          filter: ref.watch(reportDateFilterProvider),
+          onChanged: (f) => ref.read(reportDateFilterProvider.notifier).set(f),
         ),
       ],
     );
   }
 
-  Widget _toggleBtn(String label, bool active, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? const Color(0xFFD4AF37) : Colors.transparent,
+  Widget _buildKpiGrid(WidgetRef ref, double revenue, int orders, double atv) {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 3,
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
+      childAspectRatio: 2.5,
+      children: [
+        _KpiCard(
+          label: 'TOTAL REVENUE',
+          value: '${revenue.toStringAsFixed(2)} ETB',
+          icon: Icons.payments_outlined,
+          color: const Color(0xFFD4AF37),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: active ? Colors.black : Colors.white70,
-          ),
+        _KpiCard(
+          label: 'TOTAL ORDERS',
+          value: '$orders',
+          icon: Icons.receipt_outlined,
+          color: Colors.blueAccent,
         ),
-      ),
+        _KpiCard(
+          label: 'AVERAGE TICKET',
+          value: '${atv.toStringAsFixed(2)} ETB',
+          icon: Icons.analytics_outlined,
+          color: Colors.greenAccent,
+        ),
+      ],
     );
   }
-
-  /// Detailed waiter performance including items sold
-  Widget _buildByWaiterDetail(List<OrderModel> completed, WidgetRef ref) {
-    final waiterMap = <String, Map<String, dynamic>>{};
-
-    for (final o in completed) {
-      waiterMap.putIfAbsent(
-        o.waiterName,
-        () => {'orders': 0, 'revenue': 0.0, 'items': <String, int>{}},
-      );
-      waiterMap[o.waiterName]!['orders'] =
-          (waiterMap[o.waiterName]!['orders'] as int) + 1;
-      waiterMap[o.waiterName]!['revenue'] =
-          (waiterMap[o.waiterName]!['revenue'] as double) + o.grandTotal;
-
-      final itemsMap = waiterMap[o.waiterName]!['items'] as Map<String, int>;
-      for (final it in o.items) {
-        itemsMap[it.productName] = (itemsMap[it.productName] ?? 0) + it.quantity;
-      }
-    }
-
-    if (waiterMap.isEmpty) return const SizedBox();
-
-    final sorted = waiterMap.entries.toList()
-      ..sort((a, b) => (b.value['revenue'] as double).compareTo(a.value['revenue'] as double));
-
-    return Column(
-      children: sorted.map<Widget>((entry) {
-        final w = entry.value;
-        final itemsSold = w['items'] as Map<String, int>;
-        final sortedItems = itemsSold.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value));
-
-        return GlassContainer(
-          opacity: 0.05,
-          margin: const EdgeInsets.only(bottom: 12),
-          child: Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: Text(
-                '${w['orders']} orders  |  ${(w['revenue'] as double).toStringAsFixed(2)} ETB',
-                style: const TextStyle(fontSize: 12, color: Colors.white54),
-              ),
-              leading: const Icon(Icons.person_outline, color: Color(0xFFD4AF37), size: 20),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: Column(
-                    children: [
-                      const Divider(color: Colors.white10),
-                      ...sortedItems.map((it) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(it.key, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-                                Text('x${it.value}',
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFFD4AF37))),
-                              ],
-                            ),
-                          )),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  /// Raw transaction item audit
-  Widget _buildTransactionAudit(List<OrderModel> completed, WidgetRef ref) {
-    final auditItems = <Map<String, dynamic>>[];
-    for (final o in completed) {
-      for (final it in o.items) {
-        auditItems.add({
-          'orderId': o.id,
-          'time': DateFormat('HH:mm').format(o.createdAt),
-          'table': o.tableName,
-          'product': it.productName,
-          'qty': it.quantity,
-          'total': it.subtotal,
-        });
-      }
-    }
-
-    if (auditItems.isEmpty) return const SizedBox();
-
-    return GlassContainer(
-      opacity: 0.05,
-      padding: const EdgeInsets.all(0),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            color: Colors.white.withOpacity(0.05),
-            child: Row(
-              children: [
-                SizedBox(width: 45, child: Text(ref.t('reports.id'), style: _headerStyle)),
-                SizedBox(width: 55, child: Text(ref.t('reports.time'), style: _headerStyle)),
-                Expanded(child: Text(ref.t('reports.item'), style: _headerStyle)),
-                SizedBox(width: 70, child: Text(ref.t('reports.table'), style: _headerStyle)),
-                SizedBox(width: 35, child: Text(ref.t('reports.qty'), style: _headerStyle)),
-                SizedBox(width: 80, child: Text(ref.t('reports.total'), textAlign: TextAlign.right, style: _headerStyle)),
-              ],
-            ),
-          ),
-          ...auditItems.reversed.take(100).toList().asMap().entries.map<Widget>((entry) {
-            final idx = entry.key;
-            final item = entry.value;
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: idx.isOdd ? Colors.white.withOpacity(0.02) : Colors.transparent,
-              child: Row(
-                children: [
-                  SizedBox(width: 45, child: Text('#${item['orderId']}', style: const TextStyle(fontSize: 11, color: Colors.white38))),
-                  SizedBox(width: 55, child: Text(item['time'], style: const TextStyle(fontSize: 11, color: Colors.white54))),
-                  Expanded(child: Text(item['product'], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
-                  SizedBox(width: 70, child: Text(item['table'], style: const TextStyle(fontSize: 11, color: Colors.white54))),
-                  SizedBox(width: 35, child: Text('x${item['qty']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFD4AF37)))),
-                  SizedBox(width: 80, child: Text('${item['total'].toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  static const _headerStyle = TextStyle(
-    fontSize: 10,
-    fontWeight: FontWeight.bold,
-    color: Colors.white54,
-    letterSpacing: 0.5,
-  );
 
   void _printFilteredReport(
     BuildContext context,
@@ -2333,1188 +1840,118 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     List<OrderModel> allOrders,
     DateFilter filter,
   ) async {
-    final selectedWaiterId = ref.read(reportWaiterFilterProvider);
-    final completed = allOrders
-        .where((o) => o.status == OrderStatus.completed)
-        .where(
-          (o) => selectedWaiterId == null || o.waiterId == selectedWaiterId,
-        )
-        .toList();
+    final completed = allOrders.where((o) => o.status == OrderStatus.completed).toList();
 
     if (completed.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(ref.t('reports.noOrdersToPrint'))));
+      toastification.show(
+        context: context,
+        title: const Text('No orders to print'),
+        autoCloseDuration: const Duration(seconds: 3),
+        type: ToastificationType.warning,
+      );
       return;
     }
 
     final settings = await ref.read(posRepositoryProvider).getCafeSettings();
+    final reportData = await ref.read(posRepositoryProvider).getShiftReportData(-1);
 
-    // We use a dummy shift ID (-1) to signal a generic date-range report
-    final reportData = await ref
-        .read(posRepositoryProvider)
-        .getShiftReportData(-1);
-
-    // Overwrite times with filter range
     final header = reportData['report_header'] as Map<String, dynamic>;
-    header['opening_time'] =
-        filter.from?.toIso8601String() ??
-        DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
-    header['closing_time'] =
-        filter.to?.toIso8601String() ?? DateTime.now().toIso8601String();
-    header['report_type'] = 'X REPORT (FILTERED)';
+    header['opening_time'] = filter.from?.toIso8601String() ?? DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
+    header['closing_time'] = filter.to?.toIso8601String() ?? DateTime.now().toIso8601String();
+    header['report_type'] = 'X REPORT (ANALYSIS)';
 
-    // Inject real filtered orders into report data for detailed printing
-    reportData['orders_detail'] = completed
-        .map(
-          (o) => {
-            'id': o.id,
-            'table_name': o.tableName,
-            'waiter_name': o.waiterName,
-            'waiter_id': o.waiterId,
-            'cashier_name': o.cashierName,
-            'created_at': o.createdAt.toIso8601String(),
-            'total_amount': o.totalAmount,
-            'service_charge': o.serviceCharge,
-            'discount_amount': o.discountAmount,
-            'grand_total': o.grandTotal,
-            'items': o.items
-                .map(
-                  (i) => {
-                    'product_name': i.productName,
-                    'quantity': i.quantity,
-                    'unit_price': i.unitPrice,
-                    'subtotal': i.subtotal,
-                  },
-                )
-                .toList(),
-          },
-        )
-        .toList();
+    reportData['orders_detail'] = completed.map((o) => {
+      'id': o.id,
+      'table_name': o.tableName,
+      'waiter_name': o.waiterName,
+      'cashier_name': o.cashierName,
+      'created_at': o.createdAt.toIso8601String(),
+      'grand_total': o.grandTotal,
+      'items': o.items.map((i) => {
+        'product_name': i.productName,
+        'quantity': i.quantity,
+        'unit_price': i.unitPrice,
+        'subtotal': i.subtotal,
+      }).toList(),
+    }).toList();
 
-    await BillService.printReport(
-      reportData: reportData,
-      settings: settings,
-      isZReport: false,
-    );
+    await BillService.printReport(reportData: reportData, settings: settings, isZReport: false);
   }
 
-  /// Full item sales breakdown (sorted by revenue desc)
-  Widget _buildItemSalesTable(
-    List<MapEntry<String, Map<String, dynamic>>> sortedItems,
-    WidgetRef ref,
-  ) {
-    if (sortedItems.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Opacity(
-            opacity: 0.4,
-            child: Text(ref.t('reports.noItemSales')),
-          ),
-        ),
-      );
-    }
-
-    return GlassContainer(
-      opacity: 0.05,
-      padding: const EdgeInsets.all(0),
-      child: Column(
-        children: [
-          // Header row
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: Colors.white.withOpacity(0.05),
-            child: Row(
-              children: [
-                const SizedBox(width: 28),
-                Expanded(
-                  flex: 4,
-                  child: Text(
-                    ref.t('reports.item'),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white54,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 60,
-                  child: Text(
-                    ref.t('reports.qty'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white54,
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 90,
-                  child: Text(
-                    ref.t('reports.unitPrice'),
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white54,
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 100,
-                  child: Text(
-                    ref.t('reports.revenue'),
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white54,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: Colors.white10),
-          // Data rows
-          ...sortedItems.asMap().entries.map((entry) {
-            final idx = entry.key;
-            final item = entry.value;
-            final qty = item.value['qty'] as int;
-            final revenue = item.value['revenue'] as double;
-            // Derive unit price from revenue/qty
-            final unitPrice = qty > 0 ? revenue / qty : 0.0;
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              color: idx.isOdd ? Colors.white.withOpacity(0.02) : Colors.transparent,
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 28,
-                    child: Text(
-                      '${idx + 1}',
-                      style: const TextStyle(fontSize: 11, color: Colors.white38),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 4,
-                    child: Text(
-                      item.key,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 60,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD4AF37).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        'x$qty',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFD4AF37),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 90,
-                    child: Text(
-                      unitPrice.toStringAsFixed(2),
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(fontSize: 12, color: Colors.white54),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 100,
-                    child: Text(
-                      revenue.toStringAsFixed(2),
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFD4AF37),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  /// Revenue grouped by table
-  Widget _buildByTableSection(List<OrderModel> completed, WidgetRef ref) {
-    final tableMap = <String, Map<String, dynamic>>{};
-    for (final o in completed) {
-      tableMap.putIfAbsent(o.tableName, () => {'orders': 0, 'revenue': 0.0});
-      tableMap[o.tableName]!['orders'] = (tableMap[o.tableName]!['orders'] as int) + 1;
-      tableMap[o.tableName]!['revenue'] =
-          (tableMap[o.tableName]!['revenue'] as double) + o.grandTotal;
-    }
-
-    if (tableMap.isEmpty) {
-      return Center(
-        child: Opacity(
-          opacity: 0.4,
-          child: Text(ref.t('management.noOrdersInRange')),
-        ),
-      );
-    }
-
-    final sorted = tableMap.entries.toList()
-      ..sort((a, b) => (b.value['revenue'] as double).compareTo(a.value['revenue'] as double));
-
-    return GlassContainer(
-      opacity: 0.05,
-      padding: const EdgeInsets.all(0),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: Colors.white.withOpacity(0.05),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    ref.t('management.table'),
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white54),
-                  ),
-                ),
-                SizedBox(
-                  width: 80,
-                  child: Text(
-                    ref.t('reports.tableOrders'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white54),
-                  ),
-                ),
-                SizedBox(
-                  width: 120,
-                  child: Text(
-                    ref.t('management.grandTotal'),
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white54),
-                  ),
-                ),
-                const SizedBox(width: 16),
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: Colors.white10),
-          ...sorted.asMap().entries.map((entry) {
-            final idx = entry.key;
-            final t = entry.value;
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              color: idx.isOdd ? Colors.white.withOpacity(0.02) : Colors.transparent,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        const Icon(Icons.table_bar_outlined, size: 16, color: Colors.white38),
-                        const SizedBox(width: 8),
-                        Text(t.key, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                      ],
-                    ),
-                  ),
-                  SizedBox(
-                    width: 80,
-                    child: Text(
-                      '${t.value['orders']}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 13, color: Colors.white70),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 120,
-                    child: Text(
-                      '${(t.value['revenue'] as double).toStringAsFixed(2)} ETB',
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFD4AF37),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  /// Export visible orders to Excel based on current date filter
-  void _exportToExcel(
-    BuildContext context,
-    WidgetRef ref,
-    List<OrderModel> allOrders,
-    DateFilter filter,
-  ) async {
-    final selectedWaiterId = ref.read(reportWaiterFilterProvider);
-    final completed = allOrders
-        .where((o) => o.status == OrderStatus.completed)
-        .where((o) => selectedWaiterId == null || o.waiterId == selectedWaiterId)
-        .toList();
-
-    if (completed.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ref.t('reports.noOrdersToPrint'))),
-      );
-      return;
-    }
-
-    // Build date label from filter
-    String dateLabel = '';
-    if (filter.from != null && filter.to != null) {
-      final fmt = DateFormat('MMddyyyy');
-      dateLabel = '${fmt.format(filter.from!)}_to_${fmt.format(filter.to!)}';
-    }
-
-    final result = await ExportService.exportOrdersToExcel(completed, dateLabel: dateLabel);
-    if (!context.mounted) return;
-
-    if (result != null) {
+  void _exportToExcel(BuildContext context, WidgetRef ref, List<OrderModel> orders, DateFilter filter) async {
+    final path = await ExportService.exportOrdersToExcel(orders, dateLabel: filter.label);
+    if (path != null) {
       toastification.show(
         context: context,
-        type: ToastificationType.success,
-        title: Text(ref.t('reports.exportSuccess')),
-        description: Text(kIsWeb ? result : 'File saved to: $result'),
+        title: Text(kIsWeb ? 'Download Started' : 'Exported to Documents'),
+        description: kIsWeb ? null : Text(path),
         autoCloseDuration: const Duration(seconds: 5),
-      );
-    } else {
-      toastification.show(
-        context: context,
-        type: ToastificationType.error,
-        title: Text(ref.t('common.error')),
-        description: Text(ref.t('reports.exportFailed')),
-        autoCloseDuration: const Duration(seconds: 3),
+        type: ToastificationType.success,
       );
     }
   }
 }
 
-class _ZReportHistorySection extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final reports = ref.watch(zReportsProvider);
+// --- Minimalist Analysis Components ---
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        reports.when(
-          data: (list) {
-            if (list.isEmpty) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(40),
-                  child: Text(
-                    'No Z-Reports archived.',
-                    style: TextStyle(color: Colors.white24),
-                  ),
-                ),
-              );
-            }
-            return SizedBox(
-              height: 180,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: list.length,
-                itemBuilder: (context, index) {
-                  final r = list[index];
-                  final header =
-                      r.reportData['report_header'] as Map<String, dynamic>;
-                  final cashRec =
-                      r.reportData['cash_reconciliation']
-                          as Map<String, dynamic>?;
-                  final variance = (cashRec?['difference'] as num? ?? 0.0);
-
-                  return Container(
-                    width: 320,
-                    margin: const EdgeInsets.only(right: 16),
-                    child: GlassContainer(
-                      opacity: 0.05,
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${ref.t('reports.zReportPrefix')}${r.zCount}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16,
-                                  color: Color(0xFFD4AF37),
-                                ),
-                              ),
-                              _VarianceBadge(variance: variance),
-                            ],
-                          ),
-                          const Spacer(),
-                          Text(
-                            header['cashier_name']?.toString() ??
-                                'UNKNOWN',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1,
-                            ),
-                          ),
-
-                          Text(
-                            DateFormat('MMM d, HH:mm').format(r.createdAt),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.white54,
-                            ),
-                          ),
-
-                          const Divider(height: 24, color: Colors.white10),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    ref.t('shift.netSales'),
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      color: Colors.white38,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${(r.reportData['sales_totals']?['net_sales'] as num? ?? 0).toStringAsFixed(2)} ${ref.t('common.currency')}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.visibility_outlined,
-                                      size: 20,
-                                    ),
-                                    onPressed: () =>
-                                        _showZReportDetail(context, ref, r),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.print_outlined,
-                                      size: 20,
-                                    ),
-                                    onPressed: () async {
-                                      final settings = await ref
-                                          .read(posRepositoryProvider)
-                                          .getCafeSettings();
-                                      await BillService.printReport(
-                                        reportData: r.reportData,
-                                        settings: settings,
-                                        isZReport: true,
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Text(
-            ref.t('errors.errorWithMessage', replacements: {'message': '$e'}),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showZReportDetail(
-    BuildContext context,
-    WidgetRef ref,
-    ZReportModel report,
-  ) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        contentPadding: EdgeInsets.zero,
-        content: Container(
-          width: 350,
-          padding: const EdgeInsets.all(24),
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.receipt_long,
-                  color: Color(0xFFD4AF37),
-                  size: 40,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  ref.t('reports.digitalZReport'),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 2,
-                  ),
-                ),
-                const Divider(height: 32, color: Colors.white10),
-                _DigitalSlipRow(
-                  ref.t('reports.reportNumber'),
-                  '${report.zCount}',
-                ),
-                _DigitalSlipRow(
-                  ref.t('bill.cashier'),
-                  report.reportData['report_header']['cashier_name'],
-                ),
-                _DigitalSlipRow(
-                  ref.t('bill.date'),
-                  DateFormat('dd/MM/yyyy').format(report.createdAt),
-                ),
-                const Divider(height: 32, color: Colors.white10),
-                _DigitalSlipRow(
-                  ref.t('reports.grossSales'),
-                  '${report.reportData['sales_totals']['gross_sales']}',
-                ),
-                if ((report.reportData['sales_totals']['vat'] as num? ?? 0) > 0)
-                  _DigitalSlipRow(
-                    ref.t('reports.vat'),
-                    '${report.reportData['sales_totals']['vat']}',
-                  ),
-                _DigitalSlipRow(
-                  ref.t('bill.discount'),
-                  '${report.reportData['sales_totals']['discounts']}',
-                ),
-                _DigitalSlipRow(
-                  ref.t('reports.netTotal'),
-                  '${report.reportData['sales_totals']['net_sales']}',
-                  isBold: true,
-                ),
-
-                const Divider(height: 32, color: Colors.white10),
-                Text(
-                  ref.t('reports.paymentMethods'),
-                  style: TextStyle(fontSize: 10, color: Colors.white38),
-                ),
-                const SizedBox(height: 8),
-                ...(report.reportData['payment_methods']
-                        as Map<String, dynamic>)
-                    .entries
-                    .map(
-                      (e) => _DigitalSlipRow(e.key, '${e.value}'),
-                    ),
-                const Divider(height: 32, color: Colors.white10),
-                _DigitalSlipRow(
-                  ref.t('shift.cashVariance'),
-                  '${report.reportData['cash_reconciliation']['difference']}',
-                  isBold: true,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFD4AF37),
-                    foregroundColor: Colors.black,
-                  ),
-                  child: Text(ref.t('shift.closePreview')),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DigitalSlipRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool isBold;
-  const _DigitalSlipRow(this.label, this.value, {this.isBold = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12, color: Colors.white70),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              color: isBold ? const Color(0xFFD4AF37) : Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _VarianceBadge extends StatelessWidget {
-  final num variance;
-  const _VarianceBadge({required this.variance});
-
-  @override
-  Widget build(BuildContext context) {
-    final isBalanced = variance == 0;
-    final isShort = variance < 0;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: isBalanced
-            ? Colors.green.withOpacity(0.1)
-            : (isShort
-                  ? Colors.red.withOpacity(0.1)
-                  : Colors.blue.withOpacity(0.1)),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        isBalanced ? 'BALANCED' : (isShort ? 'SHORTAGE' : 'OVERAGE'),
-        style: TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.bold,
-          color: isBalanced
-              ? Colors.green
-              : (isShort ? Colors.red : Colors.blue),
-        ),
-      ),
-    );
-  }
-}
-
-class _ReportMetricTile extends StatelessWidget {
-  final String label;
-  final double value;
-  final Color? color;
-  final bool isGrand;
-
-  const _ReportMetricTile({
-    required this.label,
-    required this.value,
-    this.color,
-    this.isGrand = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        child: GlassContainer(
-          opacity: isGrand ? 0.15 : 0.05,
-          padding: const EdgeInsets.all(20), // Increased from 16
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.white.withOpacity(0.5),
-                  letterSpacing: 1.2,
-                ),
-              ), // Increased font and opacity
-              const SizedBox(height: 12),
-              Text(
-                '${value.toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontSize: isGrand ? 32 : 24, // Increased font size
-                  fontWeight: FontWeight.w900,
-                  color:
-                      color ??
-                      (isGrand ? const Color(0xFFD4AF37) : Colors.white),
-                ),
-              ),
-              Text(
-                'ETB',
-                style: TextStyle(
-                  fontSize: 12,
-                  color:
-                      (color ??
-                              (isGrand
-                                  ? const Color(0xFFD4AF37)
-                                  : Colors.white))
-                          .withOpacity(0.4),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BestSellersDashboard extends StatelessWidget {
-  final List<MapEntry<String, Map<String, dynamic>>> sortedItemSales;
-  const _BestSellersDashboard({required this.sortedItemSales});
-
-  @override
-  Widget build(BuildContext context) {
-    if (sortedItemSales.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(20),
-          child: Text(
-            'No item sales to visualize.',
-            style: TextStyle(color: Colors.white24),
-          ),
-        ),
-      );
-    }
-
-    final maxRevenue = sortedItemSales.first.value['revenue'] as double;
-
-    return GlassContainer(
-      opacity: 0.05,
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: sortedItemSales.take(10).map((entry) {
-          final revenue = entry.value['revenue'] as double;
-          final percentage = maxRevenue > 0 ? (revenue / maxRevenue) : 0.0;
-
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        entry.key,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Text(
-                      '${revenue.toStringAsFixed(2)} ETB',
-                      style: const TextStyle(
-                        color: Color(0xFFD4AF37),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(2),
-                        child: LinearProgressIndicator(
-                          value: percentage,
-                          backgroundColor: Colors.white.withOpacity(0.05),
-                          color: const Color(0xFFD4AF37).withOpacity(0.8),
-                          minHeight: 6,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'x${entry.value['qty']}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.white54,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-class _CategoryBreakdownDashboard extends StatelessWidget {
-  final Map<String, double> categoryMap;
-  const _CategoryBreakdownDashboard({required this.categoryMap});
-
-  @override
-  Widget build(BuildContext context) {
-    if (categoryMap.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(20),
-          child: Text(
-            'No category data available.',
-            style: TextStyle(color: Colors.white24),
-          ),
-        ),
-      );
-    }
-
-    final total = categoryMap.values.fold(0.0, (s, v) => s + v);
-    final sortedEntries = categoryMap.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    return GlassContainer(
-      opacity: 0.05,
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: sortedEntries.map((entry) {
-          final percentage = total > 0 ? (entry.value / total) : 0.0;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    entry.key,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 5,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      value: percentage,
-                      backgroundColor: Colors.white.withOpacity(0.05),
-                      color: const Color(0xFFD4AF37),
-                      minHeight: 10,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    '${entry.value.toStringAsFixed(2)} ETB',
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFFD4AF37),
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-class _OrderTypeDashboard extends StatelessWidget {
-  final Map<String, double> orderTypeMap;
-  const _OrderTypeDashboard({required this.orderTypeMap});
-
-  @override
-  Widget build(BuildContext context) {
-    if (orderTypeMap.isEmpty || orderTypeMap.values.every((v) => v == 0)) {
-      return const SizedBox.shrink();
-    }
-
-    final total = orderTypeMap.values.fold(0.0, (s, v) => s + v);
-
-    return GlassContainer(
-      opacity: 0.05,
-      padding: const EdgeInsets.all(24),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: orderTypeMap.entries.map((entry) {
-          final percentage = total > 0 ? (entry.value / total) * 100 : 0.0;
-          return Column(
-            children: [
-              Text(
-                entry.key,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Colors.white38,
-                  letterSpacing: 1,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${percentage.toStringAsFixed(1)}%',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFFD4AF37),
-                ),
-              ),
-              Text(
-                '${entry.value.toStringAsFixed(2)} ETB',
-                style: const TextStyle(fontSize: 10, color: Colors.white54),
-              ),
-            ],
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-// ── Date filter chips ─────────────────────────────────────────────────────
-
-class _DateFilterChips extends ConsumerWidget {
-  final DateFilter filter;
-  final ValueChanged<DateFilter> onChanged;
-  const _DateFilterChips({required this.filter, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(languageProvider);
-    final now = DateTime.now();
-    final todayStart = DateTime(now.year, now.month, now.day);
-    final todayEnd = todayStart.add(const Duration(days: 1));
-    final weekStart = todayStart.subtract(Duration(days: now.weekday - 1));
-    final monthStart = DateTime(now.year, now.month, 1);
-
-    final selectedType = ref.watch(reportDateTypeProvider);
-
-    return Row(
-      children: [
-        _chip(ref.t('filters.today'), selectedType == DateFilterType.today, () {
-          ref.read(reportDateTypeProvider.notifier).set(DateFilterType.today);
-          onChanged(DateFilter(from: todayStart, to: todayEnd));
-        }),
-        const SizedBox(width: 8),
-        _chip(
-          ref.t('filters.thisWeek'),
-          selectedType == DateFilterType.week,
-          () {
-            ref.read(reportDateTypeProvider.notifier).set(DateFilterType.week);
-            onChanged(DateFilter(from: weekStart, to: todayEnd));
-          },
-        ),
-        const SizedBox(width: 8),
-        _chip(
-          ref.t('filters.thisMonth'),
-          selectedType == DateFilterType.month,
-          () {
-            ref.read(reportDateTypeProvider.notifier).set(DateFilterType.month);
-            onChanged(DateFilter(from: monthStart, to: todayEnd));
-          },
-        ),
-        const SizedBox(width: 8),
-        _chip(ref.t('filters.allTime'), selectedType == DateFilterType.all, () {
-          ref.read(reportDateTypeProvider.notifier).set(DateFilterType.all);
-          onChanged(const DateFilter());
-        }),
-        const SizedBox(width: 12),
-        IconButton(
-          icon: Icon(
-            Icons.calendar_month,
-            color: selectedType == DateFilterType.custom
-                ? const Color(0xFFD4AF37)
-                : Colors.white54,
-          ),
-          tooltip: ref.t('reports.customRange'),
-          onPressed: () async {
-            // Sequential pickers for "auto-submit" behavior
-            final fromDate = await showDatePicker(
-              context: context,
-              initialDate: DateTime.now(),
-              firstDate: DateTime(2020),
-              lastDate: DateTime.now(),
-              helpText: 'START DATE',
-              builder: (context, child) => Theme(
-                data: Theme.of(context).copyWith(
-                  colorScheme: const ColorScheme.dark(
-                    primary: Color(0xFFD4AF37),
-                  ),
-                ),
-                child: child!,
-              ),
-            );
-
-            if (fromDate != null) {
-              if (!context.mounted) return;
-              final toDate = await showDatePicker(
-                context: context,
-                initialDate: fromDate,
-                firstDate: fromDate,
-                lastDate: DateTime.now().add(const Duration(days: 1)),
-                helpText: 'END DATE',
-                builder: (context, child) => Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme: const ColorScheme.dark(
-                      primary: Color(0xFFD4AF37),
-                    ),
-                  ),
-                  child: child!,
-                ),
-              );
-
-              if (toDate != null) {
-                ref
-                    .read(reportDateTypeProvider.notifier)
-                    .set(DateFilterType.custom);
-                onChanged(
-                  DateFilter(
-                    from: DateTime(fromDate.year, fromDate.month, fromDate.day),
-                    to: DateTime(
-                      toDate.year,
-                      toDate.month,
-                      toDate.day,
-                    ).add(const Duration(days: 1)),
-                  ),
-                );
-              }
-            }
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _chip(String label, bool selected, VoidCallback onTap) => ChoiceChip(
-    label: Text(label),
-    selected: selected,
-    selectedColor: const Color(0xFFD4AF37),
-    onSelected: (_) => onTap(),
-  );
-}
-
-// ── Common components ─────────────────────────────────────────────────────
-
-class _Header extends ConsumerWidget {
+class _AnalysisCard extends StatelessWidget {
   final String title;
-  final VoidCallback? onAdd;
-  final VoidCallback? onClear;
-  const _Header({required this.title, this.onAdd, this.onClear});
+  final String subtitle;
+  final Widget child;
+
+  const _AnalysisCard({required this.title, required this.subtitle, required this.child});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(languageProvider);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.5,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) {
+    return GlassContainer(
+      opacity: 0.03,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (onClear != null)
-              IconButton(
-                icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
-                onPressed: onClear,
-                tooltip: 'Wipe All',
-              ),
-            if (onAdd != null)
-              ElevatedButton.icon(
-                icon: const Icon(Icons.add),
-                label: Text(ref.t('management.addNew')),
-                onPressed: onAdd,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD4AF37),
-                  foregroundColor: Colors.black,
-                ),
-              ),
+            Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: Colors.white54)),
+            const SizedBox(height: 4),
+            Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.2))),
+            const SizedBox(height: 24),
+            child,
           ],
         ),
-      ],
+      ),
     );
   }
 }
 
-class _ReportCard extends StatelessWidget {
-  final String title;
+class _KpiCard extends StatelessWidget {
+  final String label;
   final String value;
   final IconData icon;
-  final Color? color;
-  const _ReportCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-    this.color,
-  });
+  final Color color;
+
+  const _KpiCard({required this.label, required this.value, required this.icon, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return GlassContainer(
-      opacity: 0.1,
+      opacity: 0.05,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Row(
           children: [
-            Icon(icon, size: 36, color: color ?? Colors.white38),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, color: color, size: 24),
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.3), letterSpacing: 1)),
                   const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: color ?? Colors.white,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  FittedBox(child: Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white))),
                 ],
               ),
             ),
@@ -3525,233 +1962,282 @@ class _ReportCard extends StatelessWidget {
   }
 }
 
-
-class _SummaryRow extends StatelessWidget {
-  final String label;
-  final double value;
-  final String symbol;
-  final bool isTotal;
-  final Color? color;
-
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    required this.symbol,
-    this.isTotal = false,
-    this.color,
-  });
+class _HourlySalesChart extends StatelessWidget {
+  final List<double> hourlySales;
+  const _HourlySalesChart({required this.hourlySales});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+    final maxVal = hourlySales.reduce((a, b) => a > b ? a : b);
+    
+    return SizedBox(
+      height: 150,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: isTotal ? 16 : 14,
-              fontWeight: isTotal ? FontWeight.w900 : FontWeight.w400,
-              color: isTotal ? Colors.white : Colors.white70,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: List.generate(24, (i) {
+          final heightFactor = maxVal > 0 ? hourlySales[i] / maxVal : 0.0;
+          final isCurrentHour = DateTime.now().hour == i;
+          
+          return Expanded(
+            child: Tooltip(
+              message: '$i:00 - ${hourlySales[i].toStringAsFixed(2)} ETB',
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    height: (120 * heightFactor).clamp(2, 120).toDouble(),
+                    decoration: BoxDecoration(
+                      color: isCurrentHour ? const Color(0xFFD4AF37) : Colors.white.withOpacity(0.1),
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(2)),
+                    ),
+                  ),
+                  if (i % 4 == 0) ...[
+                    const SizedBox(height: 8),
+                    Text('$i', style: const TextStyle(fontSize: 9, color: Colors.white24)),
+                  ] else const SizedBox(height: 17),
+                ],
+              ),
             ),
-          ),
-          Text(
-            '${value.toStringAsFixed(2)} $symbol',
-            style: TextStyle(
-              fontSize: isTotal ? 20 : 14,
-              fontWeight: isTotal ? FontWeight.w900 : FontWeight.w700,
-              color:
-                  color ?? (isTotal ? const Color(0xFFD4AF37) : Colors.white),
-            ),
-          ),
-        ],
+          );
+        }),
       ),
     );
   }
 }
 
-class _ReportMetricCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
-
-  const _ReportMetricCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-  });
+class _TopProductsAnalysis extends StatelessWidget {
+  final List<MapEntry<String, Map<String, dynamic>>> items;
+  final double totalRevenue;
+  const _TopProductsAnalysis({required this.items, required this.totalRevenue});
 
   @override
   Widget build(BuildContext context) {
-    return GlassContainer(
-      opacity: 0.05,
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.zero,
-            ),
-            child: Icon(icon, color: const Color(0xFFD4AF37), size: 24),
-          ),
-          const SizedBox(width: 16),
-          Column(
+    if (items.isEmpty) return const Center(child: Text('No sales data', style: TextStyle(color: Colors.white24)));
+    
+    return Column(
+      children: items.map((e) {
+        final rev = e.value['rev'] as double;
+        final share = totalRevenue > 0 ? rev / totalRevenue : 0.0;
+        
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.white.withOpacity(0.4),
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(e.key, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  Text('${rev.toStringAsFixed(0)} ETB', style: const TextStyle(fontSize: 12, color: Color(0xFFD4AF37))),
+                ],
               ),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                ),
+              const SizedBox(height: 8),
+              Stack(
+                children: [
+                  Container(height: 4, width: double.infinity, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(2))),
+                  FractionallySizedBox(
+                    widthFactor: share,
+                    child: Container(height: 4, decoration: BoxDecoration(color: const Color(0xFFD4AF37), borderRadius: BorderRadius.circular(2))),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      }).toList(),
     );
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  const _SectionHeader(this.title);
+class _CategoryShareAnalysis extends StatelessWidget {
+  final Map<String, double> catMap;
+  final double totalRevenue;
+  const _CategoryShareAnalysis({required this.catMap, required this.totalRevenue});
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = catMap.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    
+    return Column(
+      children: sorted.take(4).map((e) {
+        final share = totalRevenue > 0 ? e.value / totalRevenue : 0.0;
+        return ListTile(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          title: Text(e.key, style: const TextStyle(fontSize: 12)),
+          trailing: Text('${(share * 100).toStringAsFixed(1)}%', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white54)),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _QuickActionsSection extends StatelessWidget {
+  final AnimationController pulseController;
+  final VoidCallback onPrintX;
+  final VoidCallback onExport;
+
+  const _QuickActionsSection({required this.pulseController, required this.onPrintX, required this.onExport});
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            Container(
-              width: 4,
-              height: 24,
-              decoration: BoxDecoration(
-                color: const Color(0xFFD4AF37),
-                borderRadius: BorderRadius.circular(2),
-              ),
+            FadeTransition(
+              opacity: pulseController,
+              child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFFD4AF37), shape: BoxShape.circle)),
             ),
-            const SizedBox(width: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18, // Increased from 11
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2,
-                color: Colors.white,
-              ),
-            ),
+            const SizedBox(width: 8),
+            const Text('LIVE OPERATIONS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
           ],
         ),
-        const SizedBox(height: 8),
-        const Divider(color: Colors.white10, thickness: 1),
         const SizedBox(height: 16),
+        ElevatedButton.icon(
+          onPressed: onPrintX,
+          icon: const Icon(Icons.print_outlined, size: 18),
+          label: const Text('PRINT X-REPORT'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFD4AF37),
+            foregroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+          ),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: onExport,
+          icon: const Icon(Icons.table_chart_outlined, size: 18),
+          label: const Text('EXPORT TO EXCEL'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            side: const BorderSide(color: Colors.white24),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+          ),
+        ),
       ],
     );
   }
 }
 
-class _FormalDataTable extends StatelessWidget {
-  final List<MapEntry<String, double>> data;
-  final IconData icon;
-  final Color iconColor;
-
-  const _FormalDataTable({
-    required this.data,
-    required this.icon,
-    required this.iconColor,
-  });
+class _ShiftArchivePreview extends StatelessWidget {
+  final AsyncValue<List<ZReportModel>> reportsAsync;
+  const _ShiftArchivePreview({required this.reportsAsync});
 
   @override
   Widget build(BuildContext context) {
-    return GlassContainer(
-      opacity: 0.05,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Row(
-              children: [
-                const SizedBox(width: 28), // Space for icon
-                Expanded(
-                  child: Text(
-                    'ITEM / NAME',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white.withOpacity(0.3),
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ),
-                Text(
-                  'AMOUNT',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white.withOpacity(0.3),
-                    letterSpacing: 1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: Colors.white10),
-          ...data.map((e) {
-            final isLast = data.last == e;
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(icon, size: 16, color: iconColor.withOpacity(0.7)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          e.key,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '${e.value.toStringAsFixed(2)} ETB',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFFD4AF37),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (!isLast) const Divider(height: 1, color: Colors.white10),
-              ],
+    return reportsAsync.when(
+      data: (reports) {
+        if (reports.isEmpty) return const Text('No past shifts found', style: TextStyle(color: Colors.white24, fontSize: 12));
+        return Column(
+          children: reports.take(3).map((r) {
+            final date = DateFormat('MMM dd, HH:mm').format(r.createdAt);
+            final total = r.reportData['financials']?['grand_total'] ?? 0.0;
+            
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              leading: const Icon(Icons.history, size: 16, color: Colors.white38),
+              title: Text('Shift #${r.zCount}', style: const TextStyle(fontSize: 12)),
+              subtitle: Text(date, style: const TextStyle(fontSize: 10, color: Colors.white24)),
+              trailing: Text('${total.toStringAsFixed(0)} ETB', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
             );
-          }),
-        ],
-      ),
+          }).toList(),
+        );
+      },
+      loading: () => const LinearProgressIndicator(),
+      error: (_, __) => const SizedBox(),
     );
   }
 }
 
-// ── Charge Management ───────────────────────────────────────────────────
+class _OrderAuditList extends StatelessWidget {
+  final List<OrderModel> orders;
+  const _OrderAuditList({required this.orders});
+
+  @override
+  Widget build(BuildContext context) {
+    final recent = orders.reversed.take(10).toList();
+    if (recent.isEmpty) return const Text('No orders yet', style: TextStyle(color: Colors.white24, fontSize: 12));
+    
+    return Column(
+      children: [
+        Table(
+          columnWidths: const {
+            0: FlexColumnWidth(1),
+            1: FlexColumnWidth(2),
+            2: FlexColumnWidth(2),
+            3: FlexColumnWidth(1.5),
+          },
+          children: [
+            const TableRow(
+              children: [
+                Text('ID', style: TextStyle(fontSize: 10, color: Colors.white24, fontWeight: FontWeight.bold)),
+                Text('TIME', style: TextStyle(fontSize: 10, color: Colors.white24, fontWeight: FontWeight.bold)),
+                Text('WAITER', style: TextStyle(fontSize: 10, color: Colors.white24, fontWeight: FontWeight.bold)),
+                Text('TOTAL', textAlign: TextAlign.right, style: TextStyle(fontSize: 10, color: Colors.white24, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            ...recent.map((o) => TableRow(
+              children: [
+                Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text('#${o.id}', style: const TextStyle(fontSize: 11, color: Colors.white54))),
+                Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(DateFormat('HH:mm').format(o.createdAt), style: const TextStyle(fontSize: 11, color: Colors.white54))),
+                Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(o.waiterName, style: const TextStyle(fontSize: 11))),
+                Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(o.grandTotal.toStringAsFixed(2), textAlign: TextAlign.right, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD4AF37)))),
+              ],
+            )),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _DateFilterChips extends StatelessWidget {
+  final DateFilter filter;
+  final Function(DateFilter) onChanged;
+
+  const _DateFilterChips({required this.filter, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _filterChip('TODAY', DateFilter.today()),
+        const SizedBox(width: 8),
+        _filterChip('YESTERDAY', DateFilter.yesterday()),
+        const SizedBox(width: 8),
+        _filterChip('THIS WEEK', DateFilter.thisWeek()),
+      ],
+    );
+  }
+
+  Widget _filterChip(String label, DateFilter target) {
+    final active = filter.label == target.label;
+    return GestureDetector(
+      onTap: () => onChanged(target),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFFD4AF37) : Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: active ? Colors.transparent : Colors.white12),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: active ? Colors.black : Colors.white60,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class ChargeManagementScreen extends ConsumerWidget {
   const ChargeManagementScreen({super.key});
@@ -4043,66 +2529,3 @@ class _TablePerformanceSection extends StatelessWidget {
   }
 }
 
-class _OrderAuditList extends StatelessWidget {
-  final List<OrderModel> orders;
-  const _OrderAuditList({required this.orders});
-
-  @override
-  Widget build(BuildContext context) {
-    if (orders.isEmpty) return const Center(child: Text('No orders found', style: TextStyle(color: Colors.white38)));
-
-    return Column(
-      children: orders.take(50).map((o) {
-        return GlassContainer(
-          opacity: 0.03,
-          margin: const EdgeInsets.only(bottom: 8),
-          child: Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              leading: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white10,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text('#${o.id}', style: const TextStyle(fontSize: 10, color: Colors.white54)),
-              ),
-              title: Row(
-                children: [
-                  Text(o.tableName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  const Spacer(),
-                  Text('${o.grandTotal.toStringAsFixed(2)} ETB', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFD4AF37))),
-                ],
-              ),
-              subtitle: Text(
-                '${DateFormat('HH:mm').format(o.createdAt)} • ${o.waiterName} • ${o.paymentMethod.toUpperCase()}',
-                style: const TextStyle(fontSize: 11, color: Colors.white38),
-              ),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: Column(
-                    children: [
-                      const Divider(color: Colors.white10),
-                      ...o.items.map((it) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            Text('${it.quantity}x', style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold, fontSize: 12)),
-                            const SizedBox(width: 12),
-                            Expanded(child: Text(it.productName, style: const TextStyle(fontSize: 12))),
-                            Text('${it.subtotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, color: Colors.white70)),
-                          ],
-                        ),
-                      )),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}

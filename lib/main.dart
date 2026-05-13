@@ -19,7 +19,7 @@ import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:st_george_pos/widgets/language_switcher.dart';
 import 'package:st_george_pos/screens/audit_logs_screen.dart';
 import 'package:intl/intl.dart';
-import 'package:google_fonts/google_fonts.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,7 +80,7 @@ class MyApp extends ConsumerWidget {
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.light,
-        fontFamily: GoogleFonts.abyssinicaSil().fontFamily,
+        fontFamily: 'NotoSansEthiopic',
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFD4AF37),
           brightness: Brightness.light,
@@ -91,7 +91,7 @@ class MyApp extends ConsumerWidget {
       darkTheme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-        fontFamily: GoogleFonts.abyssinicaSil().fontFamily,
+        fontFamily: 'NotoSansEthiopic',
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFD4AF37),
           brightness: Brightness.dark,
