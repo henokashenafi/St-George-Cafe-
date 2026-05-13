@@ -32,7 +32,7 @@
     "sentToKitchen": "ወደ ማእድ ቤት ተልኳል",
     "newItems": "አዲስ እቃዎች",
     "sendToKitchen": "ወደ ማእድ ቤት ላክ",
-    "printBill": "ሂሳብ አትም",
+    "printBill": "ደረሰኝ አትም",
     "cartEmpty": "ቅርጫቱ ባዶ ነው",
     "selectTable": "ጠረጴዛ ይምረጡ",
     "selectWaiter": "አስተናጋጅ ይምረጡ",
@@ -68,7 +68,10 @@
     "waiterHint": "የአስተናጋጅ ስም ይተይቡ… (Enter ወይም ይንኩ ለመምረጥ)",
     "tableHint": "የጠረጴዛ ስም ይተይቡ… (Enter ወይም ይንኩ ለመምረጥ)",
     "productHint": "እቃ ይፈልጉ… (ባዶ ሲሆን Enter = ወደ ማእድ ቤት ላክ)",
-    "heldOrderInfo": "{waiter}  •  {items} እቃዎች"
+    "heldOrderInfo": "{waiter}  •  {items} እቃዎች",
+    "printBoth": "ትዕዛዝ + ደረሰኝ አትም",
+    "removeConfirm": "እቃ ያስወግዱ?",
+    "removeConfirmMessage": "{product} ከዝርዝሩ ይወጣ?"
   },
   "orderConfirm": {
     "title": "ሂሳብ አረጋግጥ እና አትም",
@@ -80,7 +83,7 @@
     "discount": "ቅነሳ (ብር)",
     "totalToPay": "ለመክፈል ድምር",
     "cancel": "ይቅር",
-    "printBill": "ሂሳብ አትም"
+    "printBill": "ደረሰኝ አትም"
   },
   "main": {
     "title": "ዳሽቦርድ",
@@ -143,7 +146,7 @@
     "priceLabel": "ዋጋ ({currency})",
     "waiterNameLabel": "የአስተናጋጅ ስም",
     "noOrdersFound": "ምንም ትዕዛዛት አልተገኘም",
-    "reprintBill": "ሂሳብ እንደገና አትም",
+    "reprintBill": "ደረሰኝ እንደገና አትም",
     "byWaiter": "በአስተናጋጅ",
     "byCashier": "በገንዘብ ተቀባይ",
     "subtotal": "የንዑስ ድምር",
@@ -186,7 +189,8 @@
     "xReport": "X-ሪፖርት",
     "xReportSubtitle": "የአሁኑ ሺፍት ድምር እይታ",
     "endShiftZ": "ሺፍት ዝጋ (Z-ሪፖርት)",
-    "endShiftSubtitle": "ሺፍት ዝጋ እና ገንዘብ አስተካክል"
+    "endShiftSubtitle": "ሺፍት ዝጋ እና ገንዘብ አስተካክል",
+    "zReportSaved": "ሺፍት ተዘጋ, ዝርዝር ተቀምጧል & Z-ሪፖርት ታተመ."
   },
   "history": {
     "searchByWaiter": "በአስተናጋጅ ይፈልጉ...",
@@ -196,6 +200,7 @@
   "reports": {
     "printSummary": "ማጠቃለያ አትም",
     "exportCsv": "CSV ወደ ውጪ ላክ",
+    "exportExcel": "Excel ወደ ውጪ ላክ",
     "salesByCategory": "ሽያጭ በምድብ",
     "orderTypeDistribution": "የትዕዛዝ አይነት ስርጭት",
     "shiftClosingHistory": "የሺፍት መዝጊያ ታሪክ",
@@ -204,6 +209,7 @@
     "netTotal": "የተጣራ ድምር",
     "paymentMethods": "የክፍያ ዘዴዎች",
     "noZReports": "ምንም የተቀመጡ Z-ሪፖርቶች የሉም።",
+    "zReportPrefix": "Z-ሪፖርት #",
     "noOrdersToPrint": "ለማተም ምንም የተጠናቀቁ ትዕዛዛት የሉም።",
     "noItemSales": "የሚታይ ምንም የእቃ ሽያጭ የለም።",
     "digitalZReport": "ዲጂታል Z-ሪፖርት",
@@ -216,7 +222,31 @@
     "allWaiters": "ሁሉም አስተናጋጆች",
     "customRange": "የተበጀ ክልል",
     "summary": "ማጠቃለያ",
-    "details": "ዝርዝሮች"
+    "details": "ዝርዝሮች",
+    "itemSalesDetail": "ዝርዝር የእቃ ሽያጭ",
+    "byTable": "በጠረጴዛ",
+    "byWaiter": "በአስተናጋጅ",
+    "byWaiterDetail": "በአስተናጋጅ (ዝርዝር)",
+    "transactionAudit": "የዝርዝር ግብይት ክትትል",
+    "item": "እቃ",
+    "qty": "ብዛት",
+    "unitPrice": "የአንድ ዋጋ",
+    "revenue": "ገቢ",
+    "time": "ሰዓት",
+    "id": "መለያ",
+    "total": "ድምር",
+    "tableOrders": "ትዕዛዛት",
+    "exportSuccess": "ፋይሉ ተቀምጧል",
+    "exportFailed": "ወደ ውጪ ማስወጣት አልተሳካም",
+    "deleteConfirmTitle": "ትዕዛዝ ሰርዝ",
+    "deleteWaiterConfirm": "\"{name}\" አስተናጋጅ ይሰረዝ? ይህን መመለስ አይቻልም.",
+    "deleteCategoryConfirm": "\"{name}\" ምድብ ይሰረዝ? ሁሉም እቃዎቹ ይሰረዛሉ.",
+    "deleteProductConfirm": "\"{name}\" እቃ ይሰረዝ?",
+    "financialTotals": "የፋይናንስ ጠቅላላ",
+    "paymentBreakdown": "የክፍያ ትንተና",
+    "topItemSales": "ከፍተኛ የእቃ ሽያጭ",
+    "orderDetailsByWaiter": "የትዕዛዝ ዝርዝር በአስተናጋጅ",
+    "cashReconciliation": "የገንዘብ ማስተካከያ"
   },
   "charges": {
     "add": "ክፍያ ጨምር",

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart'; // Reports Professionalization
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:toastification/toastification.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 import 'package:st_george_pos/models/category.dart';
@@ -12,6 +13,7 @@ import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:st_george_pos/services/bill_service.dart';
 import 'package:st_george_pos/services/export_service.dart';
 import 'package:st_george_pos/core/database_helper.dart';
+import 'package:universal_html/html.dart' as html;
 import 'package:intl/intl.dart';
 import 'package:st_george_pos/models/table_model.dart';
 import 'package:st_george_pos/screens/order_screen.dart';
@@ -324,6 +326,38 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
   }
 
   void _deleteCategory(int id) async {
+    final catName = ref.read(categoriesProvider).value
+        ?.firstWhere((c) => c.id == id, orElse: () => Category(id: id, name: ''))?.name ?? '';
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 22),
+            const SizedBox(width: 8),
+            Text(ref.t('common.deleteConfirmTitle')),
+          ],
+        ),
+        content: Text(ref.t('reports.deleteCategoryConfirm', replacements: {'name': catName})),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(ref.t('common.cancel')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(ref.t('common.delete')),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
     await ref.read(posRepositoryProvider).deleteCategory(id);
     ref.invalidate(categoriesProvider);
     ref.invalidate(productsProvider(null));
@@ -331,6 +365,38 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
   }
 
   void _deleteProduct(int id) async {
+    final prodName = ref.read(productsProvider(selectedCategoryId)).value
+        ?.firstWhere((p) => p.id == id, orElse: () => Product(id: id, categoryId: 0, name: '', price: 0))?.name ?? '';
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 22),
+            const SizedBox(width: 8),
+            Text(ref.t('common.deleteConfirmTitle')),
+          ],
+        ),
+        content: Text(ref.t('reports.deleteProductConfirm', replacements: {'name': prodName})),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(ref.t('common.cancel')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(ref.t('common.delete')),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
     await ref.read(posRepositoryProvider).deleteProduct(id);
     ref.invalidate(productsProvider(selectedCategoryId));
     ref.invalidate(productsProvider(null));
@@ -458,6 +524,35 @@ class _WaiterManagementScreenState extends ConsumerState<WaiterManagementScreen>
                           color: Colors.redAccent,
                         ),
                         onPressed: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              backgroundColor: const Color(0xFF1A1A1A),
+                              title: Row(
+                                children: [
+                                  const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 22),
+                                  const SizedBox(width: 8),
+                                  Text(ref.t('common.deleteConfirmTitle')),
+                                ],
+                              ),
+                              content: Text(ref.t('reports.deleteWaiterConfirm', replacements: {'name': w.name})),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: Text(ref.t('common.cancel')),
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.redAccent,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: Text(ref.t('common.delete')),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm != true) return;
                           await ref
                               .read(posRepositoryProvider)
                               .deleteWaiter(w.id!);
@@ -1501,7 +1596,6 @@ class ReportsScreen extends ConsumerStatefulWidget {
 class _ReportsScreenState extends ConsumerState<ReportsScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
-  bool _showDetailView = false;
 
   @override
   void initState() {
@@ -1767,6 +1861,19 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                       ),
                     ),
                     const Spacer(),
+                    // Export Excel button
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.table_chart_outlined, size: 18),
+                      label: Text(ref.t('reports.exportExcel')),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1F7A4D),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      onPressed: () => _exportToExcel(context, ref, list, ref.read(reportDateFilterProvider)),
+                    ),
+                    const SizedBox(width: 8),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.print, size: 18),
                       label: Text(ref.t('reports.printXReport')),
@@ -1774,9 +1881,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                         backgroundColor: const Color(0xFFD4AF37),
                         foregroundColor: Colors.black,
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                       ),
                       onPressed: () => _printFilteredReport(
                         context,
@@ -1812,6 +1917,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                 ],
               ),
               const SizedBox(height: 32),
+               const SizedBox(height: 32),
 
               // ── Category Breakdown ───────────────────────────────
               _SectionHeader(ref.t('reports.salesByCategory').toUpperCase()),
@@ -1849,18 +1955,38 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                       ],
                     ),
                   ),
-                  const SizedBox(width: 24),
+                ],
+              ),
+              const SizedBox(height: 40),
+
+              // ── Item Sales Detail (By Food) ─────────────────────────────
+              _SectionHeader(ref.t('reports.itemSalesDetail').toUpperCase()),
+              const SizedBox(height: 12),
+              _buildItemSalesTable(sortedItemSales, ref),
+              const SizedBox(height: 40),
+
+              // ── Performance Breakdown (By Waiter & By Table) ─────────────
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _SectionHeader(ref.t('management.byWaiter')),
+                        _SectionHeader(ref.t('reports.byWaiter').toUpperCase()),
                         const SizedBox(height: 12),
-                        _FormalDataTable(
-                          data: waiterMap.entries.toList(),
-                          icon: Icons.person_outline,
-                          iconColor: const Color(0xFF006B3C),
-                        ),
+                        _buildByWaiterDetail(completed, ref),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 32),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SectionHeader(ref.t('reports.byTable').toUpperCase()),
+                        const SizedBox(height: 12),
+                        _TablePerformanceSection(orders: completed),
                       ],
                     ),
                   ),
@@ -1868,7 +1994,11 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
               ),
               const SizedBox(height: 40),
 
-              if (_showDetailView) _buildDetailView(completed),
+              // ── Raw Transaction Audit ───────────────────────────────────
+              _SectionHeader('DETAILED ORDER AUDIT'),
+              const SizedBox(height: 12),
+              _OrderAuditList(orders: completed),
+              const SizedBox(height: 60),
             ],
           ),
         );
@@ -2055,243 +2185,70 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     );
   }
 
-  Widget _buildDetailView(List<OrderModel> completed) {
-    if (completed.isEmpty) {
-      return Center(
-        child: Opacity(
-          opacity: 0.4,
-          child: Text(ref.t('management.noOrdersInRange')),
-        ),
-      );
-    }
+  /// Detailed waiter performance including items sold
+  Widget _buildByWaiterDetail(List<OrderModel> completed, WidgetRef ref) {
+    final waiterMap = <String, Map<String, dynamic>>{};
 
-    final waiterGroups = <String, List<OrderModel>>{};
     for (final o in completed) {
-      waiterGroups.putIfAbsent(o.waiterName, () => []).add(o);
+      waiterMap.putIfAbsent(
+        o.waiterName,
+        () => {'orders': 0, 'revenue': 0.0, 'items': <String, int>{}},
+      );
+      waiterMap[o.waiterName]!['orders'] =
+          (waiterMap[o.waiterName]!['orders'] as int) + 1;
+      waiterMap[o.waiterName]!['revenue'] =
+          (waiterMap[o.waiterName]!['revenue'] as double) + o.grandTotal;
+
+      final itemsMap = waiterMap[o.waiterName]!['items'] as Map<String, int>;
+      for (final it in o.items) {
+        itemsMap[it.productName] = (itemsMap[it.productName] ?? 0) + it.quantity;
+      }
     }
 
-    return ListView(
-      children: waiterGroups.entries.map((entry) {
-        final waiterTotal = entry.value.fold<double>(
-          0,
-          (s, o) => s + o.grandTotal,
-        );
-        final orderCount = entry.value.length;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 20),
-          child: GlassContainer(
-            opacity: 0.05,
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    if (waiterMap.isEmpty) return const SizedBox();
+
+    final sorted = waiterMap.entries.toList()
+      ..sort((a, b) => (b.value['revenue'] as double).compareTo(a.value['revenue'] as double));
+
+    return Column(
+      children: sorted.map<Widget>((entry) {
+        final w = entry.value;
+        final itemsSold = w['items'] as Map<String, int>;
+        final sortedItems = itemsSold.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+
+        return GlassContainer(
+          opacity: 0.05,
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: Text(
+                '${w['orders']} orders  |  ${(w['revenue'] as double).toStringAsFixed(2)} ETB',
+                style: const TextStyle(fontSize: 12, color: Colors.white54),
+              ),
+              leading: const Icon(Icons.person_outline, color: Color(0xFFD4AF37), size: 20),
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.person_outline,
-                      size: 20,
-                      color: Color(0xFFD4AF37),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      entry.key.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '$orderCount orders',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white38,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      '${waiterTotal.toStringAsFixed(2)} ETB',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFFD4AF37),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Divider(height: 1, color: Colors.white10),
-                const SizedBox(height: 8),
-                ...entry.value.map(
-                  (o) => ExpansionTile(
-                    tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-                    childrenPadding: const EdgeInsets.only(left: 16, bottom: 8),
-                    title: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          color: const Color(0xFFD4AF37).withOpacity(0.15),
-                          child: Text(
-                            '#${o.id}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFFD4AF37),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '${o.tableName}',
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        const Spacer(),
-                        Text(
-                          DateFormat('dd/MM HH:mm').format(o.createdAt),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.white54,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Text(
-                          '${o.grandTotal.toStringAsFixed(2)} ETB',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFD4AF37),
-                          ),
-                        ),
-                      ],
-                    ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Column(
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 4,
-                              child: Text(
-                                'Item',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white.withOpacity(0.4),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                      const Divider(color: Colors.white10),
+                      ...sortedItems.map((it) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(it.key, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                                Text('x${it.value}',
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFD4AF37))),
+                              ],
                             ),
-                            SizedBox(
-                              width: 40,
-                              child: Text(
-                                'Qty',
-                                textAlign: TextAlign.right,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white.withOpacity(0.4),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 60,
-                              child: Text(
-                                'Price',
-                                textAlign: TextAlign.right,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white.withOpacity(0.4),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 70,
-                              child: Text(
-                                'Total',
-                                textAlign: TextAlign.right,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white.withOpacity(0.4),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ...o.items.map(
-                        (item) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                flex: 4,
-                                child: Text(
-                                  item.productName,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 40,
-                                child: Text(
-                                  '${item.quantity}',
-                                  textAlign: TextAlign.right,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 60,
-                                child: Text(
-                                  item.unitPrice.toStringAsFixed(2),
-                                  textAlign: TextAlign.right,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 70,
-                                child: Text(
-                                  item.subtotal.toStringAsFixed(2),
-                                  textAlign: TextAlign.right,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const Divider(height: 16, color: Colors.white10),
-                      Row(
-                        children: [
-                          const Spacer(),
-                          Text(
-                            'Subtotal: ${o.totalAmount.toStringAsFixed(2)}  |  SC: ${o.serviceCharge.toStringAsFixed(2)}  |  Disc: -${o.discountAmount.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Colors.white54,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          const Spacer(),
-                          Text(
-                            'Order Total: ${o.grandTotal.toStringAsFixed(2)} ETB',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFFD4AF37),
-                            ),
-                          ),
-                        ],
-                      ),
+                          )),
                     ],
                   ),
                 ),
@@ -2302,6 +2259,73 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
       }).toList(),
     );
   }
+
+  /// Raw transaction item audit
+  Widget _buildTransactionAudit(List<OrderModel> completed, WidgetRef ref) {
+    final auditItems = <Map<String, dynamic>>[];
+    for (final o in completed) {
+      for (final it in o.items) {
+        auditItems.add({
+          'orderId': o.id,
+          'time': DateFormat('HH:mm').format(o.createdAt),
+          'table': o.tableName,
+          'product': it.productName,
+          'qty': it.quantity,
+          'total': it.subtotal,
+        });
+      }
+    }
+
+    if (auditItems.isEmpty) return const SizedBox();
+
+    return GlassContainer(
+      opacity: 0.05,
+      padding: const EdgeInsets.all(0),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            color: Colors.white.withOpacity(0.05),
+            child: Row(
+              children: [
+                SizedBox(width: 45, child: Text(ref.t('reports.id'), style: _headerStyle)),
+                SizedBox(width: 55, child: Text(ref.t('reports.time'), style: _headerStyle)),
+                Expanded(child: Text(ref.t('reports.item'), style: _headerStyle)),
+                SizedBox(width: 70, child: Text(ref.t('reports.table'), style: _headerStyle)),
+                SizedBox(width: 35, child: Text(ref.t('reports.qty'), style: _headerStyle)),
+                SizedBox(width: 80, child: Text(ref.t('reports.total'), textAlign: TextAlign.right, style: _headerStyle)),
+              ],
+            ),
+          ),
+          ...auditItems.reversed.take(100).toList().asMap().entries.map<Widget>((entry) {
+            final idx = entry.key;
+            final item = entry.value;
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: idx.isOdd ? Colors.white.withOpacity(0.02) : Colors.transparent,
+              child: Row(
+                children: [
+                  SizedBox(width: 45, child: Text('#${item['orderId']}', style: const TextStyle(fontSize: 11, color: Colors.white38))),
+                  SizedBox(width: 55, child: Text(item['time'], style: const TextStyle(fontSize: 11, color: Colors.white54))),
+                  Expanded(child: Text(item['product'], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
+                  SizedBox(width: 70, child: Text(item['table'], style: const TextStyle(fontSize: 11, color: Colors.white54))),
+                  SizedBox(width: 35, child: Text('x${item['qty']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFD4AF37)))),
+                  SizedBox(width: 80, child: Text('${item['total'].toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  static const _headerStyle = TextStyle(
+    fontSize: 10,
+    fontWeight: FontWeight.bold,
+    color: Colors.white54,
+    letterSpacing: 0.5,
+  );
 
   void _printFilteredReport(
     BuildContext context,
@@ -2374,6 +2398,319 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
       isZReport: false,
     );
   }
+
+  /// Full item sales breakdown (sorted by revenue desc)
+  Widget _buildItemSalesTable(
+    List<MapEntry<String, Map<String, dynamic>>> sortedItems,
+    WidgetRef ref,
+  ) {
+    if (sortedItems.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Opacity(
+            opacity: 0.4,
+            child: Text(ref.t('reports.noItemSales')),
+          ),
+        ),
+      );
+    }
+
+    return GlassContainer(
+      opacity: 0.05,
+      padding: const EdgeInsets.all(0),
+      child: Column(
+        children: [
+          // Header row
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Colors.white.withOpacity(0.05),
+            child: Row(
+              children: [
+                const SizedBox(width: 28),
+                Expanded(
+                  flex: 4,
+                  child: Text(
+                    ref.t('reports.item'),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white54,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 60,
+                  child: Text(
+                    ref.t('reports.qty'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white54,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 90,
+                  child: Text(
+                    ref.t('reports.unitPrice'),
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white54,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 100,
+                  child: Text(
+                    ref.t('reports.revenue'),
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white54,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Colors.white10),
+          // Data rows
+          ...sortedItems.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final item = entry.value;
+            final qty = item.value['qty'] as int;
+            final revenue = item.value['revenue'] as double;
+            // Derive unit price from revenue/qty
+            final unitPrice = qty > 0 ? revenue / qty : 0.0;
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: idx.isOdd ? Colors.white.withOpacity(0.02) : Colors.transparent,
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 28,
+                    child: Text(
+                      '${idx + 1}',
+                      style: const TextStyle(fontSize: 11, color: Colors.white38),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 4,
+                    child: Text(
+                      item.key,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 60,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD4AF37).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'x$qty',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFD4AF37),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 90,
+                    child: Text(
+                      unitPrice.toStringAsFixed(2),
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(fontSize: 12, color: Colors.white54),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 100,
+                    child: Text(
+                      revenue.toStringAsFixed(2),
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFD4AF37),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  /// Revenue grouped by table
+  Widget _buildByTableSection(List<OrderModel> completed, WidgetRef ref) {
+    final tableMap = <String, Map<String, dynamic>>{};
+    for (final o in completed) {
+      tableMap.putIfAbsent(o.tableName, () => {'orders': 0, 'revenue': 0.0});
+      tableMap[o.tableName]!['orders'] = (tableMap[o.tableName]!['orders'] as int) + 1;
+      tableMap[o.tableName]!['revenue'] =
+          (tableMap[o.tableName]!['revenue'] as double) + o.grandTotal;
+    }
+
+    if (tableMap.isEmpty) {
+      return Center(
+        child: Opacity(
+          opacity: 0.4,
+          child: Text(ref.t('management.noOrdersInRange')),
+        ),
+      );
+    }
+
+    final sorted = tableMap.entries.toList()
+      ..sort((a, b) => (b.value['revenue'] as double).compareTo(a.value['revenue'] as double));
+
+    return GlassContainer(
+      opacity: 0.05,
+      padding: const EdgeInsets.all(0),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Colors.white.withOpacity(0.05),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    ref.t('management.table'),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white54),
+                  ),
+                ),
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    ref.t('reports.tableOrders'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white54),
+                  ),
+                ),
+                SizedBox(
+                  width: 120,
+                  child: Text(
+                    ref.t('management.grandTotal'),
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white54),
+                  ),
+                ),
+                const SizedBox(width: 16),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Colors.white10),
+          ...sorted.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final t = entry.value;
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: idx.isOdd ? Colors.white.withOpacity(0.02) : Colors.transparent,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.table_bar_outlined, size: 16, color: Colors.white38),
+                        const SizedBox(width: 8),
+                        Text(t.key, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    width: 80,
+                    child: Text(
+                      '${t.value['orders']}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 13, color: Colors.white70),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 120,
+                    child: Text(
+                      '${(t.value['revenue'] as double).toStringAsFixed(2)} ETB',
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFD4AF37),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  /// Export visible orders to Excel based on current date filter
+  void _exportToExcel(
+    BuildContext context,
+    WidgetRef ref,
+    List<OrderModel> allOrders,
+    DateFilter filter,
+  ) async {
+    final selectedWaiterId = ref.read(reportWaiterFilterProvider);
+    final completed = allOrders
+        .where((o) => o.status == OrderStatus.completed)
+        .where((o) => selectedWaiterId == null || o.waiterId == selectedWaiterId)
+        .toList();
+
+    if (completed.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ref.t('reports.noOrdersToPrint'))),
+      );
+      return;
+    }
+
+    // Build date label from filter
+    String dateLabel = '';
+    if (filter.from != null && filter.to != null) {
+      final fmt = DateFormat('MMddyyyy');
+      dateLabel = '${fmt.format(filter.from!)}_to_${fmt.format(filter.to!)}';
+    }
+
+    final result = await ExportService.exportOrdersToExcel(completed, dateLabel: dateLabel);
+    if (!context.mounted) return;
+
+    if (result != null) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.success,
+        title: Text(ref.t('reports.exportSuccess')),
+        description: Text(kIsWeb ? result : 'File saved to: $result'),
+        autoCloseDuration: const Duration(seconds: 5),
+      );
+    } else {
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        title: Text(ref.t('common.error')),
+        description: Text(ref.t('reports.exportFailed')),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+    }
+  }
 }
 
 class _ZReportHistorySection extends ConsumerWidget {
@@ -2424,7 +2761,7 @@ class _ZReportHistorySection extends ConsumerWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Z-REPORT #${r.zCount}',
+                                '${ref.t('reports.zReportPrefix')}${r.zCount}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w900,
                                   fontSize: 16,
@@ -2436,7 +2773,7 @@ class _ZReportHistorySection extends ConsumerWidget {
                           ),
                           const Spacer(),
                           Text(
-                            header['cashier_name']?.toString().toUpperCase() ??
+                            header['cashier_name']?.toString() ??
                                 'UNKNOWN',
                             style: const TextStyle(
                               fontSize: 18,
@@ -2594,7 +2931,7 @@ class _ZReportHistorySection extends ConsumerWidget {
                         as Map<String, dynamic>)
                     .entries
                     .map(
-                      (e) => _DigitalSlipRow(e.key.toUpperCase(), '${e.value}'),
+                      (e) => _DigitalSlipRow(e.key, '${e.value}'),
                     ),
                 const Divider(height: 32, color: Colors.white10),
                 _DigitalSlipRow(
@@ -2708,7 +3045,7 @@ class _ReportMetricTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                label.toUpperCase(),
+                label,
                 style: TextStyle(
                   fontSize: 11,
                   color: Colors.white.withOpacity(0.5),
@@ -2785,7 +3122,7 @@ class _BestSellersDashboard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        entry.key.toUpperCase(),
+                        entry.key,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
@@ -2872,7 +3209,7 @@ class _CategoryBreakdownDashboard extends StatelessWidget {
                 Expanded(
                   flex: 3,
                   child: Text(
-                    entry.key.toUpperCase(),
+                    entry.key,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
@@ -2935,7 +3272,7 @@ class _OrderTypeDashboard extends StatelessWidget {
           return Column(
             children: [
               Text(
-                entry.key.toUpperCase(),
+                entry.key,
                 style: const TextStyle(
                   fontSize: 10,
                   color: Colors.white38,
@@ -3307,7 +3644,7 @@ class _SectionHeader extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Text(
-              title.toUpperCase(),
+              title,
               style: const TextStyle(
                 fontSize: 18, // Increased from 11
                 fontWeight: FontWeight.w900,
@@ -3445,8 +3782,38 @@ class ChargeManagementScreen extends ConsumerWidget {
                 return _ChargeCard(
                   charge: charge,
                   onEdit: () => _showChargeDialog(context, ref, charge),
-                  onDelete: () =>
-                      ref.read(chargesListProvider.notifier).delete(charge.id!),
+                  onDelete: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: const Color(0xFF1A1A1A),
+                        title: Text(ref.t('common.deleteConfirmTitle')),
+                        content: Text(
+                          ref.t(
+                            'reports.deleteProductConfirm',
+                            replacements: {'name': charge.name},
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: Text(ref.t('common.cancel')),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: Text(ref.t('common.delete')),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      ref.read(chargesListProvider.notifier).delete(charge.id!);
+                    }
+                  },
                 );
               },
             ),
@@ -3617,6 +3984,125 @@ class _ChargeCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Advanced Reporting Widgets ───────────────────────────────────────────
+
+
+
+class _TablePerformanceSection extends StatelessWidget {
+  final List<OrderModel> orders;
+  const _TablePerformanceSection({required this.orders});
+
+  @override
+  Widget build(BuildContext context) {
+    final tableStats = <String, Map<String, dynamic>>{};
+    for (final o in orders) {
+      tableStats.putIfAbsent(o.tableName, () => {'revenue': 0.0, 'count': 0});
+      tableStats[o.tableName]!['revenue'] += o.grandTotal;
+      tableStats[o.tableName]!['count'] += 1;
+    }
+
+    final sorted = tableStats.entries.toList()
+      ..sort((a, b) => (b.value['revenue'] as double).compareTo(a.value['revenue'] as double));
+
+    return Column(
+      children: sorted.take(10).map((entry) {
+        final revenue = entry.value['revenue'] as double;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD4AF37).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(child: Icon(Icons.table_restaurant_outlined, size: 16, color: const Color(0xFFD4AF37))),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    Text('${entry.value['count']} orders', style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                  ],
+                ),
+              ),
+              Text('${revenue.toStringAsFixed(2)} ETB', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFD4AF37))),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _OrderAuditList extends StatelessWidget {
+  final List<OrderModel> orders;
+  const _OrderAuditList({required this.orders});
+
+  @override
+  Widget build(BuildContext context) {
+    if (orders.isEmpty) return const Center(child: Text('No orders found', style: TextStyle(color: Colors.white38)));
+
+    return Column(
+      children: orders.take(50).map((o) {
+        return GlassContainer(
+          opacity: 0.03,
+          margin: const EdgeInsets.only(bottom: 8),
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              leading: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white10,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text('#${o.id}', style: const TextStyle(fontSize: 10, color: Colors.white54)),
+              ),
+              title: Row(
+                children: [
+                  Text(o.tableName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const Spacer(),
+                  Text('${o.grandTotal.toStringAsFixed(2)} ETB', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFD4AF37))),
+                ],
+              ),
+              subtitle: Text(
+                '${DateFormat('HH:mm').format(o.createdAt)} • ${o.waiterName} • ${o.paymentMethod.toUpperCase()}',
+                style: const TextStyle(fontSize: 11, color: Colors.white38),
+              ),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Column(
+                    children: [
+                      const Divider(color: Colors.white10),
+                      ...o.items.map((it) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Text('${it.quantity}x', style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold, fontSize: 12)),
+                            const SizedBox(width: 12),
+                            Expanded(child: Text(it.productName, style: const TextStyle(fontSize: 12))),
+                            Text('${it.subtotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                          ],
+                        ),
+                      )),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }

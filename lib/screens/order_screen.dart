@@ -651,7 +651,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           // Append the typed character
           final current = _assistantController.text;
           final char = HardwareKeyboard.instance.isShiftPressed
-              ? label.toUpperCase()
+              ? label
               : label.toLowerCase();
           _assistantController.value = TextEditingValue(
             text: current + char,
@@ -831,7 +831,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                             decoration: InputDecoration(
                                               labelText: ref
                                                   .t('bill.waiter')
-                                                  .toUpperCase(),
+                                                  ,
                                               labelStyle: const TextStyle(
                                                 color: Color(0xFFD4AF37),
                                                 fontSize: 10,
@@ -910,7 +910,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                             decoration: InputDecoration(
                                               labelText: ref
                                                   .t('order.selectTable')
-                                                  .toUpperCase(),
+                                                  ,
                                               labelStyle: const TextStyle(
                                                 color: Color(0xFFD4AF37),
                                                 fontSize: 10,
@@ -1017,10 +1017,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                         icon: Icons.table_bar,
                                         title: e.value.name,
                                         subtitle:
-                                            e.value.status ==
-                                                TableStatus.occupied
-                                            ? ref.t('tables.statusOccupied')
-                                            : ref.t('tables.statusAvailable'),
+                                            '${e.value.status == TableStatus.occupied ? ref.t('tables.statusOccupied') : ref.t('tables.statusAvailable')} • ${e.value.zoneName ?? ref.t('tables.noZoneAssigned')}',
                                         accentColor:
                                             e.value.status ==
                                                 TableStatus.occupied
@@ -1101,7 +1098,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                             ),
                                           ),
                                           child: Text(
-                                            name.toUpperCase(),
+                                            name,
                                             style: TextStyle(
                                               color: isSelected
                                                   ? Colors.black
@@ -1807,6 +1804,68 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                             ),
                                           ],
                                         ),
+                                        const SizedBox(height: 8),
+                                        // ── Combined Print Order + Bill ──
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: ElevatedButton.icon(
+                                            icon: const Icon(Icons.print_outlined, size: 18),
+                                            label: Text(
+                                              ref.t('order.printBoth'),
+                                              style: const TextStyle(fontWeight: FontWeight.bold),
+                                            ),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF1A3A5C),
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(vertical: 14),
+                                              shape: const RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.zero,
+                                              ),
+                                            ),
+                                            onPressed: (activeOrderAsync.value == null || selectedTable == null)
+                                                ? null
+                                                : () async {
+                                                    final settings = ref.read(appSettingsProvider).value ?? {};
+                                                    final activeOrder = ref.read(activeOrderProvider(selectedTable!.id!)).value;
+                                                    if (activeOrder == null) return;
+                                                    
+                                                    // Combined Confirmation
+                                                    final confirmBoth = await showDialog<bool>(
+                                                      context: context,
+                                                      builder: (ctx) => AlertDialog(
+                                                        backgroundColor: const Color(0xFF1A1A1A),
+                                                        title: Text(ref.t('order.printBoth')),
+                                                        content: Text(ref.t('common.confirm')),
+                                                        actions: [
+                                                          TextButton(
+                                                            onPressed: () => Navigator.pop(ctx, false),
+                                                            child: Text(ref.t('common.no')),
+                                                          ),
+                                                          ElevatedButton(
+                                                            style: ElevatedButton.styleFrom(
+                                                              backgroundColor: const Color(0xFFD4AF37),
+                                                              foregroundColor: Colors.black,
+                                                            ),
+                                                            onPressed: () => Navigator.pop(ctx, true),
+                                                            child: Text(ref.t('common.yes')),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+                                                    if (confirmBoth != true) return;
+
+                                                    // Step 1: Send to kitchen if there are local items
+                                                    if (localItems.isNotEmpty) {
+                                                      await _sendToKitchen(activeOrder, settings);
+                                                    }
+                                                    // Step 2: Print bill with confirmation dialog
+                                                    final freshOrder = ref.read(activeOrderProvider(selectedTable!.id!)).value;
+                                                    if (freshOrder != null && mounted) {
+                                                      await _printBill(freshOrder, settings);
+                                                    }
+                                                  },
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   );
@@ -1971,25 +2030,25 @@ class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
                 items: [
                   DropdownMenuItem(
                     value: 'cash',
-                    child: Text('CASH', style: TextStyle(color: Colors.white)),
+                    child: Text(ref.t('order.paymentCash'), style: const TextStyle(color: Colors.white)),
                   ),
                   DropdownMenuItem(
                     value: 'card',
                     child: Text(
-                      'CREDIT CARD',
-                      style: TextStyle(color: Colors.white),
+                      ref.t('order.paymentCard'),
+                      style: const TextStyle(color: Colors.white),
                     ),
                   ),
                   DropdownMenuItem(
                     value: 'mobile',
                     child: Text(
-                      'MOBILE MONEY',
-                      style: TextStyle(color: Colors.white),
+                      ref.t('order.paymentMobile'),
+                      style: const TextStyle(color: Colors.white),
                     ),
                   ),
                   DropdownMenuItem(
                     value: 'other',
-                    child: Text('OTHER', style: TextStyle(color: Colors.white)),
+                    child: Text(ref.t('order.paymentOther'), style: const TextStyle(color: Colors.white)),
                   ),
                 ],
                 onChanged: (v) {
@@ -2122,15 +2181,17 @@ class _CartItemTile extends ConsumerWidget {
                     Text(
                       item.productName,
                       style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                        letterSpacing: 0.5,
                       ),
                     ),
                     Text(
-                      '${item.unitPrice.toStringAsFixed(2)} × ${item.quantity}',
+                      '${ref.t('bill.unitAmount')}: ${item.unitPrice.toStringAsFixed(2)}  |  ${ref.t('bill.qty')}: ${item.quantity}',
                       style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white54,
+                        fontSize: 12,
+                        color: Colors.white60,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     if (item.notes != null && item.notes!.isNotEmpty)
@@ -2359,7 +2420,7 @@ class _HeldOrdersInlinePanel extends ConsumerWidget {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        order.tableName.toUpperCase(),
+                                        order.tableName,
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w800,
                                           fontSize: 13,

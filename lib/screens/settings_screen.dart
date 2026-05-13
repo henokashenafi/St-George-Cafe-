@@ -712,7 +712,14 @@ class UserManagementScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: Text(ref.t('settings.deleteUser')),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 22),
+            const SizedBox(width: 8),
+            Text(ref.t('settings.deleteUser')),
+          ],
+        ),
         content: Text(
           ref.t(
             'settings.deleteUserConfirm',
@@ -728,6 +735,7 @@ class UserManagementScreen extends ConsumerWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
               foregroundColor: Colors.white,
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             ),
             onPressed: () async {
               await ref.read(posRepositoryProvider).deleteUser(user.id!);
