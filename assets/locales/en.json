@@ -68,7 +68,10 @@
     "waiterHint": "Type waiter name…  (Enter or tap to select)",
     "tableHint": "Type table name…  (Enter or tap to select)",
     "productHint": "Search item…  (Enter when empty = Send to Kitchen)",
-    "heldOrderInfo": "{waiter}  •  {items} items"
+    "heldOrderInfo": "{waiter}  •  {items} items",
+    "printBoth": "Print Order + Bill",
+    "removeConfirm": "Remove Item?",
+    "removeConfirmMessage": "Remove {product} from the order?"
   },
   "orderConfirm": {
     "title": "Confirm & Print Bill",
@@ -197,6 +200,7 @@
   "reports": {
     "printSummary": "PRINT SUMMARY",
     "exportCsv": "EXPORT CSV",
+    "exportExcel": "EXPORT EXCEL",
     "salesByCategory": "SALES BY CATEGORY",
     "orderTypeDistribution": "ORDER TYPE DISTRIBUTION",
     "shiftClosingHistory": "SHIFT CLOSING HISTORY",
@@ -217,7 +221,26 @@
     "allWaiters": "All Waiters",
     "customRange": "Custom Range",
     "summary": "Summary",
-    "details": "Details"
+    "details": "Details",
+    "itemSalesDetail": "ITEM SALES DETAIL",
+    "byTable": "BY TABLE",
+    "byWaiter": "BY WAITER",
+    "byWaiterDetail": "BY WAITER (DETAIL)",
+    "transactionAudit": "TRANSACTION AUDIT",
+    "item": "Item",
+    "qty": "Qty",
+    "unitPrice": "Unit Price",
+    "revenue": "Revenue",
+    "time": "Time",
+    "id": "ID",
+    "total": "Total",
+    "tableOrders": "Orders",
+    "exportSuccess": "File saved successfully",
+    "exportFailed": "Export failed",
+    "deleteConfirmTitle": "Delete Item",
+    "deleteWaiterConfirm": "Remove waiter \"{name}\"? This cannot be undone.",
+    "deleteCategoryConfirm": "Remove category \"{name}\"? All products inside will also be deleted.",
+    "deleteProductConfirm": "Remove product \"{name}\"?"
   },
   "charges": {
     "add": "Add Charge",

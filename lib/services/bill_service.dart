@@ -1,9 +1,9 @@
-import 'package:flutter/foundation.dart' show kIsWeb; // Triggering recompile
+import 'package:flutter/foundation.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/models/charge.dart';
@@ -12,6 +12,25 @@ import 'package:st_george_pos/models/z_report.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
 
 class BillService {
+  static pw.Font? _fontRegular;
+  static pw.Font? _fontBold;
+
+  static Future<pw.ThemeData> _getEthiopicTheme() async {
+    if (_fontRegular == null || _fontBold == null) {
+      final regularData =
+          await rootBundle.load('assets/fonts/NotoSansEthiopic-Regular.ttf');
+      final boldData =
+          await rootBundle.load('assets/fonts/NotoSansEthiopic-Bold.ttf');
+      _fontRegular = pw.Font.ttf(regularData);
+      _fontBold = pw.Font.ttf(boldData);
+    }
+    return pw.ThemeData.withFont(
+      base: _fontRegular!,
+      bold: _fontBold!,
+      italic: _fontRegular!,
+    );
+  }
+
   // ── Kitchen Slip PDF (A5 compact) ────────────────────────────────────────
 
   static Future<bool> generateKitchenSlip({
@@ -21,22 +40,21 @@ class BillService {
     String? printerName,
   }) async {
     debugPrint('Starting Kitchen Slip PDF Generation...');
-    // Force English for printing
-    String t(String key, {Map<String, String>? replacements}) => 
-        AppLocalizations.getEnglish(key, replacements: replacements);
+    // Use active locale for receipts (Amharic when set)
+    String t(String key, {Map<String, String>? replacements}) =>
+        AppLocalizations.getAmharic(key, replacements: replacements);
 
     final pdf = pw.Document();
     final now = DateTime.now();
     final timeStr = DateFormat('HH:mm').format(now);
     final dateStr = DateFormat('dd/MM/yyyy').format(now);
 
-    // Use Helvetica as fallback (Ethiopic requires bundled TTF)
-    final font = pw.Font.helvetica();
+    final theme = await _getEthiopicTheme();
 
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.roll80,
-        theme: pw.ThemeData.withFont(base: font),
+        theme: theme,
         margin: const pw.EdgeInsets.all(12),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -127,7 +145,7 @@ class BillService {
             pw.SizedBox(height: 10),
             pw.Center(
               child: pw.Text(
-                'Powered by Askuala',
+                'Powered by Askualalink',
                 style: pw.TextStyle(
                   fontSize: 12,
                   fontWeight: pw.FontWeight.bold,
@@ -158,9 +176,9 @@ class BillService {
     required List<ChargeModel> activeCharges,
     String? printerName,
   }) async {
-    // Force English for printing
-    String t(String key, {Map<String, String>? replacements}) => 
-        AppLocalizations.getEnglish(key, replacements: replacements);
+    // Use active locale for receipts (Amharic when set)
+    String t(String key, {Map<String, String>? replacements}) =>
+        AppLocalizations.getAmharic(key, replacements: replacements);
 
     final pdf = pw.Document();
     final now = DateTime.now();
@@ -168,8 +186,7 @@ class BillService {
     final voucherNo =
         'RCS-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${(order.id ?? 0).toString().padLeft(3, '0')}';
 
-    // Use Helvetica as fallback (Ethiopic requires bundled TTF)
-    final font = pw.Font.helvetica();
+    final theme = await _getEthiopicTheme();
 
     final subtotal = items.fold(0.0, (s, i) => s + i.subtotal);
 
@@ -203,7 +220,7 @@ class BillService {
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.roll80,
-        theme: pw.ThemeData.withFont(base: font),
+        theme: theme,
         margin: const pw.EdgeInsets.all(10),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -255,7 +272,7 @@ class BillService {
             pw.Row(
               children: [
                 pw.Expanded(
-                  flex: 3,
+                  flex: 4,
                   child: pw.Text(
                     t('bill.description'),
                     style: pw.TextStyle(
@@ -264,7 +281,7 @@ class BillService {
                     ),
                   ),
                 ),
-                pw.Expanded(
+                pw.SizedBox(width: 20,
                   child: pw.Text(
                     t('bill.qty'),
                     textAlign: pw.TextAlign.center,
@@ -274,8 +291,17 @@ class BillService {
                     ),
                   ),
                 ),
-                pw.Expanded(
-                  flex: 2,
+                pw.SizedBox(width: 36,
+                  child: pw.Text(
+                    t('bill.price'),
+                    textAlign: pw.TextAlign.right,
+                    style: pw.TextStyle(
+                      fontSize: 8,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(width: 40,
                   child: pw.Text(
                     t('bill.total'),
                     textAlign: pw.TextAlign.right,
@@ -294,21 +320,30 @@ class BillService {
                 child: pw.Row(
                   children: [
                     pw.Expanded(
-                      flex: 3,
+                      flex: 4,
                       child: pw.Text(
                         item.productName,
                         style: const pw.TextStyle(fontSize: 9),
                       ),
                     ),
-                    pw.Expanded(
+                    pw.SizedBox(
+                      width: 20,
                       child: pw.Text(
                         '${item.quantity}',
                         textAlign: pw.TextAlign.center,
                         style: const pw.TextStyle(fontSize: 9),
                       ),
                     ),
-                    pw.Expanded(
-                      flex: 2,
+                    pw.SizedBox(
+                      width: 36,
+                      child: pw.Text(
+                        _fmt(item.unitPrice),
+                        textAlign: pw.TextAlign.right,
+                        style: const pw.TextStyle(fontSize: 9),
+                      ),
+                    ),
+                    pw.SizedBox(
+                      width: 40,
                       child: pw.Text(
                         _fmt(item.subtotal),
                         textAlign: pw.TextAlign.right,
@@ -341,7 +376,7 @@ class BillService {
             pw.SizedBox(height: 10),
             pw.Center(
               child: pw.Text(
-                'Thank you for visiting!',
+                t('bill.thankYou'),
                 style: pw.TextStyle(
                   fontSize: 8,
                   fontWeight: pw.FontWeight.bold,
@@ -350,7 +385,7 @@ class BillService {
             ),
             pw.Center(
               child: pw.Text(
-                'Powered by Askuala',
+                'Powered by Askualalink',
                 style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
               ),
             ),
@@ -385,12 +420,12 @@ class BillService {
     required CafeSettings settings,
     bool isZReport = false,
   }) async {
-    // Force English for printing
+    // FORCE Amharic for printing
     String t(String key, {Map<String, String>? replacements}) => 
-        AppLocalizations.getEnglish(key, replacements: replacements);
+        AppLocalizations.getAmharic(key, replacements: replacements);
 
     final pdf = pw.Document();
-    final font = pw.Font.helvetica();
+    final theme = await _getEthiopicTheme();
 
     final header = reportData['report_header'] as Map<String, dynamic>;
     final sales = reportData['sales_totals'] as Map<String, dynamic>;
@@ -401,7 +436,7 @@ class BillService {
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.roll80,
-        theme: pw.ThemeData.withFont(base: font),
+        theme: theme,
         margin: const pw.EdgeInsets.all(10),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -456,7 +491,7 @@ class BillService {
             pw.Divider(),
 
             // ── Financial Totals ─────────────────────────────────────────
-            _sectionHeader('FINANCIAL TOTALS'),
+            _sectionHeader(t('reports.financialTotals')),
             _totalRow('Gross Sales', sales['gross_sales'], fontSize: 9),
             _totalRow('Discounts', -sales['discounts'], fontSize: 9),
             _totalRow('Service Chg', sales['service_charge'], fontSize: 9),
@@ -476,14 +511,14 @@ class BillService {
             pw.Divider(),
 
             // ── Payments ─────────────────────────────────────────────────
-            _sectionHeader('PAYMENT METHODS'),
+            _sectionHeader(t('reports.paymentMethods')),
             ...payments.entries.map(
               (e) => _totalRow(e.key.toUpperCase(), e.value, fontSize: 9),
             ),
             pw.Divider(),
 
             // ── Item Sales ───────────────────────────────────────────────
-            _sectionHeader('TOP ITEM SALES'),
+            _sectionHeader(t('reports.topItemSales')),
             ...items.entries.take(15).map((e) {
               final val = e.value as Map<String, dynamic>;
               return pw.Row(
@@ -511,7 +546,7 @@ class BillService {
             // ── Order Details (by Waiter) ──────────────────────────────
             if (reportData.containsKey('orders_detail') &&
                 (reportData['orders_detail'] as List).isNotEmpty) ...[
-              _sectionHeader('ORDER DETAILS BY WAITER'),
+              _sectionHeader(t('reports.orderDetailsByWaiter')),
               pw.SizedBox(height: 4),
               ...() {
                 final ordersList = (reportData['orders_detail'] as List)
@@ -544,7 +579,7 @@ class BillService {
                             ),
                           ),
                           pw.Text(
-                            '${entry.value.length} orders',
+                            '${entry.value.length} ${t('order.items')}',
                             style: pw.TextStyle(
                               fontSize: 7,
                               color: PdfColors.grey400,
@@ -745,7 +780,7 @@ class BillService {
             ],
 
             // ── Cash Reconciliation ──────────────────────────────────────
-            _sectionHeader('CASH RECONCILIATION'),
+            _sectionHeader(t('reports.cashReconciliation')),
             _totalRow('Opening Float', cashRec['opening_float'], fontSize: 9),
             _totalRow('Expected Cash', cashRec['expected_cash'], fontSize: 9),
             if (isZReport) ...[
@@ -776,7 +811,7 @@ class BillService {
             ),
             pw.Center(
               child: pw.Text(
-                'Powered by Askuala',
+                'Powered by Askualalink',
                 style: const pw.TextStyle(fontSize: 8),
               ),
             ),
@@ -966,7 +1001,7 @@ class BillService {
 
   static String _intToWords(int n) {
     String t(String key, {Map<String, String>? replacements}) => 
-        AppLocalizations.getEnglish(key, replacements: replacements);
+        AppLocalizations.getAmharic(key, replacements: replacements);
 
     if (n == 0) return t('common.numbers.zero');
     const ones = [

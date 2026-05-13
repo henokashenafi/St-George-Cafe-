@@ -9,6 +9,7 @@ enum AppLanguage { en, am }
 class AppLocalizations {
   static Map<String, dynamic> _translations = {};
   static Map<String, dynamic> _fallbackTranslations = {};
+  static Map<String, dynamic> _amTranslations = {};
   static AppLanguage _currentLanguage = AppLanguage.en;
   
   static const String _prefKey = 'app_language';
@@ -20,11 +21,18 @@ class AppLocalizations {
       final String enJsonString = await rootBundle.loadString('$_assetPath/en.json');
       _fallbackTranslations = json.decode(enJsonString);
 
+      // Always load Amharic for printing support
+      try {
+        final String amJsonString = await rootBundle.loadString('$_assetPath/am.json');
+        _amTranslations = json.decode(amJsonString);
+      } catch (e) {
+        _amTranslations = _fallbackTranslations;
+      }
+
       if (language == AppLanguage.en) {
         _translations = _fallbackTranslations;
       } else {
-        final String jsonString = await rootBundle.loadString('$_assetPath/${language.name}.json');
-        _translations = json.decode(jsonString);
+        _translations = _amTranslations;
       }
       
       _currentLanguage = language;
@@ -46,13 +54,14 @@ class AppLocalizations {
       if (savedLang != null) {
         return AppLanguage.values.firstWhere(
           (e) => e.name == savedLang,
-          orElse: () => AppLanguage.en,
+          orElse: () => AppLanguage.am,
         );
       }
     } catch (e) {
       print('Error reading saved language: $e');
     }
-    return AppLanguage.en;
+    // Default to Amharic for St. George Cafe
+    return AppLanguage.am;
   }
   
   static String get(String key) {
@@ -113,8 +122,16 @@ class AppLocalizations {
   }
 
   static String getEnglish(String key, {Map<String, String>? replacements}) {
+    return _getByMap(_fallbackTranslations, key, replacements);
+  }
+
+  static String getAmharic(String key, {Map<String, String>? replacements}) {
+    return _getByMap(_amTranslations, key, replacements);
+  }
+
+  static String _getByMap(Map<String, dynamic> map, String key, Map<String, String>? replacements) {
     final keys = key.split('.');
-    dynamic value = _fallbackTranslations;
+    dynamic value = map;
     bool found = true;
     for (final k in keys) {
       if (value is Map<String, dynamic> && value.containsKey(k)) {

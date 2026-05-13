@@ -122,9 +122,10 @@ class _TablesTab extends ConsumerWidget {
                       t.zoneName != null
                           ? '${ref.t('tables.zone')}: ${t.zoneName}'
                           : ref.t('tables.noZoneAssigned'),
-                      style: const TextStyle(
-                        color: Colors.white38,
+                      style: TextStyle(
+                        color: t.zoneName != null ? Colors.white38 : Colors.orangeAccent.withOpacity(0.7),
                         fontSize: 12,
+                        fontWeight: t.zoneName != null ? FontWeight.normal : FontWeight.bold,
                       ),
                     ),
                     trailing: Row(
@@ -302,7 +303,14 @@ class _TablesTab extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: Text(ref.t('tables.deleteTable')),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 22),
+            const SizedBox(width: 8),
+            Text(ref.t('tables.deleteTable')),
+          ],
+        ),
         content: Text(
           ref.t(
             'tables.deleteTableConfirm',
@@ -318,6 +326,7 @@ class _TablesTab extends ConsumerWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
               foregroundColor: Colors.white,
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             ),
             onPressed: () async {
               await ref.read(posRepositoryProvider).deleteTable(table.id!);
@@ -556,7 +565,14 @@ class _ZonesTab extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: Text(ref.t('tables.deleteZone')),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 22),
+            const SizedBox(width: 8),
+            Text(ref.t('tables.deleteZone')),
+          ],
+        ),
         content: Text(
           ref.t('tables.deleteZoneConfirm', replacements: {'name': zone.name}),
         ),
@@ -569,6 +585,7 @@ class _ZonesTab extends ConsumerWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
               foregroundColor: Colors.white,
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             ),
             onPressed: () async {
               await ref.read(posRepositoryProvider).deleteTableZone(zone.id!);
