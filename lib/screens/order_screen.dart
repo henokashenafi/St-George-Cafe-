@@ -387,12 +387,15 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
       }
 
       OrderModel? order = existingOrder;
+      SystemLogService.log('Validation passed. Order exists: ${order != null}');
       if (order == null) {
         if (selectedWaiter == null) {
           TopToaster.show(context, ref.t('order.selectWaiter'), isError: true);
           return null;
         }
+        SystemLogService.log('Fetching current user...');
         final currentUser = ref.read(authProvider)!;
+        SystemLogService.log('User found: ${currentUser.username}. Creating new order...');
         SystemLogService.log('Creating new order for table ${selectedTable?.id}...');
         order = await ref
             .read(activeOrderServiceProvider)
@@ -465,6 +468,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
       }
       setState(() => localItems = []);
       return order;
+    } catch (e, st) {
+      SystemLogService.log('ERROR in _sendToKitchen: $e\n$st');
+      TopToaster.show(context, 'Critical Error: $e', isError: true);
+      return null;
     } finally {
       if (mounted) {
         setState(() => _isProcessing = false);
