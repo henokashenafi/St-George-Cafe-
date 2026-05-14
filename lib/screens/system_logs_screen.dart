@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:st_george_pos/services/system_log_service.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
+import 'package:st_george_pos/core/database_helper.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
@@ -58,6 +59,15 @@ class _SystemLogsScreenState extends State<SystemLogsScreen> {
                 Text(
                   'Log File: $_logFilePath',
                   style: const TextStyle(fontSize: 10, color: Colors.white38),
+                ),
+                FutureBuilder<int>(
+                  future: DatabaseHelper().database.then((db) => db.getVersion()),
+                  builder: (context, snapshot) {
+                    return Text(
+                      'Database Schema Version: ${snapshot.data ?? "..."}',
+                      style: const TextStyle(fontSize: 10, color: Colors.white38),
+                    );
+                  },
                 ),
               ],
             ),
