@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'package:sqflite_common/sqlite_api.dart';
+import 'package:st_george_pos/services/system_log_service.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -37,6 +38,7 @@ class DatabaseHelper {
       databaseFactory = databaseFactoryFfi;
       final appDocumentsDir = await getApplicationDocumentsDirectory();
       dbPath = join(appDocumentsDir.path, 'st_george_pos.db');
+      SystemLogService.log('Initializing SQLite database at: $dbPath');
     }
 
     return await databaseFactory.openDatabase(
@@ -55,6 +57,7 @@ class DatabaseHelper {
   }
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    SystemLogService.log('UPGRADING database from version $oldVersion to $newVersion');
     if (oldVersion < 2) {
       await db.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -175,6 +178,7 @@ class DatabaseHelper {
   }
 
   Future _onCreate(Database db, int version) async {
+    SystemLogService.log('CREATING fresh database version $version');
     await db.execute('''
       CREATE TABLE categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:st_george_pos/services/system_log_service.dart';
 import 'package:st_george_pos/core/widgets/glass_container.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 class SystemLogsScreen extends StatefulWidget {
   const SystemLogsScreen({super.key});
@@ -66,6 +69,11 @@ class _SystemLogsScreenState extends State<SystemLogsScreen> {
                   tooltip: 'Refresh Logs',
                 ),
                 IconButton(
+                  icon: const Icon(Icons.storage, size: 20, color: Colors.orangeAccent),
+                  onPressed: () => _confirmDeleteDatabase(context),
+                  tooltip: 'Delete Database (DANGEROUS)',
+                ),
+                IconButton(
                   icon: const Icon(Icons.delete_outline, size: 20, color: Colors.redAccent),
                   onPressed: () {
                     SystemLogService.clear();
@@ -110,5 +118,47 @@ class _SystemLogsScreenState extends State<SystemLogsScreen> {
         );
       },
     );
+  }
+
+  Future<void> _confirmDeleteDatabase(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('DELETE DATABASE?'),
+        content: const Text(
+            'This will WIPE ALL DATA (orders, waiters, products, settings) and close the app. You will need to restart the app manually to create a fresh database.\n\nAre you absolutely sure?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('DELETE EVERYTHING'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final docDir = await getApplicationDocumentsDirectory();
+        final dbFile = File(p.join(docDir.path, 'st_george_pos.db'));
+        if (await dbFile.exists()) {
+          await dbFile.delete();
+          SystemLogService.log('Database deleted successfully.');
+        }
+        // Force exit so the user restarts with a clean state
+        exit(0);
+      } catch (e) {
+        SystemLogService.log('Error deleting database: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      }
+    }
   }
 }
