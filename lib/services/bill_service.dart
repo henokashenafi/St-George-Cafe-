@@ -428,6 +428,257 @@ class BillService {
     );
   }
 
+  static pw.Widget _buildStationSlip(
+    String stationName,
+    List<OrderItem> stationItems,
+    int roundNumber,
+    OrderModel order,
+    String Function(String, {Map<String, String>? replacements}) t,
+  ) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Center(
+          child: pw.Text(
+            stationName.toUpperCase(),
+            style: pw.TextStyle(
+              fontSize: 16,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+        ),
+        pw.Center(
+          child: pw.Text(
+            t('print.roundNumber', replacements: {'n': '$roundNumber'}),
+            style: pw.TextStyle(
+              fontSize: 14,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+        ),
+        pw.SizedBox(height: 6),
+        pw.Divider(thickness: 1.5),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              '${t('print.table')}: ${order.tableName}',
+              style: pw.TextStyle(
+                fontSize: 12,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.Text(
+              '#${order.id ?? "—"}',
+              style: const pw.TextStyle(fontSize: 10),
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 4),
+        ...stationItems.map(
+          (item) => pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(vertical: 2),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  '${item.quantity} x  ${_ln(item.productName, item.productNameAmharic)}',
+                  style: pw.TextStyle(
+                    fontSize: 13,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                if (item.notes != null && item.notes!.isNotEmpty)
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.only(left: 15, top: 1),
+                    child: pw.Text(
+                      '>> ${item.notes}',
+                      style: pw.TextStyle(
+                        fontSize: 9,
+                        fontStyle: pw.FontStyle.italic,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static List<pw.Widget> _buildCustomerReceipt(
+    List<OrderItem> receiptItems,
+    OrderModel order,
+    CafeSettings settings,
+    String voucherNo,
+    String dateStr,
+    double subtotal,
+    double discount,
+    double grandTotal,
+    List<Map<String, dynamic>> appliedCharges,
+    String cafeName,
+    String Function(String, {Map<String, String>? replacements}) t,
+  ) {
+    return [
+      pw.Center(
+        child: pw.Text(
+          cafeName.toUpperCase(),
+          style: pw.TextStyle(
+            fontSize: 16,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+      ),
+      if (settings.address.isNotEmpty)
+        pw.Center(
+          child: pw.Text(
+            settings.address,
+            style: const pw.TextStyle(fontSize: 8),
+          ),
+        ),
+      if (settings.phone.isNotEmpty)
+        pw.Center(
+          child: pw.Text(
+            'Tel: ${settings.phone}',
+            style: const pw.TextStyle(fontSize: 8),
+          ),
+        ),
+      pw.SizedBox(height: 10),
+      pw.Center(
+        child: pw.Text(
+          t('bill.cashSalesInvoice').toUpperCase(),
+          style: pw.TextStyle(
+            fontSize: 10,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+      ),
+      pw.Divider(thickness: 0.5),
+      _infoRow(t('bill.date'), dateStr, fontSize: 9),
+      _infoRow(t('bill.voucher'), voucherNo, fontSize: 9),
+      _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 9),
+      _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 9),
+      pw.Divider(thickness: 0.5),
+      pw.Row(
+        children: [
+          pw.Expanded(
+            flex: 4,
+            child: pw.Text(
+              t('bill.description'),
+              style: pw.TextStyle(
+                fontSize: 8,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+          ),
+          pw.SizedBox(width: 20,
+            child: pw.Text(
+              t('bill.qty'),
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(
+                fontSize: 8,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+          ),
+          pw.SizedBox(width: 36,
+            child: pw.Text(
+              t('bill.price'),
+              textAlign: pw.TextAlign.right,
+              style: pw.TextStyle(
+                fontSize: 8,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+          ),
+          pw.SizedBox(width: 40,
+            child: pw.Text(
+              t('bill.total'),
+              textAlign: pw.TextAlign.right,
+              style: pw.TextStyle(
+                fontSize: 8,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+      pw.SizedBox(height: 4),
+      ...receiptItems.map(
+        (item) => pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(vertical: 2),
+          child: pw.Row(
+            children: [
+              pw.Expanded(
+                flex: 4,
+                child: pw.Text(
+                  _ln(item.productName, item.productNameAmharic),
+                  style: const pw.TextStyle(fontSize: 9),
+                ),
+              ),
+              pw.SizedBox(
+                width: 20,
+                child: pw.Text(
+                  '${item.quantity}',
+                  textAlign: pw.TextAlign.center,
+                  style: const pw.TextStyle(fontSize: 9),
+                ),
+              ),
+              pw.SizedBox(
+                width: 36,
+                child: pw.Text(
+                  _fmt(item.unitPrice),
+                  textAlign: pw.TextAlign.right,
+                  style: const pw.TextStyle(fontSize: 9),
+                ),
+              ),
+              pw.SizedBox(
+                width: 40,
+                child: pw.Text(
+                  _fmt(item.subtotal),
+                  textAlign: pw.TextAlign.right,
+                  style: const pw.TextStyle(fontSize: 9),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      pw.Divider(thickness: 0.5),
+      _totalRow(t('bill.subtotal'), subtotal, fontSize: 9),
+      ...appliedCharges.where((c) => (c['amount'] as num).abs() > 0.01).map(
+        (c) => _totalRow(c['name'], c['amount'], fontSize: 9),
+      ),
+      if (discount > 0)
+        _totalRow(t('bill.discount'), -discount, fontSize: 9),
+      pw.SizedBox(height: 4),
+      _totalRow(
+        t('bill.grandTotal'),
+        grandTotal,
+        bold: true,
+        fontSize: 12,
+      ),
+      pw.Divider(thickness: 1),
+      pw.SizedBox(height: 10),
+      pw.Center(
+        child: pw.Text(
+          t('bill.thankYou'),
+          style: pw.TextStyle(
+            fontSize: 8,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+      ),
+      pw.Center(
+        child: pw.Text(
+          t('reports.poweredBy'),
+          style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+        ),
+      ),
+    ];
+  }
+
   static Future<bool> generateCombinedSlipAndBill({
     required OrderModel order,
     required List<OrderItem> kitchenItems,
@@ -442,7 +693,6 @@ class BillService {
     String t(String key, {Map<String, String>? replacements}) =>
         AppLocalizations.getAmharic(key, replacements: replacements);
 
-    final pdf = pw.Document();
     final now = DateTime.now();
     final timeStr = DateFormat('HH:mm').format(now);
     final dateStr = DateFormat('dd/MM/yyyy').format(now);
@@ -483,273 +733,114 @@ class BillService {
         ? settings.name
         : 'ST GEORGE CAFE';
 
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.roll80,
-        theme: theme,
-        margin: const pw.EdgeInsets.all(10),
-        build: (ctx) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            // ==========================================
-            // PART 1: KITCHEN SLIP(S)
-            // ==========================================
-            if (kitchenItems.isNotEmpty) ...[
-              ...groupedKitchen.entries.map((entry) {
-                final stationItems = entry.value;
-                final stationName = stationItems.first.stationName ?? t('print.kitchenOrder');
-                
-                return pw.Column(
-                  children: [
-                    pw.Center(
-                      child: pw.Text(
-                        stationName.toUpperCase(),
-                        style: pw.TextStyle(
-                          fontSize: 16,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    pw.Center(
-                      child: pw.Text(
-                        t('print.roundNumber', replacements: {'n': '$roundNumber'}),
-                        style: pw.TextStyle(
-                          fontSize: 14,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    pw.SizedBox(height: 6),
-                    pw.Divider(thickness: 1.5),
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text(
-                          '${t('print.table')}: ${order.tableName}',
-                          style: pw.TextStyle(
-                            fontSize: 12,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                        pw.Text(
-                          '#${order.id ?? "—"}',
-                          style: const pw.TextStyle(fontSize: 10),
-                        ),
-                      ],
-                    ),
-                    pw.SizedBox(height: 4),
-                    ...stationItems.map(
-                      (item) => pw.Padding(
-                        padding: const pw.EdgeInsets.symmetric(vertical: 2),
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.Text(
-                              '${item.quantity} x  ${_ln(item.productName, item.productNameAmharic)}',
-                              style: pw.TextStyle(
-                                fontSize: 13,
-                                fontWeight: pw.FontWeight.bold,
-                              ),
-                            ),
-                            if (item.notes != null && item.notes!.isNotEmpty)
-                              pw.Padding(
-                                padding: const pw.EdgeInsets.only(left: 15, top: 1),
-                                child: pw.Text(
-                                  '>> ${item.notes}',
-                                  style: pw.TextStyle(
-                                    fontSize: 9,
-                                    fontStyle: pw.FontStyle.italic,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    pw.SizedBox(height: 10),
-                    pw.Center(
-                      child: pw.Text(
-                        '-------------------- ✂ --------------------',
-                        style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
-                      ),
-                    ),
-                    pw.SizedBox(height: 15),
-                  ],
-                );
-              }),
-            ],
+    final bool isSilentPrinting = !kIsWeb && printerName != null && printerName.isNotEmpty;
+    bool allSuccess = true;
 
-            // ==========================================
-            // PART 2: CUSTOMER RECEIPT
-            // ==========================================
-            if (receiptItems.isNotEmpty) ...[
-              pw.Center(
-                child: pw.Text(
-                  cafeName.toUpperCase(),
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
+    if (isSilentPrinting) {
+      // ── SEQUENTIAL PRINTING (One job per station/receipt to force hardware cut) ──
+      for (final entry in groupedKitchen.entries) {
+        final stationItems = entry.value;
+        final stationName = stationItems.first.stationName ?? t('print.kitchenOrder');
+
+        final pdf = pw.Document();
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.roll80,
+            theme: theme,
+            margin: const pw.EdgeInsets.all(10),
+            build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t),
+          ),
+        );
+
+        final success = await _printDocument(
+          pdf: pdf,
+          documentName: 'Station_${stationName}_${voucherNo}.pdf',
+          printerName: printerName,
+          format: PdfPageFormat.roll80,
+        );
+        if (!success) allSuccess = false;
+        
+        // Brief delay to ensure OS print spooler sequences them cleanly
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
+
+      if (receiptItems.isNotEmpty) {
+        final pdf = pw.Document();
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.roll80,
+            theme: theme,
+            margin: const pw.EdgeInsets.all(10),
+            build: (ctx) => pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: _buildCustomerReceipt(
+                receiptItems, order, settings, voucherNo, dateStr,
+                subtotal, discount, grandTotal, appliedCharges, cafeName, t
               ),
-              if (settings.address.isNotEmpty)
-                pw.Center(
-                  child: pw.Text(
-                    settings.address,
-                    style: const pw.TextStyle(fontSize: 8),
-                  ),
-                ),
-              if (settings.phone.isNotEmpty)
-                pw.Center(
-                  child: pw.Text(
-                    'Tel: ${settings.phone}',
-                    style: const pw.TextStyle(fontSize: 8),
-                  ),
-                ),
-              pw.SizedBox(height: 10),
-              pw.Center(
-                child: pw.Text(
-                  t('bill.cashSalesInvoice').toUpperCase(),
-                  style: pw.TextStyle(
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-              ),
-              pw.Divider(thickness: 0.5),
-              _infoRow(t('bill.date'), dateStr, fontSize: 9),
-              _infoRow(t('bill.voucher'), voucherNo, fontSize: 9),
-              _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 9),
-              _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 9),
-              pw.Divider(thickness: 0.5),
-              pw.Row(
-                children: [
-                  pw.Expanded(
-                    flex: 4,
-                    child: pw.Text(
-                      t('bill.description'),
-                      style: pw.TextStyle(
-                        fontSize: 8,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  pw.SizedBox(width: 20,
-                    child: pw.Text(
-                      t('bill.qty'),
-                      textAlign: pw.TextAlign.center,
-                      style: pw.TextStyle(
-                        fontSize: 8,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  pw.SizedBox(width: 36,
-                    child: pw.Text(
-                      t('bill.price'),
-                      textAlign: pw.TextAlign.right,
-                      style: pw.TextStyle(
-                        fontSize: 8,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  pw.SizedBox(width: 40,
-                    child: pw.Text(
-                      t('bill.total'),
-                      textAlign: pw.TextAlign.right,
-                      style: pw.TextStyle(
-                        fontSize: 8,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              pw.SizedBox(height: 4),
-              ...receiptItems.map(
-                (item) => pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(vertical: 2),
-                  child: pw.Row(
+            ),
+          ),
+        );
+
+        final success = await _printDocument(
+          pdf: pdf,
+          documentName: 'Receipt_${voucherNo}.pdf',
+          printerName: printerName,
+          format: PdfPageFormat.roll80,
+        );
+        if (!success) allSuccess = false;
+      }
+    } else {
+      // ── COMBINED PRINTING (Fallback to single document to avoid multiple UI popups) ──
+      final pdf = pw.Document();
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.roll80,
+          theme: theme,
+          margin: const pw.EdgeInsets.all(10),
+          build: (ctx) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              if (kitchenItems.isNotEmpty) ...[
+                ...groupedKitchen.entries.map((entry) {
+                  final stationItems = entry.value;
+                  final stationName = stationItems.first.stationName ?? t('print.kitchenOrder');
+                  
+                  return pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Expanded(
-                        flex: 4,
+                      _buildStationSlip(stationName, stationItems, roundNumber, order, t),
+                      pw.SizedBox(height: 10),
+                      pw.Center(
                         child: pw.Text(
-                          _ln(item.productName, item.productNameAmharic),
-                          style: const pw.TextStyle(fontSize: 9),
+                          '-------------------- ✂ --------------------',
+                          style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
                         ),
                       ),
-                      pw.SizedBox(
-                        width: 20,
-                        child: pw.Text(
-                          '${item.quantity}',
-                          textAlign: pw.TextAlign.center,
-                          style: const pw.TextStyle(fontSize: 9),
-                        ),
-                      ),
-                      pw.SizedBox(
-                        width: 36,
-                        child: pw.Text(
-                          _fmt(item.unitPrice),
-                          textAlign: pw.TextAlign.right,
-                          style: const pw.TextStyle(fontSize: 9),
-                        ),
-                      ),
-                      pw.SizedBox(
-                        width: 40,
-                        child: pw.Text(
-                          _fmt(item.subtotal),
-                          textAlign: pw.TextAlign.right,
-                          style: const pw.TextStyle(fontSize: 9),
-                        ),
-                      ),
+                      pw.SizedBox(height: 15),
                     ],
-                  ),
+                  );
+                }),
+              ],
+              if (receiptItems.isNotEmpty) ...[
+                ..._buildCustomerReceipt(
+                  receiptItems, order, settings, voucherNo, dateStr,
+                  subtotal, discount, grandTotal, appliedCharges, cafeName, t
                 ),
-              ),
-              pw.Divider(thickness: 0.5),
-              _totalRow(t('bill.subtotal'), subtotal, fontSize: 9),
-              ...appliedCharges.where((c) => (c['amount'] as num).abs() > 0.01).map(
-                (c) => _totalRow(c['name'], c['amount'], fontSize: 9),
-              ),
-              if (discount > 0)
-                _totalRow(t('bill.discount'), -discount, fontSize: 9),
-              pw.SizedBox(height: 4),
-              _totalRow(
-                t('bill.grandTotal'),
-                grandTotal,
-                bold: true,
-                fontSize: 12,
-              ),
-              pw.Divider(thickness: 1),
-              pw.SizedBox(height: 10),
-              pw.Center(
-                child: pw.Text(
-                  t('bill.thankYou'),
-                  style: pw.TextStyle(
-                    fontSize: 8,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-              ),
-              pw.Center(
-                child: pw.Text(
-                  t('reports.poweredBy'),
-                  style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
-                ),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
-      ),
-    );
+      );
 
-    return _printDocument(
-      pdf: pdf,
-      documentName: 'CombinedPrint_${voucherNo}.pdf',
-      printerName: printerName,
-      format: PdfPageFormat.roll80,
-    );
+      allSuccess = await _printDocument(
+        pdf: pdf,
+        documentName: 'CombinedPrint_${voucherNo}.pdf',
+        printerName: printerName,
+        format: PdfPageFormat.roll80,
+      );
+    }
+
+    return allSuccess;
   }
 
   // ── X/Z Report Printing ──────────────────────────────────────────────────

@@ -476,7 +476,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           }
         }
       }
-      setState(() => localItems = []);
+      setState(() {
+        localItems = [];
+        _kitchenPrinted = true;
+      });
       return order;
     } finally {
       if (mounted) {

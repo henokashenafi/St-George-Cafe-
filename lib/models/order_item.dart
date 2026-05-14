@@ -85,6 +85,8 @@ class OrderItem {
       'id': id,
       'order_id': orderId,
       'product_id': productId,
+      'product_name': productName,
+      'product_name_amharic': productNameAmharic,
       'quantity': quantity,
       'unit_price': unitPrice,
       'subtotal': subtotal,
