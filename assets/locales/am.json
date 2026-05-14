@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "ቅዱስ ጊዮርጊስ ካፌ",
+    "title": "ልዳ ካፌ",
     "pos": "መሸጫ"
   },
   "auth": {
@@ -476,7 +476,7 @@
     "thankYou": "ስለመጡ እናመሰግናለን!"
   },
   "bill": {
-    "stGeorgeCafe": "ቅዱስ ጊዮርጊስ ካፌ",
+    "stGeorgeCafe": "ልዳ ካፌ",
     "address": "አዲስ አበባ, ኢትዮጵያ",
     "title": "የደንበኛ ሂሳብ",
     "date": "ቀን",
@@ -513,14 +513,14 @@
     "total": "ድምር",
     "grandTotal": "ጠቅላላ ድምር",
     "thankYou": "ለመጎብኘት አመሰግናለሁ!",
-    "stGeorgeCafe": "ቅዱስ ጊዮርጊስ ካፌ",
+    "stGeorgeCafe": "ልዳ ካፌ",
     "address": "ባህር ዳር, ኢትዮጵያ",
     "orderNumber": "ትዕዛዝ",
     "roundNumber": "ዙር #{n}",
     "items": "{count} እቃ(ዎች)"
   },
   "cafe": {
-    "name": "ቅዱስ ጊዮርጊስ ካፌ",
+    "name": "ልዳ ካፌ",
     "address": "አዲስ አበባ, ኢትዮጵያ",
     "phone": "+251 911 000000"
   },

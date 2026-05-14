@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'package:sqflite_common/sqlite_api.dart';
+import 'package:st_george_pos/services/system_log_service.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -37,12 +38,13 @@ class DatabaseHelper {
       databaseFactory = databaseFactoryFfi;
       final appDocumentsDir = await getApplicationDocumentsDirectory();
       dbPath = join(appDocumentsDir.path, 'st_george_pos.db');
+      SystemLogService.log('Initializing SQLite database at: $dbPath');
     }
 
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 11,
+        version: 12,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -55,6 +57,7 @@ class DatabaseHelper {
   }
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    SystemLogService.log('UPGRADING database from version $oldVersion to $newVersion');
     if (oldVersion < 2) {
       await db.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -165,9 +168,22 @@ class DatabaseHelper {
       await db.execute("UPDATE pos_charges SET name_amharic = 'ቫት' WHERE name = 'VAT'");
       await db.execute("UPDATE pos_charges SET name_amharic = 'የአገልግሎት ክፍያ' WHERE name = 'Service Charge'");
     }
+    if (oldVersion < 11) {
+      await db.execute('ALTER TABLE orders ADD COLUMN table_name TEXT');
+      await db.execute('ALTER TABLE orders ADD COLUMN table_name_amharic TEXT');
+      await db.execute('ALTER TABLE orders ADD COLUMN waiter_name TEXT');
+      await db.execute('ALTER TABLE orders ADD COLUMN waiter_name_amharic TEXT');
+      await db.execute('ALTER TABLE orders ADD COLUMN cashier_name TEXT');
+    }
+    if (oldVersion < 12) {
+      await db.execute('ALTER TABLE order_items ADD COLUMN product_name TEXT');
+      await db.execute('ALTER TABLE order_items ADD COLUMN product_name_amharic TEXT');
+      await db.execute('ALTER TABLE order_items ADD COLUMN category_name TEXT');
+    }
   }
 
   Future _onCreate(Database db, int version) async {
+    SystemLogService.log('CREATING fresh database version $version');
     await db.execute('''
       CREATE TABLE categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -235,6 +251,11 @@ class DatabaseHelper {
         discount_amount REAL DEFAULT 0.0,
         payment_method TEXT DEFAULT 'cash',
         shift_id INTEGER,
+        table_name TEXT,
+        table_name_amharic TEXT,
+        waiter_name TEXT,
+        waiter_name_amharic TEXT,
+        cashier_name TEXT,
         FOREIGN KEY (table_id) REFERENCES tables (id),
         FOREIGN KEY (waiter_id) REFERENCES waiters (id),
         FOREIGN KEY (cashier_id) REFERENCES users (id),
@@ -280,6 +301,9 @@ class DatabaseHelper {
         station_id INTEGER,
         station_name TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        product_name TEXT,
+        product_name_amharic TEXT,
+        category_name TEXT,
         FOREIGN KEY (order_id) REFERENCES orders (id),
         FOREIGN KEY (product_id) REFERENCES products (id)
       )

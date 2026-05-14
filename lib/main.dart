@@ -18,6 +18,7 @@ import 'package:st_george_pos/services/pos_repository.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:st_george_pos/widgets/language_switcher.dart';
 import 'package:st_george_pos/screens/audit_logs_screen.dart';
+import 'package:st_george_pos/screens/system_logs_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:st_george_pos/core/widgets/top_toaster.dart';
 
@@ -42,7 +43,7 @@ void main() async {
           center: true,
           backgroundColor: Colors.transparent,
           skipTaskbar: false,
-          title: "St George Cafe POS",
+          title: "Lda Cafe POS",
           titleBarStyle: TitleBarStyle.normal,
         );
         windowManager.waitUntilReadyToShow(windowOptions, () async {
@@ -75,7 +76,7 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
 
     return MaterialApp(
-      title: 'St George Cafe POS',
+      title: 'Lda Cafe POS',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.dark,
       theme: ThemeData(
@@ -359,6 +360,16 @@ class DashboardScreen extends ConsumerWidget {
                                 DashboardView.auditLogs,
                       ),
                       _SidebarItem(
+                        icon: Icons.bug_report_outlined,
+                        label: 'SYSTEM',
+                        isActive:
+                            ref.watch(dashboardViewProvider) ==
+                            DashboardView.systemLogs,
+                        onTap: () =>
+                            ref.read(dashboardViewProvider.notifier).state =
+                                DashboardView.systemLogs,
+                      ),
+                      _SidebarItem(
                         icon: Icons.tune,
                         label: ref.t('navigation.settings'),
                         isActive:
@@ -459,6 +470,8 @@ class DashboardScreen extends ConsumerWidget {
           return SettingsScreen(key: const ValueKey('settings'));
         case DashboardView.auditLogs:
           return const AuditLogsScreen(key: ValueKey('audit'));
+        case DashboardView.systemLogs:
+          return const SystemLogsScreen(key: ValueKey('system_logs'));
         default:
           return const OrderScreen(key: ValueKey('home'));
       }

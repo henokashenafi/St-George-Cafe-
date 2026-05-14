@@ -9,7 +9,7 @@ class CafeSettings {
   final String defaultPrinterName;
 
   CafeSettings({
-    this.name = 'ST GEORGE CAFE',
+    this.name = 'LDA CAFE',
     this.address = 'Addis Ababa, Ethiopia',
     this.phone = '+251 911 000000',
     this.vatNumber = '1234567890',
@@ -52,7 +52,7 @@ class CafeSettings {
 
   factory CafeSettings.fromMap(Map<String, dynamic> map) {
     return CafeSettings(
-      name: map['name'] ?? 'ST GEORGE CAFE',
+      name: map['name'] ?? 'LDA CAFE',
       address: map['address'] ?? 'Addis Ababa, Ethiopia',
       phone: map['phone'] ?? '+251 911 000000',
       vatNumber: map['vatNumber'] ?? '1234567890',

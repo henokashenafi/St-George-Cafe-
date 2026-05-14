@@ -11,6 +11,7 @@ import 'package:st_george_pos/models/waiter.dart';
 import 'package:st_george_pos/services/bill_service.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:st_george_pos/services/audit_service.dart';
+import 'package:st_george_pos/services/system_log_service.dart';
 import 'package:st_george_pos/core/widgets/top_toaster.dart';
 import 'package:st_george_pos/models/station.dart';
 import '../models/charge.dart';
@@ -385,6 +386,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     if (localItems.isEmpty) return null;
     
     setState(() => _isProcessing = true);
+    SystemLogService.log('Starting _sendToKitchen for Table: ${selectedTable?.name}');
     try {
       TopToaster.show(context, ref.t('reports.processing'), isError: false);
 
@@ -394,12 +396,16 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
       }
 
       OrderModel? order = existingOrder;
+      SystemLogService.log('Validation passed. Order exists: ${order != null}');
       if (order == null) {
         if (selectedWaiter == null) {
           TopToaster.show(context, ref.t('order.selectWaiter'), isError: true);
           return null;
         }
+        SystemLogService.log('Fetching current user...');
         final currentUser = ref.read(authProvider)!;
+        SystemLogService.log('User found: ${currentUser.username}. Creating new order...');
+        SystemLogService.log('Creating new order for table ${selectedTable?.id}...');
         order = await ref
             .read(activeOrderServiceProvider)
             .createNewOrder(
@@ -414,6 +420,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                 updatedAt: DateTime.now(),
               ),
             );
+        SystemLogService.log('Order created: ID #${order?.id}');
       }
       if (order != null) {
         final itemsToPrint = localItems
@@ -421,9 +428,11 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             .toList();
 
         TopToaster.show(context, ref.t('reports.saving'), isError: false);
+        SystemLogService.log('Adding items to order #${order.id}...');
         final roundNumber = await ref
             .read(activeOrderServiceProvider)
             .addItems(order.id!, itemsToPrint, selectedTable!.id!);
+        SystemLogService.log('Items added. Round: $roundNumber');
 
         bool printed = true;
         if (!skipPrint) {
@@ -481,6 +490,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         _kitchenPrinted = true;
       });
       return order;
+    } catch (e, st) {
+      SystemLogService.log('ERROR in _sendToKitchen: $e\n$st');
+      TopToaster.show(context, 'Critical Error: $e', isError: true);
+      return null;
     } finally {
       if (mounted) {
         setState(() => _isProcessing = false);
