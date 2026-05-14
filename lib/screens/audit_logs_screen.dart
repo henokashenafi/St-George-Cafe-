@@ -104,7 +104,7 @@ class AuditLogsScreen extends ConsumerWidget {
                                     borderRadius: BorderRadius.zero,
                                   ),
                                   child: Text(
-                                    'UID: ${log['user_id']}',
+                                    '${ref.t('audit.userId')}: ${log['user_id']}',
                                     style: const TextStyle(
                                       fontSize: 10,
                                       color: Colors.white38,

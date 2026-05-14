@@ -248,7 +248,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
               style: const TextStyle(color: Colors.white),
               textInputAction: TextInputAction.next,
               decoration: InputDecoration(
-                labelText: ref.t('management.name') + ' (English)',
+                labelText: '${ref.t('management.name')} ${ref.t('common.english')}',
                 labelStyle: const TextStyle(color: Colors.white54),
               ),
             ),
@@ -258,7 +258,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
               style: const TextStyle(color: Colors.white),
               textInputAction: TextInputAction.done,
               decoration: InputDecoration(
-                labelText: ref.t('management.name') + ' (አማርኛ)',
+                labelText: '${ref.t('management.name')} ${ref.t('common.amharic')}',
                 labelStyle: const TextStyle(color: Colors.white54),
               ),
               onSubmitted: (_) => doSave(ctx),
@@ -343,7 +343,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                 style: const TextStyle(color: Colors.white),
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
-                  labelText: ref.t('management.productName') + ' (English)',
+                  labelText: '${ref.t('management.productName')} ${ref.t('common.english')}',
                   labelStyle: const TextStyle(color: Colors.white54),
                 ),
                 onSubmitted: (_) => amharicFocus.requestFocus(),
@@ -355,7 +355,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                 style: const TextStyle(color: Colors.white),
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
-                  labelText: ref.t('management.productName') + ' (አማርኛ)',
+                  labelText: '${ref.t('management.productName')} ${ref.t('common.amharic')}',
                   labelStyle: const TextStyle(color: Colors.white54),
                 ),
                 onSubmitted: (_) => priceFocus.requestFocus(),
@@ -677,7 +677,7 @@ class _WaiterManagementScreenState extends ConsumerState<WaiterManagementScreen>
               style: const TextStyle(color: Colors.white),
               textInputAction: TextInputAction.next,
               decoration: InputDecoration(
-                labelText: ref.t('management.waiterNameLabel') + ' (English)',
+                labelText: '${ref.t('management.waiterNameLabel')} ${ref.t('common.english')}',
                 labelStyle: const TextStyle(color: Colors.white54),
               ),
             ),
@@ -687,7 +687,7 @@ class _WaiterManagementScreenState extends ConsumerState<WaiterManagementScreen>
               style: const TextStyle(color: Colors.white),
               textInputAction: TextInputAction.done,
               decoration: InputDecoration(
-                labelText: ref.t('management.waiterNameLabel') + ' (አማርኛ)',
+                labelText: '${ref.t('management.waiterNameLabel')} ${ref.t('common.amharic')}',
                 labelStyle: const TextStyle(color: Colors.white54),
               ),
               onSubmitted: (_) => doAdd(ctx),
@@ -1870,19 +1870,19 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
       childAspectRatio: 2.5,
       children: [
         _KpiCard(
-          label: 'TOTAL REVENUE',
+          label: ref.t('reports.totalRevenue'),
           value: '${revenue.toStringAsFixed(2)} ETB',
           icon: Icons.payments_outlined,
           color: const Color(0xFFD4AF37),
         ),
         _KpiCard(
-          label: 'TOTAL ORDERS',
+          label: ref.t('reports.totalOrders'),
           value: '$orders',
           icon: Icons.receipt_outlined,
           color: Colors.blueAccent,
         ),
         _KpiCard(
-          label: 'AVERAGE TICKET',
+          label: ref.t('reports.averageTicket'),
           value: '${atv.toStringAsFixed(2)} ETB',
           icon: Icons.analytics_outlined,
           color: Colors.greenAccent,
@@ -1915,7 +1915,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
     final header = reportData['report_header'] as Map<String, dynamic>;
     header['opening_time'] = filter.from?.toIso8601String() ?? DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
     header['closing_time'] = filter.to?.toIso8601String() ?? DateTime.now().toIso8601String();
-    header['report_type'] = 'X REPORT (ANALYSIS)';
+    header['report_type'] = ref.t('reports.xReportAnalysis');
 
     reportData['orders_detail'] = completed.map((o) => {
       'id': o.id,
@@ -1940,7 +1940,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
     if (path != null) {
       toastification.show(
         context: context,
-        title: Text(kIsWeb ? 'Download Started' : 'Exported to Documents'),
+        title: Text(kIsWeb ? ref.t('reports.downloadStarted') : ref.t('reports.exportedToDocs')),
         description: kIsWeb ? null : Text(path),
         autoCloseDuration: const Duration(seconds: 5),
         type: ToastificationType.success,
@@ -2269,21 +2269,21 @@ class _OrderAuditList extends ConsumerWidget {
   }
 }
 
-class _DateFilterChips extends StatelessWidget {
+class _DateFilterChips extends ConsumerWidget {
   final DateFilter filter;
   final Function(DateFilter) onChanged;
 
   const _DateFilterChips({required this.filter, required this.onChanged});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Row(
       children: [
-        _filterChip('TODAY', DateFilter.today()),
+        _filterChip(ref.t('common.today'), DateFilter.today()),
         const SizedBox(width: 8),
-        _filterChip('YESTERDAY', DateFilter.yesterday()),
+        _filterChip(ref.t('common.yesterday'), DateFilter.yesterday()),
         const SizedBox(width: 8),
-        _filterChip('THIS WEEK', DateFilter.thisWeek()),
+        _filterChip(ref.t('common.thisWeek'), DateFilter.thisWeek()),
       ],
     );
   }
@@ -2411,7 +2411,7 @@ class ChargeManagementScreen extends ConsumerWidget {
                 controller: nameCtrl,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  labelText: '${ref.t('charges.nameHint')} (English)',
+                  labelText: '${ref.t('charges.nameHint')} ${ref.t('common.english')}',
                   labelStyle: const TextStyle(color: Colors.white54),
                 ),
               ),
@@ -2420,7 +2420,7 @@ class ChargeManagementScreen extends ConsumerWidget {
                 controller: nameAmharicCtrl,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  labelText: '${ref.t('charges.nameHint')} (አማርኛ)',
+                  labelText: '${ref.t('charges.nameHint')} ${ref.t('common.amharic')}',
                   labelStyle: const TextStyle(color: Colors.white54),
                 ),
               ),

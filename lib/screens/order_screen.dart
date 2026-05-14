@@ -49,6 +49,11 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   double _discountAmount = 0;
   String _paymentMethod = 'cash';
   bool _isProcessing = false;
+  
+  // Track print state for current order
+  bool _kitchenPrinted = false;
+  bool _billPrinted = false;
+  bool _bothPrinted = false;
   TableModel? get selectedTable => ref.watch(selectedTableProvider);
 
   @override
@@ -136,6 +141,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     setState(() {
       currentStep = OrderAssistantStep.product;
       _assistantController.clear();
+      // Reset print state for new order
+      _kitchenPrinted = false;
+      _billPrinted = false;
+      _bothPrinted = false;
     });
   }
 
@@ -568,6 +577,12 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           TopToaster.show(context, ref.t('reports.receiptGenerated'));
         }
 
+        // Mark bill as printed and disable other print options
+        setState(() {
+          _billPrinted = true;
+          _bothPrinted = true; // If bill is printed, both is effectively printed
+        });
+
         ref.refresh(tablesProvider);
         ref.read(selectedTableProvider.notifier).set(null);
         ref.read(dashboardViewProvider.notifier).state = DashboardView.home;
@@ -712,6 +727,13 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           TopToaster.show(context, ref.t('reports.combinedPrintGenerated'));
         }
 
+        // Mark all as printed since we printed both
+        setState(() {
+          _kitchenPrinted = true;
+          _billPrinted = true;
+          _bothPrinted = true;
+        });
+
         ref.refresh(tablesProvider);
         ref.read(selectedTableProvider.notifier).set(null);
         ref.read(dashboardViewProvider.notifier).state = DashboardView.home;
@@ -736,7 +758,15 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
 
     // Sync currentStep when selectedTable changes (e.g. from held orders)
     ref.listen(selectedTableProvider, (prev, next) {
-      if (next != null && currentStep == OrderAssistantStep.waiter) {
+      // Only reset print state when switching TO a new table (not when clearing)
+      if (next != null && next.id != prev?.id) {
+        setState(() {
+          currentStep = OrderAssistantStep.product;
+          _kitchenPrinted = false;
+          _billPrinted = false;
+          _bothPrinted = false;
+        });
+      } else if (next != null && currentStep == OrderAssistantStep.waiter) {
         setState(() {
           currentStep = OrderAssistantStep.product;
         });
@@ -893,6 +923,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                             selectedWaiter = null;
                             _discountAmount = 0;
                             _assistantController.clear();
+                            // Clear print state
+                            _kitchenPrinted = false;
+                            _billPrinted = false;
+                            _bothPrinted = false;
                           });
                         },
                         tooltip: ref.t('order.clearNewOrder'),
@@ -1595,8 +1629,9 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                 (t) => DropdownMenuItem(
                                                   value: t.id,
                                                   child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
                                                     children: [
-                                                      Expanded(
+                                                      Flexible(
                                                         child: Text(
                                                           ref.ln(t.name,
                                                               t.nameAmharic),
@@ -1939,10 +1974,12 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                               Expanded(
                                                 child: ElevatedButton(
                                                   style: ElevatedButton.styleFrom(
-                                                    backgroundColor: const Color(
-                                                      0xFF006B3C,
-                                                    ),
-                                                    foregroundColor: Colors.white,
+                                                    backgroundColor: (_billPrinted || _bothPrinted)
+                                                        ? Colors.white12
+                                                        : const Color(0xFF006B3C),
+                                                    foregroundColor: (_billPrinted || _bothPrinted)
+                                                        ? Colors.white30
+                                                        : Colors.white,
                                                     padding:
                                                         const EdgeInsets.symmetric(
                                                           vertical: 18,
@@ -1954,9 +1991,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                         ),
                                                   ),
                                                   onPressed:
-                                                      (_isProcessing || activeOrderAsync.value ==
-                                                              null ||
-                                                          selectedTable == null)
+                                                      (_isProcessing || activeOrderAsync.value == null ||
+                                                          selectedTable == null || _billPrinted || _bothPrinted)
                                                       ? null
                                                       : () async {
                                                         final settings = ref.read(appSettingsProvider).value ?? {};
@@ -1980,20 +2016,29 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                           SizedBox(
                                             width: double.infinity,
                                             child: ElevatedButton.icon(
-                                              icon: const Icon(Icons.print_outlined, size: 18),
+                                              icon: Icon(
+                                                _bothPrinted ? Icons.check_circle_outline : Icons.print_outlined,
+                                                size: 18,
+                                              ),
                                               label: Text(
-                                                ref.t('order.printBoth'),
+                                                _bothPrinted
+                                                    ? ref.t('reports.combinedPrintGenerated')
+                                                    : ref.t('order.printBoth'),
                                                 style: const TextStyle(fontWeight: FontWeight.bold),
                                               ),
                                               style: ElevatedButton.styleFrom(
-                                                backgroundColor: const Color(0xFF1A3A5C),
-                                                foregroundColor: Colors.white,
+                                                backgroundColor: _bothPrinted
+                                                    ? Colors.white12
+                                                    : const Color(0xFF1A3A5C),
+                                                foregroundColor: _bothPrinted
+                                                    ? Colors.white30
+                                                    : Colors.white,
                                                 padding: const EdgeInsets.symmetric(vertical: 14),
                                                 shape: const RoundedRectangleBorder(
                                                   borderRadius: BorderRadius.zero,
                                                 ),
                                               ),
-                                              onPressed: (_isProcessing || selectedTable == null || (activeOrderAsync.value == null && localItems.isEmpty))
+                                              onPressed: (_isProcessing || _bothPrinted || selectedTable == null || (activeOrderAsync.value == null && localItems.isEmpty))
                                                   ? null
                                                   : () async {
                                                       final settings = ref.read(appSettingsProvider).value ?? {};
@@ -2440,9 +2485,9 @@ class _HeldOrdersInlinePanel extends ConsumerWidget {
                     size: 16,
                   ),
                   const SizedBox(width: 8),
-                  const Text(
-                    'HELD ORDERS',
-                    style: TextStyle(
+                  Text(
+                    ref.t('order.heldOrders'),
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.5,
@@ -2453,9 +2498,9 @@ class _HeldOrdersInlinePanel extends ConsumerWidget {
                   TextButton.icon(
                     onPressed: () => ref.invalidate(ordersProvider),
                     icon: const Icon(Icons.refresh, size: 13),
-                    label: const Text(
-                      'REFRESH',
-                      style: TextStyle(fontSize: 10),
+                    label: Text(
+                      ref.t('order.refresh'),
+                      style: const TextStyle(fontSize: 10),
                     ),
                     style: TextButton.styleFrom(
                       foregroundColor: Colors.white24,
@@ -2488,9 +2533,9 @@ class _HeldOrdersInlinePanel extends ConsumerWidget {
                             color: Colors.white.withOpacity(0.08),
                           ),
                           const SizedBox(width: 8),
-                          const Text(
-                            'No pending orders',
-                            style: TextStyle(
+                          Text(
+                            ref.t('order.noPendingOrders'),
+                            style: const TextStyle(
                               color: Colors.white12,
                               fontSize: 12,
                             ),
@@ -2620,15 +2665,15 @@ class _HeldOrdersInlinePanel extends ConsumerWidget {
 }
 // ── Quick Quantity Picker Dialog ──────────────────────────────────────────
 
-class _QuickQtyDialog extends StatefulWidget {
+class _QuickQtyDialog extends ConsumerStatefulWidget {
   final Product product;
   const _QuickQtyDialog({required this.product});
 
   @override
-  State<_QuickQtyDialog> createState() => _QuickQtyDialogState();
+  ConsumerState<_QuickQtyDialog> createState() => _QuickQtyDialogState();
 }
 
-class _QuickQtyDialogState extends State<_QuickQtyDialog> {
+class _QuickQtyDialogState extends ConsumerState<_QuickQtyDialog> {
   int qty = 1;
   late TextEditingController _ctrl;
   final FocusNode _focusNode = FocusNode();
@@ -2706,13 +2751,13 @@ class _QuickQtyDialogState extends State<_QuickQtyDialog> {
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
               ),
-              decoration: const InputDecoration(
-                hintText: 'Enter Quantity',
-                hintStyle: TextStyle(color: Colors.white10, fontSize: 16),
-                enabledBorder: UnderlineInputBorder(
+              decoration: InputDecoration(
+                hintText: ref.t('order.enterQuantity'),
+                hintStyle: const TextStyle(color: Colors.white10, fontSize: 16),
+                enabledBorder: const UnderlineInputBorder(
                   borderSide: BorderSide(color: Colors.white10),
                 ),
-                focusedBorder: UnderlineInputBorder(
+                focusedBorder: const UnderlineInputBorder(
                   borderSide: BorderSide(color: Color(0xFFD4AF37)),
                 ),
               ),

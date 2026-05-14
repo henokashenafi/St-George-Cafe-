@@ -226,10 +226,6 @@ class DashboardScreen extends ConsumerWidget {
               ref.invalidate(appSettingsProvider);
               ref.invalidate(cafeSettingsProvider);
               
-              // Reset UI state to home
-              ref.read(dashboardViewProvider.notifier).state = DashboardView.home;
-              ref.read(selectedTableProvider.notifier).set(null);
-              
               TopToaster.show(context, ref.t('common.refreshing'), isError: false);
             },
           ),

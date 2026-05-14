@@ -16,6 +16,12 @@ class BillService {
   static pw.Font? _fontRegular;
   static pw.Font? _fontBold;
 
+  /// Call this to clear cached fonts (e.g. after a hot restart in dev)
+  static void resetFontCache() {
+    _fontRegular = null;
+    _fontBold = null;
+  }
+
   static Future<pw.ThemeData> _getEthiopicTheme() async {
     if (_fontRegular == null || _fontBold == null) {
       final regularData =
@@ -152,7 +158,7 @@ class BillService {
             pw.SizedBox(height: 10),
             pw.Center(
               child: pw.Text(
-                'Powered by Askualalink',
+                t('reports.poweredBy'),
                 style: pw.TextStyle(
                   fontSize: 12,
                   fontWeight: pw.FontWeight.bold,
@@ -392,7 +398,7 @@ class BillService {
             ),
             pw.Center(
               child: pw.Text(
-                'Powered by Askualalink',
+                t('reports.poweredBy'),
                 style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
               ),
             ),
@@ -705,7 +711,7 @@ class BillService {
             ),
             pw.Center(
               child: pw.Text(
-                'Powered by Askualalink',
+                t('reports.poweredBy'),
                 style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
               ),
             ),
@@ -1131,7 +1137,7 @@ class BillService {
             ),
             pw.Center(
               child: pw.Text(
-                'Powered by Askualalink',
+                t('reports.poweredBy'),
                 style: const pw.TextStyle(fontSize: 8),
               ),
             ),
