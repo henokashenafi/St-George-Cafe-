@@ -14,7 +14,7 @@ import 'package:st_george_pos/models/settings.dart';
 import 'package:st_george_pos/models/shift.dart';
 import 'package:st_george_pos/models/z_report.dart';
 
-enum DashboardView { home, tables, orders, heldOrders, menu, waiters, reports, settings, users, auditLogs, pos, charges }
+enum DashboardView { home, tables, orders, heldOrders, menu, waiters, reports, settings, users, auditLogs, pos, charges, systemLogs }
 
 // ── Repository & Services ─────────────────────────────────────────────────
 

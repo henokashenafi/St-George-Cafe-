@@ -10,6 +10,8 @@ import 'package:st_george_pos/models/order_item.dart';
 import 'package:st_george_pos/models/charge.dart';
 import 'package:st_george_pos/models/settings.dart';
 import 'package:st_george_pos/models/z_report.dart';
+import 'package:st_george_pos/services/audit_service.dart';
+import 'package:st_george_pos/services/system_log_service.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
 
 class BillService {
@@ -1167,7 +1169,7 @@ class BillService {
 
     // ── Web: always use browser print dialog ────────────────────────────────
     if (kIsWeb) {
-      debugPrint('[Print] Web detected, using layoutPdf for browser dialog...');
+      SystemLogService.log('[Print] Web detected, using layoutPdf for browser dialog...');
       try {
         await Printing.layoutPdf(
           onLayout: (_) async => pdfBytes,
@@ -1179,7 +1181,7 @@ class BillService {
         );
         return true;
       } catch (e) {
-        debugPrint('[Print] layoutPdf error on Web: $e');
+        SystemLogService.log('[Print] layoutPdf error on Web: $e');
         return false;
       }
     }
@@ -1188,15 +1190,15 @@ class BillService {
     // This sends silently to the Windows print spooler with no dialog.
     if (printerName != null && printerName.isNotEmpty) {
       try {
-        debugPrint('[Print] Listing printers for direct print...');
+        SystemLogService.log('[Print] Listing printers for direct print...');
         final printers = await Printing.listPrinters().timeout(
           const Duration(seconds: 4),
           onTimeout: () {
-            debugPrint('[Print] listPrinters timed out after 4s');
+            SystemLogService.log('[Print] listPrinters timed out after 4s');
             return [];
           },
         );
-        debugPrint('[Print] Found ${printers.length} printer(s): '
+        SystemLogService.log('[Print] Found ${printers.length} printer(s): '
             '${printers.map((p) => p.name).join(', ')}');
 
         if (printers.isNotEmpty) {
@@ -1222,32 +1224,57 @@ class BillService {
           }
           target ??= printers.first;
 
-          debugPrint('[Print] Sending to: "${target.name}"');
-          final success = await Printing.directPrintPdf(
-            printer: target,
-            onLayout: (_) async => pdfBytes,
-            name: documentName,
-            format: format,
-          );
-          debugPrint('[Print] directPrintPdf result: $success');
+          SystemLogService.log('[Print] Sending to: "${target.name}" with 6s timeout...');
+          
+          bool success = false;
+          try {
+            // directPrintPdf returns FutureOr<bool>. We wrap it in Future.value
+            // to ensure we can use the .timeout() method.
+            success = await Future.value(Printing.directPrintPdf(
+              printer: target,
+              onLayout: (_) async => pdfBytes,
+              name: documentName,
+              format: format,
+            )).timeout(
+              const Duration(seconds: 6),
+              onTimeout: () {
+                SystemLogService.log('[Print] directPrintPdf timed out after 6s');
+                return false;
+              },
+            );
+          } catch (e) {
+            SystemLogService.log('[Print] directPrintPdf error: $e');
+            success = false;
+          }
+
+          SystemLogService.log('[Print] directPrintPdf result: $success');
           if (success) return true;
-          debugPrint('[Print] directPrintPdf returned false, falling back to layoutPdf');
+          SystemLogService.log('[Print] directPrintPdf did not succeed, falling back to layoutPdf');
         }
       } catch (e) {
-        debugPrint('[Print] directPrintPdf error: $e — falling back to layoutPdf');
+        SystemLogService.log('[Print] Error in direct print flow: $e — falling back to layoutPdf');
       }
     }
 
     // ── Fallback: layoutPdf opens the system print dialog ───────────────────
     // This is the original working behaviour before the POS config change.
     // Used when: no printer configured, printer not found, or direct print fails.
-    debugPrint('[Print] Opening system print dialog via layoutPdf...');
-    await Printing.layoutPdf(
-      onLayout: (_) async => pdfBytes,
-      name: documentName,
-      format: format,
-    );
-    return true;
+    SystemLogService.log('[Print] Opening system print dialog via layoutPdf...');
+    try {
+      await Printing.layoutPdf(
+        onLayout: (_) async => pdfBytes,
+        name: documentName,
+        // IMPORTANT: On Windows Desktop, forcing the 'format' (like roll80) in the 
+        // fallback dialog can sometimes cause the preview to crash or fail to 
+        // appear if the system default printer doesn't support that size.
+        // On Desktop fallback, we use A4 which is globally supported.
+        format: kIsWeb ? format : PdfPageFormat.a4,
+      );
+      return true;
+    } catch (e) {
+      SystemLogService.log('[Print] layoutPdf fatal error: $e');
+      return false;
+    }
   }
 
   static pw.Widget _sectionHeader(String title) => pw.Padding(
