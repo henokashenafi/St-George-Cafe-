@@ -61,7 +61,10 @@ class _SystemLogsScreenState extends State<SystemLogsScreen> {
                   style: const TextStyle(fontSize: 10, color: Colors.white38),
                 ),
                 FutureBuilder<int>(
-                  future: DatabaseHelper().database.then((db) => db.getVersion()),
+                  future: DatabaseHelper().database.then((db) async {
+                    final res = await db.rawQuery('PRAGMA user_version');
+                    return res.first.values.first as int;
+                  }),
                   builder: (context, snapshot) {
                     return Text(
                       'Database Schema Version: ${snapshot.data ?? "..."}',
