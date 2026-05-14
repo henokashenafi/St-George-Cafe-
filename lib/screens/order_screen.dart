@@ -376,6 +376,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     if (localItems.isEmpty) return null;
     
     setState(() => _isProcessing = true);
+    SystemLogService.log('Starting _sendToKitchen for Table: ${selectedTable?.name}');
     try {
       TopToaster.show(context, ref.t('reports.processing'), isError: false);
 
@@ -391,6 +392,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           return null;
         }
         final currentUser = ref.read(authProvider)!;
+        SystemLogService.log('Creating new order for table ${selectedTable?.id}...');
         order = await ref
             .read(activeOrderServiceProvider)
             .createNewOrder(
@@ -405,6 +407,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                 updatedAt: DateTime.now(),
               ),
             );
+        SystemLogService.log('Order created: ID #${order?.id}');
       }
       if (order != null) {
         final itemsToPrint = localItems
@@ -412,9 +415,11 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             .toList();
 
         TopToaster.show(context, ref.t('reports.saving'), isError: false);
+        SystemLogService.log('Adding items to order #${order.id}...');
         final roundNumber = await ref
             .read(activeOrderServiceProvider)
             .addItems(order.id!, itemsToPrint, selectedTable!.id!);
+        SystemLogService.log('Items added. Round: $roundNumber');
 
         bool printed = true;
         if (!skipPrint) {
