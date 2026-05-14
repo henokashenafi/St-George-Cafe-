@@ -5,6 +5,7 @@ class Product {
   final String? nameAmharic;
   final double price;
   final String? imagePath;
+  final int? stationId;
 
   Product({
     this.id,
@@ -13,6 +14,7 @@ class Product {
     this.nameAmharic,
     required this.price,
     this.imagePath,
+    this.stationId,
   });
 
   Product copyWith({
@@ -22,6 +24,7 @@ class Product {
     String? nameAmharic,
     double? price,
     String? imagePath,
+    int? stationId,
   }) {
     return Product(
       id: id ?? this.id,
@@ -30,6 +33,7 @@ class Product {
       nameAmharic: nameAmharic ?? this.nameAmharic,
       price: price ?? this.price,
       imagePath: imagePath ?? this.imagePath,
+      stationId: stationId ?? this.stationId,
     );
   }
 
@@ -41,6 +45,7 @@ class Product {
       nameAmharic: map['name_amharic'],
       price: (map['price'] as num).toDouble(),
       imagePath: map['image_path'],
+      stationId: map['station_id'],
     );
   }
 
@@ -52,6 +57,7 @@ class Product {
       'name_amharic': nameAmharic,
       'price': price,
       'image_path': imagePath,
+      'station_id': stationId,
     };
   }
 }

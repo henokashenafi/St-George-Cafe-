@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:st_george_pos/models/settings.dart';
 import 'package:st_george_pos/models/shift.dart';
 import 'package:st_george_pos/models/z_report.dart';
+import 'package:st_george_pos/models/station.dart';
 
 class PosRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper();
@@ -28,6 +29,7 @@ class PosRepository {
     'orders': [],
     'order_items': [],
     'waiters': [],
+    'serving_stations': [],
     'users': [
       {
         'id': 1,
@@ -89,13 +91,19 @@ class PosRepository {
       {'id': 4, 'name': 'Soft Drinks'},
     ];
 
+    // Stations
+    _webStorage['serving_stations'] = [
+      {'id': 1, 'name': 'Kitchen', 'name_amharic': 'ወጥ ቤት'},
+      {'id': 2, 'name': 'Bar', 'name_amharic': 'ባር'},
+    ];
+
     // Products
     _webStorage['products'] = [
-      {'id': 1, 'category_id': 1, 'name': 'Macchiato', 'price': 35.0},
-      {'id': 2, 'category_id': 1, 'name': 'Black Coffee', 'price': 25.0},
-      {'id': 3, 'category_id': 2, 'name': 'Black Tea', 'price': 15.0},
-      {'id': 4, 'category_id': 3, 'name': 'Croissant', 'price': 55.0},
-      {'id': 5, 'category_id': 4, 'name': 'Coca Cola', 'price': 30.0},
+      {'id': 1, 'category_id': 1, 'name': 'Macchiato', 'price': 35.0, 'station_id': 1},
+      {'id': 2, 'category_id': 1, 'name': 'Black Coffee', 'price': 25.0, 'station_id': 1},
+      {'id': 3, 'category_id': 2, 'name': 'Black Tea', 'price': 15.0, 'station_id': 1},
+      {'id': 4, 'category_id': 3, 'name': 'Croissant', 'price': 55.0, 'station_id': 1},
+      {'id': 5, 'category_id': 4, 'name': 'Coca Cola', 'price': 30.0, 'station_id': 2},
     ];
 
     // Tables
@@ -585,6 +593,77 @@ class PosRepository {
     final db = await _dbHelper.database;
     await db.delete('categories', where: 'id = ?', whereArgs: [id]);
     await db.delete('products', where: 'category_id = ?', whereArgs: [id]);
+  }
+
+  // ── Stations ──────────────────────────────────────────────────────────────
+
+  Future<List<Station>> getStations() async {
+    if (kIsWeb) {
+      return _webStorage['serving_stations']!
+          .map((s) => Station.fromMap(s))
+          .toList();
+    }
+    final db = await _dbHelper.database;
+    final maps = await db.query('serving_stations');
+    return maps.map((m) => Station.fromMap(m)).toList();
+  }
+
+  Future<int> addStation(String name, {String? nameAmharic, String? printerName}) async {
+    if (kIsWeb) {
+      final id = (_webStorage['serving_stations']!.isEmpty
+              ? 0
+              : _webStorage['serving_stations']!
+                  .map((s) => s['id'] as int)
+                  .reduce((a, b) => a > b ? a : b)) + 1;
+      _webStorage['serving_stations']!.add({
+        'id': id,
+        'name': name,
+        'name_amharic': nameAmharic,
+        'printer_name': printerName,
+      });
+      await _saveWebData();
+      return id;
+    }
+    final db = await _dbHelper.database;
+    return await db.insert('serving_stations', {
+      'name': name,
+      'name_amharic': nameAmharic,
+      'printer_name': printerName,
+    });
+  }
+
+  Future<void> updateStation(Station station) async {
+    if (kIsWeb) {
+      final idx = _webStorage['serving_stations']!
+          .indexWhere((e) => e['id'] == station.id);
+      if (idx != -1) {
+        _webStorage['serving_stations']![idx] = station.toMap();
+        await _saveWebData();
+      }
+      return;
+    }
+    final db = await _dbHelper.database;
+    await db.update(
+      'serving_stations',
+      station.toMap(),
+      where: 'id = ?',
+      whereArgs: [station.id],
+    );
+  }
+
+  Future<void> deleteStation(int id) async {
+    if (kIsWeb) {
+      _webStorage['serving_stations']!.removeWhere((e) => e['id'] == id);
+      for (var p in _webStorage['products']!) {
+        if (p['station_id'] == id) p['station_id'] = null;
+      }
+      await _saveWebData();
+      return;
+    }
+    final db = await _dbHelper.database;
+    await db.delete('serving_stations', where: 'id = ?', whereArgs: [id]);
+    await db.update('products', {'station_id': null},
+        where: 'station_id = ?', whereArgs: [id]);
   }
 
   // ── Products ──────────────────────────────────────────────────────────────

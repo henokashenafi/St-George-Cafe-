@@ -18,6 +18,7 @@ import 'package:intl/intl.dart';
 import 'package:st_george_pos/models/table_model.dart';
 import 'package:st_george_pos/screens/order_screen.dart';
 import 'package:st_george_pos/models/order_item.dart';
+import 'package:st_george_pos/models/station.dart';
 import 'package:st_george_pos/models/charge.dart';
 import 'package:st_george_pos/models/shift.dart';
 import 'package:st_george_pos/models/z_report.dart';
@@ -81,15 +82,79 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
     ref.watch(languageProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
     final productsAsync = ref.watch(productsProvider(selectedCategoryId));
+    final stationsAsync = ref.watch(stationsProvider);
 
     return Row(
       children: [
+        // ── Stations Column ──────────────────────────────────────────────────
         Expanded(
           flex: 1,
           child: GlassContainer(
             opacity: 0.05,
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _Header(
+                    title: ref.t('management.preparationStations'),
+                    onAdd: () => _showStationDialog(context, null),
+                  ),
+                  Expanded(
+                    child: stationsAsync.when(
+                      data: (stations) => ListView.builder(
+                        itemCount: stations.length,
+                        itemBuilder: (_, i) {
+                          final station = stations[i];
+                          return ListTile(
+                            title: Text(
+                              ref.ln(station.name, station.nameAmharic),
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            subtitle: station.printerName != null
+                                ? Text(
+                                    station.printerName!,
+                                    style: const TextStyle(
+                                        fontSize: 10, color: Colors.white38),
+                                  )
+                                : null,
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined,
+                                      size: 16, color: Colors.white30),
+                                  onPressed: () =>
+                                      _showStationDialog(context, station),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline,
+                                      size: 16, color: Colors.redAccent),
+                                  onPressed: () => _deleteStation(station.id!),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Text('${ref.t('common.error')}: $e'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 20),
+        // ── Categories Column ────────────────────────────────────────────────
+        Expanded(
+          flex: 1,
+          child: GlassContainer(
+            opacity: 0.05,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -108,6 +173,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                             title: Text(
                               ref.ln(cat.name, cat.nameAmharic),
                               style: TextStyle(
+                                fontSize: 13,
                                 color: selectedCategoryId == cat.id
                                     ? const Color(0xFFD4AF37)
                                     : Colors.white,
@@ -123,7 +189,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                               icon: const Icon(
                                 Icons.delete_outline,
                                 color: Colors.redAccent,
-                                size: 20,
+                                size: 18,
                               ),
                               onPressed: () => _deleteCategory(cat.id!),
                             ),
@@ -140,13 +206,14 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             ),
           ),
         ),
-        const SizedBox(width: 24),
+        const SizedBox(width: 20),
+        // ── Products Column ──────────────────────────────────────────────────
         Expanded(
           flex: 2,
           child: GlassContainer(
             opacity: 0.05,
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -164,17 +231,20 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                           final p = products[i];
                           return ListTile(
                             leading: Container(
-                              width: 40,
-                              height: 40,
+                              width: 36,
+                              height: 36,
                               color: Colors.white10,
                               child: const Icon(
                                 Icons.fastfood,
                                 color: Color(0xFFD4AF37),
+                                size: 18,
                               ),
                             ),
-                            title: Text(ref.ln(p.name, p.nameAmharic)),
+                            title: Text(ref.ln(p.name, p.nameAmharic),
+                                style: const TextStyle(fontSize: 13)),
                             subtitle: Text(
                               '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
+                              style: const TextStyle(fontSize: 11),
                             ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -183,7 +253,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                                   icon: const Icon(
                                     Icons.edit_outlined,
                                     color: Colors.white54,
-                                    size: 20,
+                                    size: 18,
                                   ),
                                   onPressed: () =>
                                       _showProductDialog(context, p),
@@ -192,7 +262,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                                   icon: const Icon(
                                     Icons.delete_outline,
                                     color: Colors.redAccent,
-                                    size: 20,
+                                    size: 18,
                                   ),
                                   onPressed: () => _deleteProduct(p.id!),
                                 ),
@@ -283,6 +353,157 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
     );
   }
 
+  void _showStationDialog(BuildContext context, Station? existing) {
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final amharicCtrl = TextEditingController(text: existing?.nameAmharic ?? '');
+    String? selectedPrinter = existing?.printerName;
+    List<Printer> availablePrinters = [];
+    bool loadingPrinters = true;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          if (loadingPrinters) {
+            if (kIsWeb) {
+              setState(() {
+                loadingPrinters = false;
+              });
+            } else {
+              Printing.listPrinters().then((list) {
+                if (context.mounted) {
+                  setState(() {
+                    availablePrinters = list;
+                    loadingPrinters = false;
+                  });
+                }
+              }).catchError((e) {
+                if (context.mounted) {
+                  setState(() {
+                    loadingPrinters = false;
+                  });
+                }
+              });
+            }
+          }
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1A1A1A),
+            shape:
+                const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            title: Text(existing == null
+                ? ref.t('management.addStation')
+                : ref.t('management.editStation')),
+            content: SizedBox(
+              width: 400,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: ref.t('management.stationName'),
+                      labelStyle: const TextStyle(color: Colors.white54),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: amharicCtrl,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: ref.t('management.stationNameAmharic'),
+                      labelStyle: const TextStyle(color: Colors.white54),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String?>(
+                    value: selectedPrinter,
+                    dropdownColor: const Color(0xFF1A1A1A),
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: ref.t('management.stationPrinter'),
+                      labelStyle: const TextStyle(color: Colors.white54),
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                          value: null, child: Text(ref.t('management.defaultPrinter'))),
+                      ...availablePrinters.map((p) =>
+                          DropdownMenuItem(value: p.name, child: Text(p.name))),
+                    ],
+                    onChanged: (val) => setState(() => selectedPrinter = val),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(ref.t('common.cancel')),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD4AF37),
+                  foregroundColor: Colors.black,
+                ),
+                onPressed: () async {
+                  if (nameCtrl.text.trim().isEmpty) return;
+                  final repo = ref.read(posRepositoryProvider);
+                  if (existing == null) {
+                    await repo.addStation(
+                      nameCtrl.text.trim(),
+                      nameAmharic: amharicCtrl.text.trim(),
+                      printerName: selectedPrinter,
+                    );
+                  } else {
+                    await repo.updateStation(
+                      existing.copyWith(
+                        name: nameCtrl.text.trim(),
+                        nameAmharic: amharicCtrl.text.trim(),
+                        printerName: selectedPrinter,
+                      ),
+                    );
+                  }
+                  ref.invalidate(stationsProvider);
+                  Navigator.pop(ctx);
+                },
+                child: Text(ref.t('management.save')),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _deleteStation(int id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: Text(ref.t('common.confirm')),
+        content: Text(ref.t('management.deleteConfirm',
+            replacements: {'name': 'this station'})),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(ref.t('common.cancel'))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(ref.t('common.delete'),
+                style: const TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(posRepositoryProvider).deleteStation(id);
+      ref.invalidate(stationsProvider);
+      ref.invalidate(productsProvider(selectedCategoryId));
+    }
+  }
+
   void _showProductDialog(BuildContext context, Product? existing) {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final amharicCtrl = TextEditingController(text: existing?.nameAmharic ?? '');
@@ -291,6 +512,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
     );
     final amharicFocus = FocusNode();
     final priceFocus = FocusNode();
+    int? selectedStationId = existing?.stationId;
 
     Future<void> doSave(BuildContext ctx) async {
       final price = double.tryParse(priceCtrl.text);
@@ -305,6 +527,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             name: nameCtrl.text.trim(),
             nameAmharic: amharicCtrl.text.trim(),
             price: price,
+            stationId: selectedStationId,
           ),
         );
       } else {
@@ -315,6 +538,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             name: nameCtrl.text.trim(),
             nameAmharic: amharicCtrl.text.trim(),
             price: price,
+            stationId: selectedStationId,
           ),
         );
       }
@@ -334,54 +558,68 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
         ),
         content: SizedBox(
           width: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white),
-                textInputAction: TextInputAction.next,
-                decoration: InputDecoration(
-                  labelText: '${ref.t('management.productName')} ${ref.t('common.english')}',
-                  labelStyle: const TextStyle(color: Colors.white54),
-                ),
-                onSubmitted: (_) => amharicFocus.requestFocus(),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: amharicCtrl,
-                focusNode: amharicFocus,
-                style: const TextStyle(color: Colors.white),
-                textInputAction: TextInputAction.next,
-                decoration: InputDecoration(
-                  labelText: '${ref.t('management.productName')} ${ref.t('common.amharic')}',
-                  labelStyle: const TextStyle(color: Colors.white54),
-                ),
-                onSubmitted: (_) => priceFocus.requestFocus(),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: priceCtrl,
-                focusNode: priceFocus,
-                style: const TextStyle(color: Colors.white),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                textInputAction: TextInputAction.done,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-                ],
-                decoration: InputDecoration(
-                  labelText: ref.t(
-                    'management.priceLabel',
-                    replacements: {'currency': ref.t('common.currency')},
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  autofocus: true,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: ref.t('management.productName'),
+                    labelStyle: const TextStyle(color: Colors.white54),
                   ),
-                  labelStyle: const TextStyle(color: Colors.white54),
                 ),
-                onSubmitted: (_) => doSave(ctx),
-              ),
-            ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: amharicCtrl,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText:
+                        '${ref.t('management.productName')} (አማርኛ)',
+                    labelStyle: const TextStyle(color: Colors.white54),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: priceCtrl,
+                  style: const TextStyle(color: Colors.white),
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: ref.t('management.price'),
+                    labelStyle: const TextStyle(color: Colors.white54),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final stationsAsync = ref.watch(stationsProvider);
+                    return stationsAsync.when(
+                      data: (stations) => DropdownButtonFormField<int?>(
+                        value: selectedStationId,
+                        dropdownColor: const Color(0xFF1A1A1A),
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          labelText: ref.t('management.selectStation'),
+                          labelStyle:
+                              const TextStyle(color: Colors.white54),
+                        ),
+                        items: stations
+                            .map((s) => DropdownMenuItem(
+                                  value: s.id,
+                                  child: Text(ref.ln(s.name, s.nameAmharic)),
+                                ))
+                            .toList(),
+                        onChanged: (val) => selectedStationId = val,
+                      ),
+                      loading: () => const LinearProgressIndicator(),
+                      error: (e, _) => Text('Error: $e'),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
         actions: [

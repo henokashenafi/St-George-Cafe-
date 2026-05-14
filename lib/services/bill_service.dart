@@ -51,6 +51,7 @@ class BillService {
     required List<OrderItem> items,
     required int roundNumber,
     String? printerName,
+    String? stationName,
   }) async {
     debugPrint('Starting Kitchen Slip PDF Generation...');
     // Use active locale for receipts (Amharic when set)
@@ -75,7 +76,7 @@ class BillService {
             // ── Header ──────────────────────────────────────────────────
             pw.Center(
               child: pw.Text(
-                t('print.kitchenOrder'),
+                (stationName ?? t('print.kitchenOrder')).toUpperCase(),
                 style: pw.TextStyle(
                   fontSize: 22,
                   fontWeight: pw.FontWeight.bold,
@@ -438,6 +439,12 @@ class BillService {
 
     final theme = await _getEthiopicTheme();
 
+    // Group items by stationId for combined slip part
+    final Map<int?, List<OrderItem>> groupedKitchen = {};
+    for (final item in kitchenItems) {
+      groupedKitchen.putIfAbsent(item.stationId, () => []).add(item);
+    }
+
     final subtotal = receiptItems.fold(0.0, (s, i) => s + i.subtotal);
     final appliedCharges = <Map<String, dynamic>>[];
     double totalAdditions = 0;
@@ -473,88 +480,91 @@ class BillService {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             // ==========================================
-            // PART 1: KITCHEN SLIP
+            // PART 1: KITCHEN SLIP(S)
             // ==========================================
             if (kitchenItems.isNotEmpty) ...[
-              pw.Center(
-                child: pw.Text(
-                  t('print.kitchenOrder'),
-                  style: pw.TextStyle(
-                    fontSize: 22,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-              ),
-              pw.Center(
-                child: pw.Text(
-                  t('print.roundNumber', replacements: {'n': '$roundNumber'}),
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-              ),
-              pw.SizedBox(height: 8),
-              pw.Divider(thickness: 2),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text(
-                    '${t('print.table')}: ${order.tableName}',
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.Text(
-                    '${t('print.orderNumber')}: #${order.id ?? "—"}',
-                    style: const pw.TextStyle(fontSize: 12),
-                  ),
-                ],
-              ),
-              pw.SizedBox(height: 4),
-              _infoRow(t('print.waiter'), _ln(order.waiterName, order.waiterNameAmharic)),
-              _infoRow(t('print.time'), '$timeStr  |  $dateStr'),
-              pw.Divider(thickness: 2),
-              pw.SizedBox(height: 6),
-              ...kitchenItems.map(
-                (item) => pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(vertical: 4),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        '${item.quantity} x  ${_ln(item.productName, item.productNameAmharic)}',
+              ...groupedKitchen.entries.map((entry) {
+                final stationItems = entry.value;
+                final stationName = stationItems.first.stationName ?? t('print.kitchenOrder');
+                
+                return pw.Column(
+                  children: [
+                    pw.Center(
+                      child: pw.Text(
+                        stationName.toUpperCase(),
                         style: pw.TextStyle(
-                          fontSize: 15,
+                          fontSize: 20,
                           fontWeight: pw.FontWeight.bold,
                         ),
                       ),
-                      if (item.notes != null && item.notes!.isNotEmpty)
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.only(left: 20, top: 2),
-                          child: pw.Text(
-                            '>> ${item.notes}',
-                            style: pw.TextStyle(
-                              fontSize: 11,
-                              fontStyle: pw.FontStyle.italic,
-                            ),
+                    ),
+                    pw.Center(
+                      child: pw.Text(
+                        t('print.roundNumber', replacements: {'n': '$roundNumber'}),
+                        style: pw.TextStyle(
+                          fontSize: 14,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    pw.SizedBox(height: 6),
+                    pw.Divider(thickness: 1.5),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          '${t('print.table')}: ${order.tableName}',
+                          style: pw.TextStyle(
+                            fontSize: 12,
+                            fontWeight: pw.FontWeight.bold,
                           ),
                         ),
-                    ],
-                  ),
-                ),
-              ),
-              pw.SizedBox(height: 8),
-              pw.Divider(thickness: 2),
-              pw.SizedBox(height: 20),
-              pw.Center(
-                child: pw.Text(
-                  '-------------------- ✂ --------------------',
-                  style: const pw.TextStyle(fontSize: 12),
-                ),
-              ),
-              pw.SizedBox(height: 20),
+                        pw.Text(
+                          '#${order.id ?? "—"}',
+                          style: const pw.TextStyle(fontSize: 10),
+                        ),
+                      ],
+                    ),
+                    pw.SizedBox(height: 4),
+                    ...stationItems.map(
+                      (item) => pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              '${item.quantity} x  ${_ln(item.productName, item.productNameAmharic)}',
+                              style: pw.TextStyle(
+                                fontSize: 13,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                            if (item.notes != null && item.notes!.isNotEmpty)
+                              pw.Padding(
+                                padding: const pw.EdgeInsets.only(left: 15, top: 1),
+                                child: pw.Text(
+                                  '>> ${item.notes}',
+                                  style: pw.TextStyle(
+                                    fontSize: 9,
+                                    fontStyle: pw.FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    pw.SizedBox(height: 10),
+                    pw.Center(
+                      child: pw.Text(
+                        '-------------------- ✂ --------------------',
+                        style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
+                      ),
+                    ),
+                    pw.SizedBox(height: 15),
+                  ],
+                );
+              }),
             ],
 
             // ==========================================
