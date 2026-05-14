@@ -82,6 +82,8 @@ class OrderItem {
       'notes': notes,
       'kitchen_round': kitchenRound,
       'category_name': categoryName,
+      'product_name': productName,
+      'product_name_amharic': productNameAmharic,
     };
   }
 }
