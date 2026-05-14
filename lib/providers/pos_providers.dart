@@ -13,6 +13,7 @@ import 'package:st_george_pos/services/pos_repository.dart';
 import 'package:st_george_pos/models/settings.dart';
 import 'package:st_george_pos/models/shift.dart';
 import 'package:st_george_pos/models/z_report.dart';
+import 'package:st_george_pos/models/station.dart';
 
 enum DashboardView { home, tables, orders, heldOrders, menu, waiters, reports, settings, users, auditLogs, pos, charges, systemLogs }
 
@@ -95,6 +96,11 @@ final categoriesProvider = FutureProvider<List<Category>>((ref) async {
 final productsProvider = FutureProvider.family<List<Product>, int?>((ref, categoryId) async {
   final repo = ref.watch(posRepositoryProvider);
   return await repo.getProducts(categoryId: categoryId);
+});
+
+final stationsProvider = FutureProvider<List<Station>>((ref) async {
+  final repo = ref.watch(posRepositoryProvider);
+  return await repo.getStations();
 });
 
 final tableZonesProvider = FutureProvider<List<TableZone>>((ref) async {

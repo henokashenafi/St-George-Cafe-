@@ -197,12 +197,13 @@ class DatabaseHelper {
       CREATE TABLE products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         category_id INTEGER,
-        category_ids TEXT,
         name TEXT NOT NULL,
         name_amharic TEXT,
         price REAL NOT NULL,
         image_path TEXT,
-        FOREIGN KEY (category_id) REFERENCES categories (id)
+        station_id INTEGER,
+        FOREIGN KEY (category_id) REFERENCES categories (id),
+        FOREIGN KEY (station_id) REFERENCES serving_stations (id)
       )
     ''');
 
@@ -297,6 +298,8 @@ class DatabaseHelper {
         is_printed_to_kitchen INTEGER DEFAULT 0,
         kitchen_round INTEGER DEFAULT 0,
         notes TEXT,
+        station_id INTEGER,
+        station_name TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         product_name TEXT,
         product_name_amharic TEXT,
@@ -347,6 +350,24 @@ class DatabaseHelper {
       )
     ''');
 
+    await db.execute('''
+      CREATE TABLE serving_stations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        name_amharic TEXT,
+        printer_name TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE serving_stations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        name_amharic TEXT,
+        printer_name TEXT
+      )
+    ''');
+
     await _seedData(db);
     await db.insert('pos_charges', {'name': 'VAT', 'name_amharic': 'ቫት', 'type': 'addition', 'value': 0.0, 'is_active': 1});
     await db.insert('pos_charges', {'name': 'Service Charge', 'name_amharic': 'የአገልግሎት ክፍያ', 'type': 'addition', 'value': 5.0, 'is_active': 1});
@@ -378,6 +399,12 @@ class DatabaseHelper {
     await _seedUsers(db);
     await _seedSettings(db);
     
+    // Seed Stations
+    final kitchenId = await db.insert('serving_stations', {
+      'name': 'Kitchen',
+      'name_amharic': 'ወጥ ቤት',
+    });
+
     // Seed Categories
     final catIds = <String, int>{};
     for (var cat in ['Coffee', 'Tea', 'Pastries', 'Soft Drinks']) {
@@ -403,6 +430,7 @@ class DatabaseHelper {
         'category_id': catIds[p['category']],
         'name': p['name'],
         'price': p['price'],
+        'station_id': kitchenId,
       });
     }
 

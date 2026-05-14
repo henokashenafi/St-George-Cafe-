@@ -13,6 +13,7 @@ import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:st_george_pos/services/audit_service.dart';
 import 'package:st_george_pos/services/system_log_service.dart';
 import 'package:st_george_pos/core/widgets/top_toaster.dart';
+import 'package:st_george_pos/models/station.dart';
 import '../models/charge.dart';
 
 enum OrderAssistantStep { waiter, table, product }
@@ -222,13 +223,17 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           subtotal: (e.quantity + qty) * e.unitPrice,
         );
       } else {
+        final station = ref.read(stationsProvider).value?.firstWhere((s) => s.id == product.stationId, orElse: () => Station(name: 'Kitchen'));
         localItems.add(
           OrderItem(
             productId: product.id!,
             productName: product.name,
+            productNameAmharic: product.nameAmharic,
             quantity: qty,
             unitPrice: product.price,
             subtotal: product.price * qty,
+            stationId: product.stationId,
+            stationName: station?.name,
           ),
         );
       }
@@ -247,13 +252,17 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           subtotal: (e.quantity + 1) * e.unitPrice,
         );
       } else {
+        final station = ref.read(stationsProvider).value?.firstWhere((s) => s.id == product.stationId, orElse: () => Station(name: 'Kitchen'));
         localItems.add(
           OrderItem(
             productId: product.id!,
             productName: product.name,
+            productNameAmharic: product.nameAmharic,
             quantity: 1,
             unitPrice: product.price,
             subtotal: product.price,
+            stationId: product.stationId,
+            stationName: station?.name,
           ),
         );
       }
@@ -428,22 +437,32 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         bool printed = true;
         if (!skipPrint) {
           TopToaster.show(context, ref.t('reports.sendingToPrinter'), isError: false);
-          final printerName = settings['default_printer_name'];
-
-          printed = await BillService.generateKitchenSlip(
-            order: order,
-            items: localItems,
-            roundNumber: roundNumber,
-            printerName: printerName,
+          
+          // ── Print as a combined continuous slip ─────────────────────────
+          final cafeSettings = await ref.read(cafeSettingsProvider.future);
+          final charges = (await ref.read(chargesProvider.future)).where((c) => c.isActive).toList();
+          
+          final result = await BillService.generateCombinedSlipAndBill(
+            order: order!,
+            kitchenItems: localItems,
+            receiptItems: [], // Empty receipt list skips the customer receipt
+            roundNumber: roundNumber ?? 1,
+            settings: cafeSettings,
+            cashierName: order.cashierName,
+            activeCharges: charges,
+            printerName: settings['default_printer_name'],
           );
+          if (!result) printed = false;
         }
+
+        final uniqueStationsCount = localItems.map((e) => e.stationId).toSet().length;
 
         await ref
             .read(auditServiceProvider)
             .log(
               'Sent to Kitchen',
               details:
-                  'Table: ${selectedTable!.name}, Items: ${localItems.length}, Round: $roundNumber',
+                  'Table: ${selectedTable!.name}, Items: ${localItems.length}, Stations: $uniqueStationsCount, Round: $roundNumber',
             );
         
         // Fetch the updated order with the newly added items so subsequent prints work correctly
@@ -466,7 +485,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           }
         }
       }
-      setState(() => localItems = []);
+      setState(() {
+        localItems = [];
+        _kitchenPrinted = true;
+      });
       return order;
     } catch (e, st) {
       SystemLogService.log('ERROR in _sendToKitchen: $e\n$st');
@@ -2051,7 +2073,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                   borderRadius: BorderRadius.zero,
                                                 ),
                                               ),
-                                              onPressed: (_isProcessing || _bothPrinted || selectedTable == null || (activeOrderAsync.value == null && localItems.isEmpty))
+                                              onPressed: (_isProcessing || _bothPrinted || _kitchenPrinted || _billPrinted || selectedTable == null || (activeOrderAsync.value == null && localItems.isEmpty))
                                                   ? null
                                                   : () async {
                                                       final settings = ref.read(appSettingsProvider).value ?? {};
