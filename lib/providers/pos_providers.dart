@@ -291,7 +291,7 @@ class ActiveOrderService {
 }
 
 final activeOrderServiceProvider =
-    Provider.autoDispose((ref) => ActiveOrderService(ref));
+    Provider((ref) => ActiveOrderService(ref));
 
 // --- Dynamic Charges Provider ---
 final chargesProvider = FutureProvider<List<ChargeModel>>((ref) async {
