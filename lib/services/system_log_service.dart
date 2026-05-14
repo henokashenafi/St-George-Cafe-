@@ -50,4 +50,4 @@ class SystemLogService extends ChangeNotifier {
 }
 
 final systemLogsProvider = Provider((ref) => SystemLogService.logs);
-final systemLogsRefreshProvider = StateProvider((ref) => 0);
+// Removed unused StateProvider
