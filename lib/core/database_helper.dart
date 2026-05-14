@@ -42,7 +42,7 @@ class DatabaseHelper {
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 10,
+        version: 11,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -165,6 +165,13 @@ class DatabaseHelper {
       await db.execute("UPDATE pos_charges SET name_amharic = 'ቫት' WHERE name = 'VAT'");
       await db.execute("UPDATE pos_charges SET name_amharic = 'የአገልግሎት ክፍያ' WHERE name = 'Service Charge'");
     }
+    if (oldVersion < 11) {
+      await db.execute('ALTER TABLE orders ADD COLUMN table_name TEXT');
+      await db.execute('ALTER TABLE orders ADD COLUMN table_name_amharic TEXT');
+      await db.execute('ALTER TABLE orders ADD COLUMN waiter_name TEXT');
+      await db.execute('ALTER TABLE orders ADD COLUMN waiter_name_amharic TEXT');
+      await db.execute('ALTER TABLE orders ADD COLUMN cashier_name TEXT');
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -234,6 +241,11 @@ class DatabaseHelper {
         discount_amount REAL DEFAULT 0.0,
         payment_method TEXT DEFAULT 'cash',
         shift_id INTEGER,
+        table_name TEXT,
+        table_name_amharic TEXT,
+        waiter_name TEXT,
+        waiter_name_amharic TEXT,
+        cashier_name TEXT,
         FOREIGN KEY (table_id) REFERENCES tables (id),
         FOREIGN KEY (waiter_id) REFERENCES waiters (id),
         FOREIGN KEY (cashier_id) REFERENCES users (id),
