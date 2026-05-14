@@ -47,10 +47,10 @@
     "unsentItems": "ያልተላኩ እቃዎች",
     "unsentItemsMessage": "አዲስ ወደ ማእድ ቤት ያልተላኩ እቃዎች አለዎት። ይላኩ ወይስ ይሰርዙ?",
     "goBack": "ተመለስ",
-    "discardAndBill": "ሰርዝ & ሂሳብ አትም",
+    "discardAndBill": "ሰርዝ እና ሂሳብ አትም",
     "confirmBill": "ሂሳብ አረጋግጥ",
     "items": "እቃዎች",
-    "confirmAndPrint": "አረጋግጥ & አትም",
+    "confirmAndPrint": "አረጋግጥ እና አትም",
     "loadingWaiters": "አስተናጋጆች በመጫን ላይ",
     "voidItem": "ዕቃ ሰርዝ",
     "orderTitle": "ትዕዛዝ",
@@ -205,7 +205,7 @@
     "xReportSubtitle": "የአሁኑ ሺፍት ድምር እይታ",
     "endShiftZ": "ሺፍት ዝጋ (Z-ሪፖርት)",
     "endShiftSubtitle": "ሺፍት ዝጋ እና ገንዘብ አስተካክል",
-    "zReportSaved": "ሺፍት ተዘጋ, ዝርዝር ተቀምጧል & Z-ሪፖርት ታተመ."
+    "zReportSaved": "ሺፍት ተዘጋ, ዝርዝር ተቀምጧል እና Z-ሪፖርት ታተመ."
   },
   "history": {
     "searchByWaiter": "በአስተናጋጅ ይፈልጉ...",
@@ -473,7 +473,7 @@
     "serviceCharge": "አገልግሎት ({percent}%)",
     "discount": "ቅነሳ",
     "grandTotal": "ጠቅላላ",
-    "thankYou": "ስለመጡ አመሰግናለሁ!"
+    "thankYou": "ስለመጡ እናመሰግናለን!"
   },
   "bill": {
     "stGeorgeCafe": "ቅዱስ ጊዮርጊስ ካፌ",
@@ -492,7 +492,7 @@
     "serviceCharge": "አገልግሎት ({percent}%)",
     "discount": "ቅነሳ",
     "grandTotal": "ጠቅላላ",
-    "thankYou": "ለመጎብኘት አመሰግናለሁ!",
+    "thankYou": "ስለመጡ እናመሰግናለን!",
     "comeAgain": "እንደገና ይምጡ።",
     "cashSalesInvoice": "የገንዘብ ሽያጭ ደረሰኝ",
     "to": "ለ",
