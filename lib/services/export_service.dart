@@ -201,6 +201,42 @@ class ExportService {
         ]);
       }
 
+      // ── Sheet 6: Transaction Audit Log ─────────────────────────────────
+      final auditSheet = excel['Transaction Audit Log'];
+      final auditHeaders = [
+        TextCellValue('Order ID'),
+        TextCellValue('Timestamp'),
+        TextCellValue('Item Name'),
+        TextCellValue('Category'),
+        TextCellValue('Qty'),
+        TextCellValue('Unit Price'),
+        TextCellValue('Subtotal'),
+        TextCellValue('Table'),
+        TextCellValue('Waiter'),
+        TextCellValue('Payment'),
+      ];
+      auditSheet.appendRow(auditHeaders);
+      for (int i = 0; i < auditHeaders.length; i++) {
+        auditSheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0)).cellStyle = headerStyle;
+      }
+
+      for (final o in orders) {
+        for (final item in o.items) {
+          auditSheet.appendRow([
+            IntCellValue(o.id ?? 0),
+            TextCellValue(DateFormat('yyyy-MM-dd HH:mm').format(o.createdAt)),
+            TextCellValue(item.productName),
+            TextCellValue(item.categoryName ?? 'General'),
+            IntCellValue(item.quantity),
+            DoubleCellValue(item.unitPrice),
+            DoubleCellValue(item.subtotal),
+            TextCellValue(o.tableName),
+            TextCellValue(o.waiterName),
+            TextCellValue(o.paymentMethod),
+          ]);
+        }
+      }
+
       // ── Export Handling ────────────────────────────────────────────────
       final bytes = excel.encode();
       if (bytes == null) return null;

@@ -1099,7 +1099,7 @@ class PosRepository {
     final settings = await getSettings();
     if (settings.containsKey('cafe_name')) {
       return CafeSettings(
-        name: settings['cafe_name'] ?? 'ST GEORGE CAFE',
+        name: settings['cafe_name'] ?? 'LDA CAFE',
         address: settings['cafe_address'] ?? '',
         phone: settings['cafe_phone'] ?? '',
         vatNumber: settings['cafe_vat_number'] ?? '',

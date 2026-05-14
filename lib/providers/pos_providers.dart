@@ -155,6 +155,23 @@ class DateFilter {
       label: 'THIS WEEK',
     );
   }
+
+  static DateFilter thisMonth() {
+    final now = DateTime.now();
+    return DateFilter(
+      from: DateTime(now.year, now.month, 1),
+      to: DateTime(now.year, now.month, now.day, 23, 59, 59),
+      label: 'THIS MONTH',
+    );
+  }
+
+  static DateFilter allTime() {
+    return const DateFilter(
+      from: null,
+      to: null,
+      label: 'ALL TIME',
+    );
+  }
 }
 
 class DateFilterNotifier extends Notifier<DateFilter> {

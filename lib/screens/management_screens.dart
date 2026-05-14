@@ -2284,8 +2284,53 @@ class _DateFilterChips extends ConsumerWidget {
         _filterChip(ref.t('common.yesterday'), DateFilter.yesterday()),
         const SizedBox(width: 8),
         _filterChip(ref.t('common.thisWeek'), DateFilter.thisWeek()),
+        const SizedBox(width: 8),
+        _filterChip('THIS MONTH', DateFilter.thisMonth()),
+        const SizedBox(width: 8),
+        _filterChip('ALL TIME', DateFilter.allTime()),
+        const SizedBox(width: 16),
+        Container(width: 1, height: 24, color: Colors.white10),
+        const SizedBox(width: 16),
+        IconButton(
+          onPressed: () => _showCustomDatePicker(context),
+          icon: const Icon(Icons.date_range_outlined, color: Color(0xFFD4AF37), size: 20),
+          tooltip: 'Custom Range',
+        ),
       ],
     );
+  }
+
+  Future<void> _showCustomDatePicker(BuildContext context) async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2023),
+      lastDate: DateTime.now(),
+      initialDateRange: filter.from != null && filter.to != null
+          ? DateTimeRange(start: filter.from!, end: filter.to!)
+          : null,
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFFD4AF37),
+              onPrimary: Colors.black,
+              surface: Color(0xFF1A1A1A),
+              onSurface: Colors.white,
+            ),
+            dialogBackgroundColor: const Color(0xFF1A1A1A),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      onChanged(DateFilter(
+        from: picked.start,
+        to: DateTime(picked.end.year, picked.end.month, picked.end.day, 23, 59, 59),
+        label: '${DateFormat('MMM dd').format(picked.start)} - ${DateFormat('MMM dd').format(picked.end)}',
+      ));
+    }
   }
 
   Widget _filterChip(String label, DateFilter target) {

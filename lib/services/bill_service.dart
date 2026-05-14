@@ -25,9 +25,9 @@ class BillService {
   static Future<pw.ThemeData> _getEthiopicTheme() async {
     if (_fontRegular == null || _fontBold == null) {
       final regularData =
-          await rootBundle.load('assets/fonts/NotoSansEthiopic-Regular.ttf');
+          await rootBundle.load('fonts/NotoSansEthiopic-Regular.ttf');
       final boldData =
-          await rootBundle.load('assets/fonts/NotoSansEthiopic-Bold.ttf');
+          await rootBundle.load('fonts/NotoSansEthiopic-Bold.ttf');
       _fontRegular = pw.Font.ttf(regularData);
       _fontBold = pw.Font.ttf(boldData);
     }
@@ -228,7 +228,7 @@ class BillService {
 
     final cafeName = settings.name.isNotEmpty
         ? settings.name
-        : 'ST GEORGE CAFE';
+        : 'LDA CAFE';
 
     pdf.addPage(
       pw.Page(

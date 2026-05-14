@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "ST GEORGE CAFE",
+    "title": "LDA CAFE",
     "pos": "POINT OF SALE"
   },
   "auth": {
@@ -468,7 +468,7 @@
     "thankYou": "Thank you for visiting!"
   },
   "bill": {
-    "stGeorgeCafe": "ST GEORGE CAFE",
+    "stGeorgeCafe": "LDA CAFE",
     "address": "Addis Ababa, Ethiopia",
     "title": "CUSTOMER BILL",
     "date": "Date",
@@ -505,14 +505,14 @@
     "total": "Total",
     "grandTotal": "GRAND TOTAL",
     "thankYou": "Thank you for visiting!",
-    "stGeorgeCafe": "ST GEORGE CAFE",
+    "stGeorgeCafe": "LDA CAFE",
     "address": "Bahir Dar, Ethiopia",
     "orderNumber": "Order",
     "roundNumber": "Round #{n}",
     "items": "{count} item(s)"
   },
   "cafe": {
-    "name": "ST GEORGE CAFE",
+    "name": "LDA CAFE",
     "address": "Addis Ababa, Ethiopia",
     "phone": "+251 911 000000"
   },

@@ -42,7 +42,7 @@ void main() async {
           center: true,
           backgroundColor: Colors.transparent,
           skipTaskbar: false,
-          title: "St George Cafe POS",
+          title: "Lda Cafe POS",
           titleBarStyle: TitleBarStyle.normal,
         );
         windowManager.waitUntilReadyToShow(windowOptions, () async {
@@ -75,7 +75,7 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
 
     return MaterialApp(
-      title: 'St George Cafe POS',
+      title: 'Lda Cafe POS',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.dark,
       theme: ThemeData(
