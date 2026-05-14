@@ -207,7 +207,16 @@ class DashboardScreen extends ConsumerWidget {
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => ref.refresh(tablesProvider),
+            onPressed: () {
+              ref.invalidate(tablesProvider);
+              ref.invalidate(currentShiftProvider);
+              ref.invalidate(ordersProvider);
+              ref.invalidate(zReportsProvider);
+              ref.invalidate(chargesProvider);
+              ref.invalidate(appSettingsProvider);
+              ref.invalidate(cafeSettingsProvider);
+              TopToaster.show(context, ref.t('common.refreshing'));
+            },
           ),
           const SizedBox(width: 8),
         ],

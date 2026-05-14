@@ -448,7 +448,7 @@ class PosRepository {
     return maps.map((m) => TableModel.fromMap(m)).toList();
   }
 
-  Future<int> addTable(String name, {int? zoneId}) async {
+  Future<int> addTable(String name, {int? zoneId, String? nameAmharic}) async {
     if (kIsWeb) {
       final id =
           (_webStorage['tables']!.isEmpty
@@ -460,6 +460,7 @@ class PosRepository {
       _webStorage['tables']!.add({
         'id': id,
         'name': name,
+        'name_amharic': nameAmharic,
         'status': 'available',
         'zone_id': zoneId,
       });
@@ -467,23 +468,29 @@ class PosRepository {
       return id;
     }
     final db = await _dbHelper.database;
-    return await db.insert('tables', {'name': name, 'zone_id': zoneId});
+    return await db.insert('tables', {
+      'name': name,
+      'name_amharic': nameAmharic,
+      'status': 'available',
+      'zone_id': zoneId,
+    });
   }
 
-  Future<void> updateTable(int id, String name, {int? zoneId}) async {
+  Future<void> updateTable(int id, String name, {int? zoneId, String? nameAmharic}) async {
     if (kIsWeb) {
-      final index = _webStorage['tables']!.indexWhere((t) => t['id'] == id);
-      if (index != -1) {
-        _webStorage['tables']![index]['name'] = name;
-        _webStorage['tables']![index]['zone_id'] = zoneId;
+      final idx = _webStorage['tables']!.indexWhere((t) => t['id'] == id);
+      if (idx != -1) {
+        _webStorage['tables']![idx]['name'] = name;
+        _webStorage['tables']![idx]['name_amharic'] = nameAmharic;
+        _webStorage['tables']![idx]['zone_id'] = zoneId;
+        await _saveWebData();
       }
-      await _saveWebData();
       return;
     }
     final db = await _dbHelper.database;
     await db.update(
       'tables',
-      {'name': name, 'zone_id': zoneId},
+      {'name': name, 'name_amharic': nameAmharic, 'zone_id': zoneId},
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -533,7 +540,7 @@ class PosRepository {
     return maps.map((m) => Category.fromMap(m)).toList();
   }
 
-  Future<int> addCategory(String name) async {
+  Future<int> addCategory(String name, {String? nameAmharic}) async {
     if (kIsWeb) {
       final id =
           (_webStorage['categories']!.isEmpty
@@ -542,12 +549,19 @@ class PosRepository {
                     .map((c) => c['id'] as int)
                     .reduce((a, b) => a > b ? a : b)) +
           1;
-      _webStorage['categories']!.add({'id': id, 'name': name});
+      _webStorage['categories']!.add({
+        'id': id,
+        'name': name,
+        'name_amharic': nameAmharic,
+      });
       await _saveWebData();
       return id;
     }
     final db = await _dbHelper.database;
-    return await db.insert('categories', {'name': name});
+    return await db.insert('categories', {
+      'name': name,
+      'name_amharic': nameAmharic,
+    });
   }
 
   Future<void> deleteCategory(int id) async {
@@ -633,7 +647,7 @@ class PosRepository {
     return maps.map((m) => Waiter.fromMap(m)).toList();
   }
 
-  Future<int> addWaiter(String name) async {
+  Future<int> addWaiter(String name, {String? nameAmharic}) async {
     if (kIsWeb) {
       final id =
           (_webStorage['waiters']!.isEmpty
@@ -642,14 +656,28 @@ class PosRepository {
                     .map((w) => w['id'] as int)
                     .reduce((a, b) => a > b ? a : b)) +
           1;
-      _webStorage['waiters']!.add({'id': id, 'name': name, 'code': 'W$id'});
+      final code = 'W${id.toString().padLeft(3, '0')}';
+      _webStorage['waiters']!.add({
+        'id': id,
+        'name': name,
+        'name_amharic': nameAmharic,
+        'code': code,
+      });
       await _saveWebData();
       return id;
     }
     final db = await _dbHelper.database;
+    final res = await db.query('waiters', orderBy: 'id DESC', limit: 1);
+    int nextId = 1;
+    if (res.isNotEmpty) {
+      nextId = (res.first['id'] as int) + 1;
+    }
+    final code = 'W${nextId.toString().padLeft(3, '0')}';
+
     return await db.insert('waiters', {
       'name': name,
-      'code': 'W${DateTime.now().millisecond}',
+      'name_amharic': nameAmharic,
+      'code': code,
     });
   }
 

@@ -1,15 +1,17 @@
 class Waiter {
   final int? id;
   final String name;
+  final String? nameAmharic;
   final String code;
 
-  Waiter({this.id, required this.name, required this.code});
+  Waiter({this.id, required this.name, this.nameAmharic, required this.code});
 
   factory Waiter.fromMap(Map<String, dynamic> map) {
     return Waiter(
       id: map['id'],
       name: map['name'],
-      code: map['code'],
+      nameAmharic: map['name_amharic'],
+      code: map['code'] ?? '',
     );
   }
 
@@ -17,6 +19,7 @@ class Waiter {
     return {
       'id': id,
       'name': name,
+      'name_amharic': nameAmharic,
       'code': code,
     };
   }

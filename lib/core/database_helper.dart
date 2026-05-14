@@ -42,7 +42,7 @@ class DatabaseHelper {
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 8,
+        version: 9,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -152,6 +152,12 @@ class DatabaseHelper {
         )
       ''');
     }
+    if (oldVersion < 9) {
+      await db.execute('ALTER TABLE categories ADD COLUMN name_amharic TEXT');
+      await db.execute('ALTER TABLE products ADD COLUMN name_amharic TEXT');
+      await db.execute('ALTER TABLE waiters ADD COLUMN name_amharic TEXT');
+      await db.execute('ALTER TABLE tables ADD COLUMN name_amharic TEXT');
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -159,6 +165,7 @@ class DatabaseHelper {
       CREATE TABLE categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
+        name_amharic TEXT,
         icon TEXT
       )
     ''');
@@ -169,6 +176,7 @@ class DatabaseHelper {
         category_id INTEGER,
         category_ids TEXT,
         name TEXT NOT NULL,
+        name_amharic TEXT,
         price REAL NOT NULL,
         image_path TEXT,
         FOREIGN KEY (category_id) REFERENCES categories (id)
@@ -179,6 +187,7 @@ class DatabaseHelper {
       CREATE TABLE waiters (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
+        name_amharic TEXT,
         code TEXT UNIQUE
       )
     ''');
@@ -196,6 +205,7 @@ class DatabaseHelper {
       CREATE TABLE tables (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
+        name_amharic TEXT,
         status TEXT DEFAULT 'available',
         zone_id INTEGER,
         FOREIGN KEY (zone_id) REFERENCES table_zones (id)

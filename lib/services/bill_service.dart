@@ -402,6 +402,319 @@ class BillService {
     );
   }
 
+  static Future<bool> generateCombinedSlipAndBill({
+    required OrderModel order,
+    required List<OrderItem> kitchenItems,
+    required List<OrderItem> receiptItems,
+    required int roundNumber,
+    required CafeSettings settings,
+    required String cashierName,
+    required List<ChargeModel> activeCharges,
+    String? printerName,
+  }) async {
+    // Use active locale for receipts (Amharic when set)
+    String t(String key, {Map<String, String>? replacements}) =>
+        AppLocalizations.getAmharic(key, replacements: replacements);
+
+    final pdf = pw.Document();
+    final now = DateTime.now();
+    final timeStr = DateFormat('HH:mm').format(now);
+    final dateStr = DateFormat('dd/MM/yyyy').format(now);
+    final voucherNo =
+        'RCS-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${(order.id ?? 0).toString().padLeft(3, '0')}';
+
+    final theme = await _getEthiopicTheme();
+
+    final subtotal = receiptItems.fold(0.0, (s, i) => s + i.subtotal);
+    final appliedCharges = <Map<String, dynamic>>[];
+    double totalAdditions = 0;
+    double totalDeductions = 0;
+
+    for (final c in activeCharges) {
+      if (!c.isActive) continue;
+      final amount = subtotal * (c.value / 100);
+      appliedCharges.add({
+        'name': '${c.name} (${c.value}%)',
+        'amount': (c.type == 'addition' ? 1 : -1) * amount,
+      });
+      if (c.type == 'addition') {
+        totalAdditions += amount;
+      } else {
+        totalDeductions += amount;
+      }
+    }
+
+    final discount = order.discountAmount;
+    final grandTotal = subtotal + totalAdditions - totalDeductions - discount;
+
+    final cafeName = settings.name.isNotEmpty
+        ? settings.name
+        : 'ST GEORGE CAFE';
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.roll80,
+        theme: theme,
+        margin: const pw.EdgeInsets.all(10),
+        build: (ctx) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            // ==========================================
+            // PART 1: KITCHEN SLIP
+            // ==========================================
+            if (kitchenItems.isNotEmpty) ...[
+              pw.Center(
+                child: pw.Text(
+                  t('print.kitchenOrder'),
+                  style: pw.TextStyle(
+                    fontSize: 22,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ),
+              pw.Center(
+                child: pw.Text(
+                  t('print.roundNumber', replacements: {'n': '$roundNumber'}),
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ),
+              pw.SizedBox(height: 8),
+              pw.Divider(thickness: 2),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    '${t('print.table')}: ${order.tableName}',
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Text(
+                    '${t('print.orderNumber')}: #${order.id ?? "—"}',
+                    style: const pw.TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 4),
+              _infoRow(t('print.waiter'), order.waiterName),
+              _infoRow(t('print.time'), '$timeStr  |  $dateStr'),
+              pw.Divider(thickness: 2),
+              pw.SizedBox(height: 6),
+              ...kitchenItems.map(
+                (item) => pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(vertical: 4),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        '${item.quantity} x  ${item.productName}',
+                        style: pw.TextStyle(
+                          fontSize: 15,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      if (item.notes != null && item.notes!.isNotEmpty)
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.only(left: 20, top: 2),
+                          child: pw.Text(
+                            '>> ${item.notes}',
+                            style: pw.TextStyle(
+                              fontSize: 11,
+                              fontStyle: pw.FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              pw.SizedBox(height: 8),
+              pw.Divider(thickness: 2),
+              pw.SizedBox(height: 20),
+              pw.Center(
+                child: pw.Text(
+                  '-------------------- ✂ --------------------',
+                  style: const pw.TextStyle(fontSize: 12),
+                ),
+              ),
+              pw.SizedBox(height: 20),
+            ],
+
+            // ==========================================
+            // PART 2: CUSTOMER RECEIPT
+            // ==========================================
+            pw.Center(
+              child: pw.Text(
+                cafeName.toUpperCase(),
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            if (settings.address.isNotEmpty)
+              pw.Center(
+                child: pw.Text(
+                  settings.address,
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ),
+            if (settings.phone.isNotEmpty)
+              pw.Center(
+                child: pw.Text(
+                  'Tel: ${settings.phone}',
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ),
+            pw.SizedBox(height: 10),
+            pw.Center(
+              child: pw.Text(
+                t('bill.cashSalesInvoice').toUpperCase(),
+                style: pw.TextStyle(
+                  fontSize: 10,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            pw.Divider(thickness: 0.5),
+            _infoRow(t('bill.date'), dateStr, fontSize: 9),
+            _infoRow(t('bill.voucher'), voucherNo, fontSize: 9),
+            _infoRow(t('bill.waiter'), order.waiterName, fontSize: 9),
+            _infoRow(t('bill.table'), order.tableName, fontSize: 9),
+            pw.Divider(thickness: 0.5),
+            pw.Row(
+              children: [
+                pw.Expanded(
+                  flex: 4,
+                  child: pw.Text(
+                    t('bill.description'),
+                    style: pw.TextStyle(
+                      fontSize: 8,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(width: 20,
+                  child: pw.Text(
+                    t('bill.qty'),
+                    textAlign: pw.TextAlign.center,
+                    style: pw.TextStyle(
+                      fontSize: 8,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(width: 36,
+                  child: pw.Text(
+                    t('bill.price'),
+                    textAlign: pw.TextAlign.right,
+                    style: pw.TextStyle(
+                      fontSize: 8,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(width: 40,
+                  child: pw.Text(
+                    t('bill.total'),
+                    textAlign: pw.TextAlign.right,
+                    style: pw.TextStyle(
+                      fontSize: 8,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 4),
+            ...receiptItems.map(
+              (item) => pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                child: pw.Row(
+                  children: [
+                    pw.Expanded(
+                      flex: 4,
+                      child: pw.Text(
+                        item.productName,
+                        style: const pw.TextStyle(fontSize: 9),
+                      ),
+                    ),
+                    pw.SizedBox(
+                      width: 20,
+                      child: pw.Text(
+                        '${item.quantity}',
+                        textAlign: pw.TextAlign.center,
+                        style: const pw.TextStyle(fontSize: 9),
+                      ),
+                    ),
+                    pw.SizedBox(
+                      width: 36,
+                      child: pw.Text(
+                        _fmt(item.unitPrice),
+                        textAlign: pw.TextAlign.right,
+                        style: const pw.TextStyle(fontSize: 9),
+                      ),
+                    ),
+                    pw.SizedBox(
+                      width: 40,
+                      child: pw.Text(
+                        _fmt(item.subtotal),
+                        textAlign: pw.TextAlign.right,
+                        style: const pw.TextStyle(fontSize: 9),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            pw.Divider(thickness: 0.5),
+            _totalRow(t('bill.subtotal'), subtotal, fontSize: 9),
+            ...appliedCharges.where((c) => (c['amount'] as num).abs() > 0.01).map(
+              (c) => _totalRow(c['name'], c['amount'], fontSize: 9),
+            ),
+            if (discount > 0)
+              _totalRow(t('bill.discount'), -discount, fontSize: 9),
+            pw.SizedBox(height: 4),
+            _totalRow(
+              t('bill.grandTotal'),
+              grandTotal,
+              bold: true,
+              fontSize: 12,
+            ),
+            pw.Divider(thickness: 1),
+            pw.SizedBox(height: 10),
+            pw.Center(
+              child: pw.Text(
+                t('bill.thankYou'),
+                style: pw.TextStyle(
+                  fontSize: 8,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            pw.Center(
+              child: pw.Text(
+                'Powered by Askualalink',
+                style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return _printDocument(
+      pdf: pdf,
+      documentName: 'CombinedPrint_${voucherNo}.pdf',
+      printerName: printerName,
+      format: PdfPageFormat.roll80,
+    );
+  }
+
   // ── X/Z Report Printing ──────────────────────────────────────────────────
 
   static Future<void> reprintZReport({
