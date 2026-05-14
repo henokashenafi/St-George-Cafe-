@@ -13,11 +13,14 @@ class SystemLogsScreen extends StatefulWidget {
 
 class _SystemLogsScreenState extends State<SystemLogsScreen> {
   String _logFilePath = 'Loading...';
+  late final Stream<int> _refreshStream;
 
   @override
   void initState() {
     super.initState();
     _loadFilePath();
+    // Auto-refresh logs every 2 seconds while screen is open
+    _refreshStream = Stream.periodic(const Duration(seconds: 2), (i) => i);
   }
 
   Future<void> _loadFilePath() async {
@@ -27,11 +30,13 @@ class _SystemLogsScreenState extends State<SystemLogsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final logs = SystemLogService.logs;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+    return StreamBuilder<int>(
+      stream: _refreshStream,
+      builder: (context, snapshot) {
+        final logs = SystemLogService.logs;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -102,6 +107,8 @@ class _SystemLogsScreenState extends State<SystemLogsScreen> {
           ),
         ),
       ],
+        );
+      },
     );
   }
 }

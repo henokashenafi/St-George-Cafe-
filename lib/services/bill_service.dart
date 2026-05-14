@@ -20,18 +20,27 @@ class BillService {
 
   /// Call this to clear cached fonts (e.g. after a hot restart in dev)
   static void resetFontCache() {
+    SystemLogService.log('Resetting font cache');
     _fontRegular = null;
     _fontBold = null;
   }
 
   static Future<pw.ThemeData> _getEthiopicTheme() async {
-    if (_fontRegular == null || _fontBold == null) {
-      final regularData =
-          await rootBundle.load('fonts/NotoSansEthiopic-Regular.ttf');
-      final boldData =
-          await rootBundle.load('fonts/NotoSansEthiopic-Bold.ttf');
-      _fontRegular = pw.Font.ttf(regularData);
-      _fontBold = pw.Font.ttf(boldData);
+    try {
+      if (_fontRegular == null || _fontBold == null) {
+        SystemLogService.log('Loading fonts from rootBundle...');
+        final regularData =
+            await rootBundle.load('fonts/NotoSansEthiopic-Regular.ttf');
+        final boldData =
+            await rootBundle.load('fonts/NotoSansEthiopic-Bold.ttf');
+        _fontRegular = pw.Font.ttf(regularData);
+        _fontBold = pw.Font.ttf(boldData);
+        SystemLogService.log('Fonts loaded successfully.');
+      }
+    } catch (e) {
+      SystemLogService.log('CRITICAL ERROR loading fonts: $e');
+      // Fallback to standard theme if fonts fail to load
+      return pw.ThemeData.withFont();
     }
     return pw.ThemeData.withFont(
       base: _fontRegular!,
@@ -54,6 +63,7 @@ class BillService {
     required int roundNumber,
     String? printerName,
   }) async {
+    SystemLogService.log('Generating Kitchen Slip: Order #${order.id}, Round $roundNumber');
     debugPrint('Starting Kitchen Slip PDF Generation...');
     // Use active locale for receipts (Amharic when set)
     String t(String key, {Map<String, String>? replacements}) =>
@@ -191,6 +201,7 @@ class BillService {
     required List<ChargeModel> activeCharges,
     String? printerName,
   }) async {
+    SystemLogService.log('Generating Bill: Order #${order.id} for Table ${order.tableName}');
     // Use active locale for receipts (Amharic when set)
     String t(String key, {Map<String, String>? replacements}) =>
         AppLocalizations.getAmharic(key, replacements: replacements);
@@ -748,6 +759,7 @@ class BillService {
     required CafeSettings settings,
     bool isZReport = false,
   }) async {
+    SystemLogService.log('Generating ${isZReport ? 'Z' : 'Shift'} Report');
     // FORCE Amharic for printing
     String t(String key, {Map<String, String>? replacements}) => 
         AppLocalizations.getAmharic(key, replacements: replacements);
@@ -1261,6 +1273,10 @@ class BillService {
     // Used when: no printer configured, printer not found, or direct print fails.
     SystemLogService.log('[Print] Opening system print dialog via layoutPdf...');
     try {
+      // NOTE: On some Windows versions, this dialog might appear BEHIND the main window.
+      // We log it so the user knows to check the taskbar.
+      SystemLogService.log('[Print] NOTE: If no window appears, check the taskbar.');
+      
       await Printing.layoutPdf(
         onLayout: (_) async => pdfBytes,
         name: documentName,

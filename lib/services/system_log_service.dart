@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class SystemLogService {
+class SystemLogService extends ChangeNotifier {
   static final List<String> _logs = [];
   static const int _maxLogs = 500;
 
@@ -47,3 +48,6 @@ class SystemLogService {
     _logs.clear();
   }
 }
+
+final systemLogsProvider = Provider((ref) => SystemLogService.logs);
+final systemLogsRefreshProvider = StateProvider((ref) => 0);
