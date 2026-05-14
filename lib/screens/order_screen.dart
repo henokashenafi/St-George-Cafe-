@@ -47,6 +47,13 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   String _sortOption = 'alpha';
   Waiter? selectedWaiter;
   double _discountAmount = 0;
+  String _paymentMethod = 'cash';
+  bool _isProcessing = false;
+  
+  // Track print state for current order
+  bool _kitchenPrinted = false;
+  bool _billPrinted = false;
+  bool _bothPrinted = false;
   TableModel? get selectedTable => ref.watch(selectedTableProvider);
 
   @override
@@ -134,6 +141,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     setState(() {
       currentStep = OrderAssistantStep.product;
       _assistantController.clear();
+      // Reset print state for new order
+      _kitchenPrinted = false;
+      _billPrinted = false;
+      _bothPrinted = false;
     });
   }
 
@@ -356,207 +367,381 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   double get _localTotal =>
       localItems.fold(0, (sum, item) => sum + item.subtotal);
 
-  Future<void> _sendToKitchen(
+  Future<OrderModel?> _sendToKitchen(
     OrderModel? existingOrder,
-    Map<String, String> settings,
-  ) async {
-    if (localItems.isEmpty) return;
-    TopToaster.show(context, 'Processing print job...', isError: false);
+    Map<String, String> settings, {
+    bool skipPrint = false,
+  }) async {
+    if (_isProcessing) return existingOrder;
+    if (localItems.isEmpty) return null;
+    
+    setState(() => _isProcessing = true);
+    try {
+      TopToaster.show(context, ref.t('reports.processing'), isError: false);
 
-    if (selectedTable == null) {
-      TopToaster.show(context, ref.t('dashboard.selectTable'), isError: true);
-      return;
-    }
-
-    OrderModel? order = existingOrder;
-    if (order == null) {
-      if (selectedWaiter == null) {
-        TopToaster.show(context, ref.t('order.selectWaiter'), isError: true);
-        return;
+      if (selectedTable == null) {
+        TopToaster.show(context, ref.t('dashboard.selectTable'), isError: true);
+        return null;
       }
-      final currentUser = ref.read(authProvider)!;
-      order = await ref
-          .read(activeOrderServiceProvider)
-          .createNewOrder(
-            OrderModel(
-              tableId: selectedTable!.id!,
-              waiterId: selectedWaiter!.id!,
-              cashierId: currentUser.id,
-              tableName: selectedTable!.name,
-              waiterName: selectedWaiter!.name,
-              cashierName: currentUser.username,
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            ),
-          );
-    }
-    if (order != null) {
-      final itemsToPrint = localItems
-          .map((e) => e.copyWith(isPrintedToKitchen: true))
-          .toList();
 
-      TopToaster.show(context, 'Saving order...', isError: false);
-      final roundNumber = await ref
-          .read(activeOrderServiceProvider)
-          .addItems(order.id!, itemsToPrint, selectedTable!.id!);
+      OrderModel? order = existingOrder;
+      if (order == null) {
+        if (selectedWaiter == null) {
+          TopToaster.show(context, ref.t('order.selectWaiter'), isError: true);
+          return null;
+        }
+        final currentUser = ref.read(authProvider)!;
+        order = await ref
+            .read(activeOrderServiceProvider)
+            .createNewOrder(
+              OrderModel(
+                tableId: selectedTable!.id!,
+                waiterId: selectedWaiter!.id!,
+                cashierId: currentUser.id,
+                tableName: selectedTable!.name,
+                waiterName: selectedWaiter!.name,
+                cashierName: currentUser.username,
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+              ),
+            );
+      }
+      if (order != null) {
+        final itemsToPrint = localItems
+            .map((e) => e.copyWith(isPrintedToKitchen: true))
+            .toList();
 
-      TopToaster.show(context, 'Sending to printer...', isError: false);
+        TopToaster.show(context, ref.t('reports.saving'), isError: false);
+        final roundNumber = await ref
+            .read(activeOrderServiceProvider)
+            .addItems(order.id!, itemsToPrint, selectedTable!.id!);
 
-      final printerName = settings['default_printer_name'];
+        bool printed = true;
+        if (!skipPrint) {
+          TopToaster.show(context, ref.t('reports.sendingToPrinter'), isError: false);
+          final printerName = settings['default_printer_name'];
 
-      // Kitchen Printing PDF — returns true if printed successfully
-      final printed = await BillService.generateKitchenSlip(
-        order: order,
-        items: localItems,
-        roundNumber: roundNumber,
-        printerName: printerName,
-      );
-
-      await ref
-          .read(auditServiceProvider)
-          .log(
-            'Sent to Kitchen',
-            details:
-                'Table: ${selectedTable!.name}, Items: ${localItems.length}, Round: $roundNumber',
-          );
-
-      if (mounted) {
-        if (printed) {
-          TopToaster.show(
-            context,
-            roundNumber != null
-                ? 'Kitchen slip printed — Round $roundNumber ✓'
-                : ref.t('order.sentToKitchen'),
-          );
-        } else {
-          TopToaster.show(
-            context,
-            'Order saved but no printer found. Check Settings → Default Printer.',
-            isError: true,
+          printed = await BillService.generateKitchenSlip(
+            order: order,
+            items: localItems,
+            roundNumber: roundNumber,
+            printerName: printerName,
           );
         }
+
+        await ref
+            .read(auditServiceProvider)
+            .log(
+              'Sent to Kitchen',
+              details:
+                  'Table: ${selectedTable!.name}, Items: ${localItems.length}, Round: $roundNumber',
+            );
+        
+        // Fetch the updated order with the newly added items so subsequent prints work correctly
+        order = await ref.read(posRepositoryProvider).getActiveOrderForTable(selectedTable!.id!);
+
+        if (mounted && !skipPrint) {
+          if (printed) {
+            TopToaster.show(
+              context,
+              roundNumber != null
+                  ? 'Kitchen slip printed — Round $roundNumber ✓'
+                  : ref.t('order.sentToKitchen'),
+            );
+          } else {
+            TopToaster.show(
+              context,
+              'Order saved but no printer found. Check Settings → Default Printer.',
+              isError: true,
+            );
+          }
+        }
+      }
+      setState(() => localItems = []);
+      return order;
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
       }
     }
-    setState(() => localItems = []);
   }
 
   Future<void> _printBill(
     OrderModel order,
     Map<String, String> settings,
   ) async {
-    TopToaster.show(context, 'Generating bill PDF...', isError: false);
-    final serviceChargePercent =
-        double.tryParse(settings['service_charge_percent'] ?? '5') ?? 5;
-    final discountEnabled = (settings['discount_enabled'] ?? 'true') == 'true';
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
 
-    // If there are unsent local items, warn
-    if (localItems.isNotEmpty) {
-      final proceed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          title: Text(ref.t('order.unsentItems')),
-          content: Text(ref.t('order.unsentItemsMessage')),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(ref.t('order.goBack')),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                foregroundColor: Colors.white,
+    try {
+      TopToaster.show(context, ref.t('reports.generatingPdf'), isError: false);
+      final discountEnabled = (settings['discount_enabled'] ?? 'true') == 'true';
+
+      // If there are unsent local items, warn
+      if (localItems.isNotEmpty) {
+        final proceed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1A1A1A),
+            title: Text(ref.t('order.unsentItems')),
+            content: Text(ref.t('order.unsentItemsMessage')),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(ref.t('order.goBack')),
               ),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(ref.t('order.discardAndBill')),
-            ),
-          ],
-        ),
-      );
-      if (proceed != true) return;
-      setState(() => localItems = []);
-    }
-
-    if (order.items.isEmpty) return;
-
-    final subtotal = order.totalAmount;
-    double discount = _discountAmount;
-    final charges = (await ref.read(
-      chargesProvider.future,
-    )).where((c) => c.isActive).toList();
-
-    // Show bill confirmation dialog with discount input
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => _BillConfirmDialog(
-        order: order,
-        subtotal: subtotal,
-        charges: charges,
-        discountEnabled: discountEnabled,
-        initialDiscount: discount,
-        initialPaymentMethod: order.paymentMethod,
-        onDiscountChanged: (v) => discount = v,
-        onPaymentMethodChanged: (v) => order = order.copyWith(paymentMethod: v),
-      ),
-    );
-
-    if (confirmed == true) {
-      final printerName = settings['default_printer_name'];
-      final cafeSettings = await ref.read(cafeSettingsProvider.future);
-      final charges = (await ref.read(
-        chargesProvider.future,
-      )).where((c) => c.isActive).toList();
-
-      final printed = await BillService.generateAndDownloadBill(
-        order: order.copyWith(
-          discountAmount: discount,
-        ),
-        items: order.items,
-        settings: cafeSettings,
-        cashierName: order.cashierName,
-        activeCharges: charges,
-        printerName: printerName,
-      );
-      double totalAdditions = 0;
-      double totalDeductions = 0;
-      for (final c in charges) {
-        final amount = order.totalAmount * (c.value / 100);
-        if (c.type == 'addition')
-          totalAdditions += amount;
-        else
-          totalDeductions += amount;
-      }
-
-      await ref
-          .read(posRepositoryProvider)
-          .completeOrder(
-            order.id!,
-            order.tableId,
-            cashierId: ref.read(authProvider)?.id,
-            serviceCharge: totalAdditions,
-            discountAmount: discount + totalDeductions,
-            paymentMethod: order.paymentMethod,
-          );
-
-      await ref
-          .read(auditServiceProvider)
-          .log(
-            'Order Completed',
-            details:
-                'ID: ${order.id}, Total: ${subtotal.toStringAsFixed(2)}, Table: ${order.tableName}',
-          );
-
-      if (mounted && !printed) {
-        TopToaster.show(
-          context,
-          'Bill saved but no printer found. Check Settings → Default Printer.',
-          isError: true,
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(ref.t('order.discardAndBill')),
+              ),
+            ],
+          ),
         );
+        if (proceed != true) return;
+        setState(() => localItems = []);
       }
 
-      ref.refresh(tablesProvider);
-      ref.read(selectedTableProvider.notifier).set(null);
-      ref.read(dashboardViewProvider.notifier).state = DashboardView.home;
+      if (order.items.isEmpty) {
+        TopToaster.show(context, ref.t('reports.noItemsInOrder'), isError: true);
+        return;
+      }
+
+      final subtotal = order.totalAmount;
+      final charges = (await ref.read(chargesProvider.future)).where((c) => c.isActive).toList();
+      if (!mounted) return;
+
+      // Show bill confirmation dialog with discount input
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => _BillConfirmDialog(
+          order: order,
+          subtotal: subtotal,
+          charges: charges,
+          discountEnabled: discountEnabled,
+          initialDiscount: _discountAmount,
+          initialPaymentMethod: _paymentMethod,
+          onDiscountChanged: (v) => _discountAmount = v,
+          onPaymentMethodChanged: (v) => _paymentMethod = v,
+        ),
+      );
+
+      if (confirmed == true && mounted) {
+        final printerName = settings['default_printer_name'];
+        final cafeSettings = await ref.read(cafeSettingsProvider.future);
+        
+        final printed = await BillService.generateAndDownloadBill(
+          order: order.copyWith(discountAmount: _discountAmount),
+          items: order.items,
+          settings: cafeSettings,
+          cashierName: order.cashierName,
+          activeCharges: charges,
+          printerName: printerName,
+        );
+
+        double totalAdditions = 0;
+        double totalDeductions = 0;
+        for (final c in charges) {
+          final amount = order.totalAmount * (c.value / 100);
+          if (c.type == 'addition') totalAdditions += amount;
+          else totalDeductions += amount;
+        }
+
+        await ref.read(posRepositoryProvider).completeOrder(
+          order.id!,
+          order.tableId,
+          cashierId: ref.read(authProvider)?.id,
+          serviceCharge: totalAdditions,
+          discountAmount: _discountAmount + totalDeductions,
+          paymentMethod: _paymentMethod,
+        );
+
+        // Invalidate active order immediately so buttons disable
+        ref.invalidate(activeOrderProvider(order.tableId));
+
+        await ref.read(auditServiceProvider).log(
+          'Order Completed',
+          details: 'ID: ${order.id}, Total: ${subtotal.toStringAsFixed(2)}, Table: ${order.tableName}',
+        );
+
+        if (mounted && !printed) {
+          TopToaster.show(
+            context,
+            'Bill saved but no printer found. Check Settings → Default Printer.',
+            isError: true,
+          );
+        } else if (mounted) {
+          TopToaster.show(context, ref.t('reports.receiptGenerated'));
+        }
+
+        // Mark bill as printed and disable other print options
+        setState(() {
+          _billPrinted = true;
+          _bothPrinted = true; // If bill is printed, both is effectively printed
+        });
+
+        ref.refresh(tablesProvider);
+        ref.read(selectedTableProvider.notifier).set(null);
+        ref.read(dashboardViewProvider.notifier).state = DashboardView.home;
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
+
+  Future<void> _printBoth(OrderModel? activeOrder, Map<String, String> settings) async {
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+
+    try {
+      OrderModel? order = activeOrder;
+
+      // Step 1: If there are unsent local items, save them to the order first.
+      // We handle the save inline here to avoid the _isProcessing race condition
+      // that existed when calling _sendToKitchen() from within _printBoth().
+      if (localItems.isNotEmpty) {
+        if (selectedTable == null) {
+          TopToaster.show(context, ref.t('dashboard.selectTable'), isError: true);
+          return;
+        }
+        if (order == null) {
+          // No active order yet — create one now.
+
+          if (selectedWaiter == null) {
+            TopToaster.show(context, ref.t('order.selectWaiter'), isError: true);
+            return;
+          }
+          final currentUser = ref.read(authProvider)!;
+          order = await ref
+              .read(activeOrderServiceProvider)
+              .createNewOrder(
+                OrderModel(
+                  tableId: selectedTable!.id!,
+                  waiterId: selectedWaiter!.id!,
+                  cashierId: currentUser.id,
+                  tableName: selectedTable!.name,
+                  waiterName: selectedWaiter!.name,
+                  cashierName: currentUser.username,
+                  createdAt: DateTime.now(),
+                  updatedAt: DateTime.now(),
+                ),
+              );
+          if (order == null) {
+            TopToaster.show(context, ref.t('reports.failedToCreateOrder'), isError: true);
+            return;
+          }
+        }
+
+        // Save items to DB (skip kitchen print — combined PDF handles it)
+        final itemsToSave = localItems
+            .map((e) => e.copyWith(isPrintedToKitchen: true))
+            .toList();
+        await ref
+            .read(activeOrderServiceProvider)
+            .addItems(order.id!, itemsToSave, selectedTable!.id!);
+
+        // Re-fetch updated order with all saved items
+        order = await ref
+            .read(posRepositoryProvider)
+            .getActiveOrderForTable(selectedTable!.id!);
+
+        if (order == null) {
+          TopToaster.show(context, ref.t('reports.noItemsToPrint'), isError: true);
+          return;
+        }
+        setState(() => localItems = []);
+      }
+
+      final finalOrder = order!;
+      final charges = (await ref.read(chargesProvider.future)).where((c) => c.isActive).toList();
+      if (!mounted) return;
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => _BillConfirmDialog(
+          order: finalOrder,
+          subtotal: finalOrder.totalAmount,
+          charges: charges,
+          discountEnabled: (settings['discount_enabled'] ?? 'true') == 'true',
+          initialDiscount: _discountAmount,
+          initialPaymentMethod: _paymentMethod,
+          onDiscountChanged: (v) => _discountAmount = v,
+          onPaymentMethodChanged: (v) => _paymentMethod = v,
+        ),
+      );
+
+      if (confirmed == true && mounted) {
+        final printerName = settings['default_printer_name'];
+        final cafeSettings = await ref.read(cafeSettingsProvider.future);
+        
+        int maxRound = 1;
+        if (finalOrder.items.isNotEmpty) {
+          maxRound = finalOrder.items.map((e) => e.kitchenRound ?? 1).reduce((a, b) => a > b ? a : b);
+        }
+
+        TopToaster.show(context, ref.t('reports.generatingPdf'), isError: false);
+
+        final printed = await BillService.generateCombinedSlipAndBill(
+          order: finalOrder.copyWith(discountAmount: _discountAmount),
+          kitchenItems: finalOrder.items,
+          receiptItems: finalOrder.items,
+          roundNumber: maxRound,
+          settings: cafeSettings,
+          cashierName: finalOrder.cashierName,
+          activeCharges: charges,
+          printerName: printerName,
+        );
+        
+        double totalAdditions = 0;
+        double totalDeductions = 0;
+        for (final c in charges) {
+          final amount = finalOrder.totalAmount * (c.value / 100);
+          if (c.type == 'addition') totalAdditions += amount;
+          else totalDeductions += amount;
+        }
+
+        await ref.read(posRepositoryProvider).completeOrder(
+          finalOrder.id!,
+          finalOrder.tableId,
+          cashierId: ref.read(authProvider)?.id,
+          serviceCharge: totalAdditions,
+          discountAmount: _discountAmount + totalDeductions,
+          paymentMethod: _paymentMethod,
+        );
+
+        // Invalidate active order immediately so buttons disable
+        ref.invalidate(activeOrderProvider(finalOrder.tableId));
+
+        if (mounted && !printed) {
+          TopToaster.show(
+            context,
+            'Bill saved but no printer found. Check Settings → Default Printer.',
+            isError: true,
+          );
+        } else if (mounted) {
+          TopToaster.show(context, ref.t('reports.combinedPrintGenerated'));
+        }
+
+        // Mark all as printed since we printed both
+        setState(() {
+          _kitchenPrinted = true;
+          _billPrinted = true;
+          _bothPrinted = true;
+        });
+
+        ref.refresh(tablesProvider);
+        ref.read(selectedTableProvider.notifier).set(null);
+        ref.read(dashboardViewProvider.notifier).state = DashboardView.home;
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
     }
   }
 
@@ -573,7 +758,15 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
 
     // Sync currentStep when selectedTable changes (e.g. from held orders)
     ref.listen(selectedTableProvider, (prev, next) {
-      if (next != null && currentStep == OrderAssistantStep.waiter) {
+      // Only reset print state when switching TO a new table (not when clearing)
+      if (next != null && next.id != prev?.id) {
+        setState(() {
+          currentStep = OrderAssistantStep.product;
+          _kitchenPrinted = false;
+          _billPrinted = false;
+          _bothPrinted = false;
+        });
+      } else if (next != null && currentStep == OrderAssistantStep.waiter) {
         setState(() {
           currentStep = OrderAssistantStep.product;
         });
@@ -706,7 +899,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                       selectedTable != null
                           ? ref.t(
                               'order.title',
-                              replacements: {'table': selectedTable!.name},
+                              replacements: {
+                                'table': ref.ln(
+                                    selectedTable!.name, selectedTable!.nameAmharic)
+                              },
                             )
                           : ref.t('main.newOrder'),
                       style: const TextStyle(
@@ -727,6 +923,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                             selectedWaiter = null;
                             _discountAmount = 0;
                             _assistantController.clear();
+                            // Clear print state
+                            _kitchenPrinted = false;
+                            _billPrinted = false;
+                            _bothPrinted = false;
                           });
                         },
                         tooltip: ref.t('order.clearNewOrder'),
@@ -877,7 +1077,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                 .map(
                                                   (w) => DropdownMenuItem(
                                                     value: w.id,
-                                                    child: Text(w.name),
+                                                    child: Text(
+                                                        ref.ln(w.name, w.nameAmharic)),
                                                   ),
                                                 )
                                                 .toList(),
@@ -956,7 +1157,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                 .map(
                                                   (t) => DropdownMenuItem(
                                                     value: t.id,
-                                                    child: Text(t.name),
+                                                    child: Text(
+                                                        ref.ln(t.name, t.nameAmharic)),
                                                   ),
                                                 )
                                                 .toList(),
@@ -995,7 +1197,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                     .map(
                                       (e) => _SuggestionItem(
                                         icon: Icons.person,
-                                        title: e.value.name,
+                                        title: ref.ln(e.value.name, e.value.nameAmharic),
                                         subtitle: 'Code: ${e.value.code}',
                                         isHighlighted:
                                             e.key == _suggestionIndex,
@@ -1015,7 +1217,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                     .map(
                                       (e) => _SuggestionItem(
                                         icon: Icons.table_bar,
-                                        title: e.value.name,
+                                        title: ref.ln(e.value.name, e.value.nameAmharic),
                                         subtitle:
                                             '${e.value.status == TableStatus.occupied ? ref.t('tables.statusOccupied') : ref.t('tables.statusAvailable')} • ${e.value.zoneName ?? ref.t('tables.noZoneAssigned')}',
                                         accentColor:
@@ -1043,7 +1245,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                     .map(
                                       (e) => _SuggestionItem(
                                         icon: Icons.restaurant_menu,
-                                        title: e.value.name,
+                                        title: ref.ln(e.value.name,
+                                            e.value.nameAmharic),
                                         subtitle:
                                             '${e.value.price.toStringAsFixed(2)} ETB',
                                         isHighlighted:
@@ -1070,7 +1273,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                         : selectedCategoryId == cats[i - 1].id;
                                     final name = i == 0
                                         ? ref.t('common.all')
-                                        : cats[i - 1].name;
+                                        : ref.ln(cats[i - 1].name, cats[i - 1].nameAmharic);
                                     return Padding(
                                       padding: const EdgeInsets.only(right: 8),
                                       child: InkWell(
@@ -1217,7 +1420,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                               .start,
                                                       children: [
                                                         Text(
-                                                          p.name,
+                                                          ref.ln(p.name, p.nameAmharic),
                                                           style: TextStyle(
                                                             fontWeight:
                                                                 FontWeight.bold,
@@ -1372,7 +1575,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                             .map(
                                               (w) => DropdownMenuItem(
                                                 value: w.id,
-                                                child: Text(w.name),
+                                                child: Text(
+                                                    ref.ln(w.name, w.nameAmharic)),
                                               ),
                                             )
                                             .toList(),
@@ -1425,10 +1629,12 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                 (t) => DropdownMenuItem(
                                                   value: t.id,
                                                   child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
                                                     children: [
-                                                      Expanded(
+                                                      Flexible(
                                                         child: Text(
-                                                          t.name,
+                                                          ref.ln(t.name,
+                                                              t.nameAmharic),
                                                           overflow: TextOverflow
                                                               .ellipsis,
                                                           maxLines: 1,
@@ -1665,7 +1871,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                               }
                                               chargeWidgets.add(
                                                 _SummaryRow(
-                                                  '${c.name} (${c.value}%)',
+                                                  '${ref.ln(c.name, c.nameAmharic)} (${c.value}%)',
                                                   '${c.type == 'addition' ? '' : '- '}${amount.toStringAsFixed(2)} ${ref.t('common.currency')}',
                                                   color: c.type == 'addition'
                                                       ? null
@@ -1729,143 +1935,118 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                           orElse: () => const SizedBox(),
                                         ),
                                         const SizedBox(height: 16),
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: ElevatedButton(
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: Colors.orange
-                                                      .withOpacity(0.85),
-                                                  foregroundColor: Colors.white,
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        vertical: 18,
-                                                      ),
-                                                  shape:
-                                                      const RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius.zero,
-                                                      ),
-                                                ),
-                                                onPressed:
-                                                    (localItems.isEmpty ||
-                                                        selectedTable == null)
-                                                    ? null
-                                                    : () async {
-                                                      final settings = ref.read(appSettingsProvider).value ?? {};
-                                                      final activeOrder = ref.read(activeOrderProvider(selectedTable!.id!)).value;
-                                                      await _sendToKitchen(activeOrder, settings);
-                                                    },
-                                                child: Text(
-                                                  ref.t('order.sendToKitchen'),
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: ElevatedButton(
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: Colors.orange
+                                                        .withOpacity(0.85),
+                                                    foregroundColor: Colors.white,
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 18,
+                                                        ),
+                                                    shape:
+                                                        const RoundedRectangleBorder(
+                                                          borderRadius:
+                                                              BorderRadius.zero,
+                                                        ),
+                                                  ),
+                                                  onPressed:
+                                                      (_isProcessing || localItems.isEmpty ||
+                                                          selectedTable == null)
+                                                      ? null
+                                                      : () async {
+                                                        final settings = ref.read(appSettingsProvider).value ?? {};
+                                                        final activeOrder = ref.read(activeOrderProvider(selectedTable!.id!)).value;
+                                                        await _sendToKitchen(activeOrder, settings);
+                                                      },
+                                                  child: Text(
+                                                    ref.t('order.sendToKitchen'),
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: ElevatedButton(
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: const Color(
-                                                    0xFF006B3C,
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: ElevatedButton(
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: (_billPrinted || _bothPrinted)
+                                                        ? Colors.white12
+                                                        : const Color(0xFF006B3C),
+                                                    foregroundColor: (_billPrinted || _bothPrinted)
+                                                        ? Colors.white30
+                                                        : Colors.white,
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 18,
+                                                        ),
+                                                    shape:
+                                                        const RoundedRectangleBorder(
+                                                          borderRadius:
+                                                              BorderRadius.zero,
+                                                        ),
                                                   ),
-                                                  foregroundColor: Colors.white,
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        vertical: 18,
-                                                      ),
-                                                  shape:
-                                                      const RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius.zero,
-                                                      ),
-                                                ),
-                                                onPressed:
-                                                    (activeOrderAsync.value ==
-                                                            null ||
-                                                        selectedTable == null)
-                                                    ? null
-                                                    : () async {
-                                                      final settings = ref.read(appSettingsProvider).value ?? {};
-                                                      final activeOrder = ref.read(activeOrderProvider(selectedTable!.id!)).value;
-                                                      if (activeOrder != null) {
-                                                        await _printBill(activeOrder, settings);
-                                                      }
-                                                    },
-                                                child: Text(
-                                                  ref.t('order.printBill'),
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
+                                                  onPressed:
+                                                      (_isProcessing || activeOrderAsync.value == null ||
+                                                          selectedTable == null || _billPrinted || _bothPrinted)
+                                                      ? null
+                                                      : () async {
+                                                        final settings = ref.read(appSettingsProvider).value ?? {};
+                                                        final activeOrder = ref.read(activeOrderProvider(selectedTable!.id!)).value;
+                                                        if (activeOrder != null) {
+                                                          await _printBill(activeOrder, settings);
+                                                        }
+                                                      },
+                                                  child: Text(
+                                                    ref.t('order.printBill'),
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        // ── Combined Print Order + Bill ──
-                                        SizedBox(
-                                          width: double.infinity,
-                                          child: ElevatedButton.icon(
-                                            icon: const Icon(Icons.print_outlined, size: 18),
-                                            label: Text(
-                                              ref.t('order.printBoth'),
-                                              style: const TextStyle(fontWeight: FontWeight.bold),
-                                            ),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: const Color(0xFF1A3A5C),
-                                              foregroundColor: Colors.white,
-                                              padding: const EdgeInsets.symmetric(vertical: 14),
-                                              shape: const RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.zero,
-                                              ),
-                                            ),
-                                            onPressed: (activeOrderAsync.value == null || selectedTable == null)
-                                                ? null
-                                                : () async {
-                                                    final settings = ref.read(appSettingsProvider).value ?? {};
-                                                    final activeOrder = ref.read(activeOrderProvider(selectedTable!.id!)).value;
-                                                    if (activeOrder == null) return;
-                                                    
-                                                    // Combined Confirmation
-                                                    final confirmBoth = await showDialog<bool>(
-                                                      context: context,
-                                                      builder: (ctx) => AlertDialog(
-                                                        backgroundColor: const Color(0xFF1A1A1A),
-                                                        title: Text(ref.t('order.printBoth')),
-                                                        content: Text(ref.t('common.confirm')),
-                                                        actions: [
-                                                          TextButton(
-                                                            onPressed: () => Navigator.pop(ctx, false),
-                                                            child: Text(ref.t('common.no')),
-                                                          ),
-                                                          ElevatedButton(
-                                                            style: ElevatedButton.styleFrom(
-                                                              backgroundColor: const Color(0xFFD4AF37),
-                                                              foregroundColor: Colors.black,
-                                                            ),
-                                                            onPressed: () => Navigator.pop(ctx, true),
-                                                            child: Text(ref.t('common.yes')),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    );
-                                                    if (confirmBoth != true) return;
-
-                                                    // Step 1: Send to kitchen if there are local items
-                                                    if (localItems.isNotEmpty) {
-                                                      await _sendToKitchen(activeOrder, settings);
-                                                    }
-                                                    // Step 2: Print bill with confirmation dialog
-                                                    final freshOrder = ref.read(activeOrderProvider(selectedTable!.id!)).value;
-                                                    if (freshOrder != null && mounted) {
-                                                      await _printBill(freshOrder, settings);
-                                                    }
-                                                  },
+                                            ],
                                           ),
-                                        ),
+                                          const SizedBox(height: 8),
+                                          // ── Combined Print Order + Bill ──
+                                          SizedBox(
+                                            width: double.infinity,
+                                            child: ElevatedButton.icon(
+                                              icon: Icon(
+                                                _bothPrinted ? Icons.check_circle_outline : Icons.print_outlined,
+                                                size: 18,
+                                              ),
+                                              label: Text(
+                                                _bothPrinted
+                                                    ? ref.t('reports.combinedPrintGenerated')
+                                                    : ref.t('order.printBoth'),
+                                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                              ),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: _bothPrinted
+                                                    ? Colors.white12
+                                                    : const Color(0xFF1A3A5C),
+                                                foregroundColor: _bothPrinted
+                                                    ? Colors.white30
+                                                    : Colors.white,
+                                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                                shape: const RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.zero,
+                                                ),
+                                              ),
+                                              onPressed: (_isProcessing || _bothPrinted || selectedTable == null || (activeOrderAsync.value == null && localItems.isEmpty))
+                                                  ? null
+                                                  : () async {
+                                                      final settings = ref.read(appSettingsProvider).value ?? {};
+                                                      final activeOrder = ref.read(activeOrderProvider(selectedTable!.id!)).value;
+                                                      await _printBoth(activeOrder, settings);
+                                                    },
+                                            ),
+                                          ),
                                       ],
                                     ),
                                   );
@@ -1984,7 +2165,7 @@ class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
             ...widget.charges.map((c) {
               final amount = widget.subtotal * (c.value / 100);
               return _Row(
-                '${c.name} (${c.value}%)',
+                '${ref.ln(c.name, c.nameAmharic)} (${c.value}%)',
                 '${(c.type == 'addition' ? '' : '- ')}${amount.toStringAsFixed(2)} ${ref.t('common.currency')}',
               );
             }),
@@ -2304,9 +2485,9 @@ class _HeldOrdersInlinePanel extends ConsumerWidget {
                     size: 16,
                   ),
                   const SizedBox(width: 8),
-                  const Text(
-                    'HELD ORDERS',
-                    style: TextStyle(
+                  Text(
+                    ref.t('order.heldOrders'),
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.5,
@@ -2317,9 +2498,9 @@ class _HeldOrdersInlinePanel extends ConsumerWidget {
                   TextButton.icon(
                     onPressed: () => ref.invalidate(ordersProvider),
                     icon: const Icon(Icons.refresh, size: 13),
-                    label: const Text(
-                      'REFRESH',
-                      style: TextStyle(fontSize: 10),
+                    label: Text(
+                      ref.t('order.refresh'),
+                      style: const TextStyle(fontSize: 10),
                     ),
                     style: TextButton.styleFrom(
                       foregroundColor: Colors.white24,
@@ -2352,9 +2533,9 @@ class _HeldOrdersInlinePanel extends ConsumerWidget {
                             color: Colors.white.withOpacity(0.08),
                           ),
                           const SizedBox(width: 8),
-                          const Text(
-                            'No pending orders',
-                            style: TextStyle(
+                          Text(
+                            ref.t('order.noPendingOrders'),
+                            style: const TextStyle(
                               color: Colors.white12,
                               fontSize: 12,
                             ),
@@ -2484,15 +2665,15 @@ class _HeldOrdersInlinePanel extends ConsumerWidget {
 }
 // ── Quick Quantity Picker Dialog ──────────────────────────────────────────
 
-class _QuickQtyDialog extends StatefulWidget {
+class _QuickQtyDialog extends ConsumerStatefulWidget {
   final Product product;
   const _QuickQtyDialog({required this.product});
 
   @override
-  State<_QuickQtyDialog> createState() => _QuickQtyDialogState();
+  ConsumerState<_QuickQtyDialog> createState() => _QuickQtyDialogState();
 }
 
-class _QuickQtyDialogState extends State<_QuickQtyDialog> {
+class _QuickQtyDialogState extends ConsumerState<_QuickQtyDialog> {
   int qty = 1;
   late TextEditingController _ctrl;
   final FocusNode _focusNode = FocusNode();
@@ -2570,13 +2751,13 @@ class _QuickQtyDialogState extends State<_QuickQtyDialog> {
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
               ),
-              decoration: const InputDecoration(
-                hintText: 'Enter Quantity',
-                hintStyle: TextStyle(color: Colors.white10, fontSize: 16),
-                enabledBorder: UnderlineInputBorder(
+              decoration: InputDecoration(
+                hintText: ref.t('order.enterQuantity'),
+                hintStyle: const TextStyle(color: Colors.white10, fontSize: 16),
+                enabledBorder: const UnderlineInputBorder(
                   borderSide: BorderSide(color: Colors.white10),
                 ),
-                focusedBorder: UnderlineInputBorder(
+                focusedBorder: const UnderlineInputBorder(
                   borderSide: BorderSide(color: Color(0xFFD4AF37)),
                 ),
               ),

@@ -23,7 +23,7 @@ import 'package:st_george_pos/models/shift.dart';
 import 'package:st_george_pos/models/z_report.dart';
 import 'package:st_george_pos/screens/table_management_screen.dart';
 
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   final String title;
   final VoidCallback? onAdd;
   final VoidCallback? onClear;
@@ -31,7 +31,7 @@ class _Header extends StatelessWidget {
   const _Header({required this.title, this.onAdd, this.onClear});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -49,7 +49,8 @@ class _Header extends StatelessWidget {
               TextButton.icon(
                 onPressed: onClear,
                 icon: const Icon(Icons.delete_sweep, color: Colors.redAccent, size: 18),
-                label: const Text('CLEAR', style: TextStyle(color: Colors.redAccent, fontSize: 10)),
+                label: Text(ref.t('common.clear').toUpperCase(),
+                    style: const TextStyle(color: Colors.redAccent, fontSize: 10)),
               ),
             if (onAdd != null)
               IconButton(
@@ -105,7 +106,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                           final cat = cats[i];
                           return ListTile(
                             title: Text(
-                              cat.name,
+                              ref.ln(cat.name, cat.nameAmharic),
                               style: TextStyle(
                                 color: selectedCategoryId == cat.id
                                     ? const Color(0xFFD4AF37)
@@ -171,7 +172,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                                 color: Color(0xFFD4AF37),
                               ),
                             ),
-                            title: Text(p.name),
+                            title: Text(ref.ln(p.name, p.nameAmharic)),
                             subtitle: Text(
                               '${p.price.toStringAsFixed(2)} ${ref.t('common.currency')}',
                             ),
@@ -215,11 +216,15 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
   }
 
   void _showCategoryDialog(BuildContext context, Category? existing) {
-    final ctrl = TextEditingController(text: existing?.name ?? '');
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final amharicCtrl = TextEditingController(text: existing?.nameAmharic ?? '');
 
     Future<void> doSave(BuildContext ctx) async {
-      if (ctrl.text.trim().isEmpty) return;
-      await ref.read(posRepositoryProvider).addCategory(ctrl.text.trim());
+      if (nameCtrl.text.trim().isEmpty) return;
+      await ref.read(posRepositoryProvider).addCategory(
+            nameCtrl.text.trim(),
+            nameAmharic: amharicCtrl.text.trim(),
+          );
       ref.invalidate(categoriesProvider);
       Navigator.pop(ctx);
     }
@@ -234,15 +239,31 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
               ? ref.t('management.addCategory')
               : ref.t('common.edit'),
         ),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            labelText: ref.t('management.name'),
-            labelStyle: const TextStyle(color: Colors.white54),
-          ),
-          onSubmitted: (_) => doSave(ctx),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white),
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                labelText: '${ref.t('management.name')} ${ref.t('common.english')}',
+                labelStyle: const TextStyle(color: Colors.white54),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: amharicCtrl,
+              style: const TextStyle(color: Colors.white),
+              textInputAction: TextInputAction.done,
+              decoration: InputDecoration(
+                labelText: '${ref.t('management.name')} ${ref.t('common.amharic')}',
+                labelStyle: const TextStyle(color: Colors.white54),
+              ),
+              onSubmitted: (_) => doSave(ctx),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -264,9 +285,11 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
 
   void _showProductDialog(BuildContext context, Product? existing) {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final amharicCtrl = TextEditingController(text: existing?.nameAmharic ?? '');
     final priceCtrl = TextEditingController(
       text: existing != null ? existing.price.toString() : '',
     );
+    final amharicFocus = FocusNode();
     final priceFocus = FocusNode();
 
     Future<void> doSave(BuildContext ctx) async {
@@ -280,6 +303,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
           Product(
             categoryId: selectedCategoryId!,
             name: nameCtrl.text.trim(),
+            nameAmharic: amharicCtrl.text.trim(),
             price: price,
           ),
         );
@@ -289,6 +313,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             id: existing.id,
             categoryId: selectedCategoryId!,
             name: nameCtrl.text.trim(),
+            nameAmharic: amharicCtrl.text.trim(),
             price: price,
           ),
         );
@@ -318,7 +343,19 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                 style: const TextStyle(color: Colors.white),
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
-                  labelText: ref.t('management.productName'),
+                  labelText: '${ref.t('management.productName')} ${ref.t('common.english')}',
+                  labelStyle: const TextStyle(color: Colors.white54),
+                ),
+                onSubmitted: (_) => amharicFocus.requestFocus(),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: amharicCtrl,
+                focusNode: amharicFocus,
+                style: const TextStyle(color: Colors.white),
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  labelText: '${ref.t('management.productName')} ${ref.t('common.amharic')}',
                   labelStyle: const TextStyle(color: Colors.white54),
                 ),
                 onSubmitted: (_) => priceFocus.requestFocus(),
@@ -556,7 +593,7 @@ class _WaiterManagementScreenState extends ConsumerState<WaiterManagementScreen>
                         color: const Color(0xFFD4AF37),
                         child: const Icon(Icons.person, color: Colors.black),
                       ),
-                      title: Text(w.name),
+                      title: Text(ref.ln(w.name, w.nameAmharic)),
                       subtitle: Text('${ref.t('management.code')}: ${w.code}'),
                       trailing: IconButton(
                         icon: const Icon(
@@ -613,11 +650,15 @@ class _WaiterManagementScreenState extends ConsumerState<WaiterManagementScreen>
   }
 
   void _showAddWaiterDialog(BuildContext context, WidgetRef ref) {
-    final ctrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    final amharicCtrl = TextEditingController();
 
     Future<void> doAdd(BuildContext ctx) async {
-      if (ctrl.text.trim().isEmpty) return;
-      await ref.read(posRepositoryProvider).addWaiter(ctrl.text.trim());
+      if (nameCtrl.text.trim().isEmpty) return;
+      await ref.read(posRepositoryProvider).addWaiter(
+            nameCtrl.text.trim(),
+            nameAmharic: amharicCtrl.text.trim(),
+          );
       ref.refresh(waitersProvider);
       Navigator.pop(ctx);
     }
@@ -627,15 +668,31 @@ class _WaiterManagementScreenState extends ConsumerState<WaiterManagementScreen>
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
         title: Text(ref.t('management.addWaiter')),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            labelText: ref.t('management.waiterNameLabel'),
-            labelStyle: const TextStyle(color: Colors.white54),
-          ),
-          onSubmitted: (_) => doAdd(ctx),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white),
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                labelText: '${ref.t('management.waiterNameLabel')} ${ref.t('common.english')}',
+                labelStyle: const TextStyle(color: Colors.white54),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: amharicCtrl,
+              style: const TextStyle(color: Colors.white),
+              textInputAction: TextInputAction.done,
+              decoration: InputDecoration(
+                labelText: '${ref.t('management.waiterNameLabel')} ${ref.t('common.amharic')}',
+                labelStyle: const TextStyle(color: Colors.white54),
+              ),
+              onSubmitted: (_) => doAdd(ctx),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -1714,14 +1771,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
                         _buildKpiGrid(ref, totalRevenue, totalOrders, atv),
                         const SizedBox(height: 32),
                         _AnalysisCard(
-                          title: 'HOURLY SALES TREND',
-                          subtitle: 'Revenue distribution across the day',
+                          title: ref.t('reports.hourlySalesTrend'),
+                          subtitle: ref.t('reports.hourlySalesSubtitle'),
                           child: _HourlySalesChart(hourlySales: hourlySales),
                         ),
                         const SizedBox(height: 32),
                         _AnalysisCard(
-                          title: 'ORDER AUDIT',
-                          subtitle: 'Most recent transactions',
+                          title: ref.t('reports.orderAudit'),
+                          subtitle: ref.t('reports.orderAuditSubtitle'),
                           child: _OrderAuditList(orders: completed),
                         ),
                       ],
@@ -1736,14 +1793,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _AnalysisCard(
-                          title: 'TOP PERFORMING ITEMS',
-                          subtitle: 'By revenue contribution',
+                          title: ref.t('reports.topPerformingItems'),
+                          subtitle: ref.t('reports.topPerformingSubtitle'),
                           child: _TopProductsAnalysis(items: topItems, totalRevenue: totalRevenue),
                         ),
                         const SizedBox(height: 32),
                         _AnalysisCard(
-                          title: 'CATEGORY REVENUE SHARE',
-                          subtitle: 'Distribution by category',
+                          title: ref.t('reports.categoryRevenueShare'),
+                          subtitle: ref.t('reports.categoryShareSubtitle'),
                           child: _CategoryShareAnalysis(catMap: catMap, totalRevenue: totalRevenue),
                         ),
                         const SizedBox(height: 32),
@@ -1754,8 +1811,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
                         ),
                         const SizedBox(height: 32),
                         _AnalysisCard(
-                          title: 'SHIFT ARCHIVE',
-                          subtitle: 'Recent Z-Reports',
+                          title: ref.t('reports.shiftArchive'),
+                          subtitle: ref.t('reports.archiveZ'),
                           child: _ShiftArchivePreview(reportsAsync: zReportsAsync),
                         ),
                       ],
@@ -1789,7 +1846,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
             ),
             const SizedBox(height: 4),
             Text(
-              'Business intelligence and shift analysis',
+              ref.t('reports.businessIntelligence'),
               style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
             ),
           ],
@@ -1813,19 +1870,19 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
       childAspectRatio: 2.5,
       children: [
         _KpiCard(
-          label: 'TOTAL REVENUE',
+          label: ref.t('reports.totalRevenue'),
           value: '${revenue.toStringAsFixed(2)} ETB',
           icon: Icons.payments_outlined,
           color: const Color(0xFFD4AF37),
         ),
         _KpiCard(
-          label: 'TOTAL ORDERS',
+          label: ref.t('reports.totalOrders'),
           value: '$orders',
           icon: Icons.receipt_outlined,
           color: Colors.blueAccent,
         ),
         _KpiCard(
-          label: 'AVERAGE TICKET',
+          label: ref.t('reports.averageTicket'),
           value: '${atv.toStringAsFixed(2)} ETB',
           icon: Icons.analytics_outlined,
           color: Colors.greenAccent,
@@ -1845,7 +1902,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
     if (completed.isEmpty) {
       toastification.show(
         context: context,
-        title: const Text('No orders to print'),
+        title: Text(ref.t('reports.noOrdersToPrint')),
         autoCloseDuration: const Duration(seconds: 3),
         type: ToastificationType.warning,
       );
@@ -1858,7 +1915,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
     final header = reportData['report_header'] as Map<String, dynamic>;
     header['opening_time'] = filter.from?.toIso8601String() ?? DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
     header['closing_time'] = filter.to?.toIso8601String() ?? DateTime.now().toIso8601String();
-    header['report_type'] = 'X REPORT (ANALYSIS)';
+    header['report_type'] = ref.t('reports.xReportAnalysis');
 
     reportData['orders_detail'] = completed.map((o) => {
       'id': o.id,
@@ -1883,7 +1940,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
     if (path != null) {
       toastification.show(
         context: context,
-        title: Text(kIsWeb ? 'Download Started' : 'Exported to Documents'),
+        title: Text(kIsWeb ? ref.t('reports.downloadStarted') : ref.t('reports.exportedToDocs')),
         description: kIsWeb ? null : Text(path),
         autoCloseDuration: const Duration(seconds: 5),
         type: ToastificationType.success,
@@ -2006,14 +2063,17 @@ class _HourlySalesChart extends StatelessWidget {
   }
 }
 
-class _TopProductsAnalysis extends StatelessWidget {
+class _TopProductsAnalysis extends ConsumerWidget {
   final List<MapEntry<String, Map<String, dynamic>>> items;
   final double totalRevenue;
   const _TopProductsAnalysis({required this.items, required this.totalRevenue});
 
   @override
-  Widget build(BuildContext context) {
-    if (items.isEmpty) return const Center(child: Text('No sales data', style: TextStyle(color: Colors.white24)));
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (items.isEmpty)
+      return Center(
+          child: Text(ref.t('reports.noSalesData'),
+              style: const TextStyle(color: Colors.white24)));
     
     return Column(
       children: items.map((e) {
@@ -2050,13 +2110,14 @@ class _TopProductsAnalysis extends StatelessWidget {
   }
 }
 
-class _CategoryShareAnalysis extends StatelessWidget {
+class _CategoryShareAnalysis extends ConsumerWidget {
   final Map<String, double> catMap;
   final double totalRevenue;
-  const _CategoryShareAnalysis({required this.catMap, required this.totalRevenue});
+  const _CategoryShareAnalysis(
+      {required this.catMap, required this.totalRevenue});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final sorted = catMap.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
     
     return Column(
@@ -2073,15 +2134,18 @@ class _CategoryShareAnalysis extends StatelessWidget {
   }
 }
 
-class _QuickActionsSection extends StatelessWidget {
+class _QuickActionsSection extends ConsumerWidget {
   final AnimationController pulseController;
   final VoidCallback onPrintX;
   final VoidCallback onExport;
 
-  const _QuickActionsSection({required this.pulseController, required this.onPrintX, required this.onExport});
+  const _QuickActionsSection(
+      {required this.pulseController,
+      required this.onPrintX,
+      required this.onExport});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2092,14 +2156,18 @@ class _QuickActionsSection extends StatelessWidget {
               child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFFD4AF37), shape: BoxShape.circle)),
             ),
             const SizedBox(width: 8),
-            const Text('LIVE OPERATIONS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
+            Text(ref.t('reports.liveOperations'),
+                style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1)),
           ],
         ),
         const SizedBox(height: 16),
         ElevatedButton.icon(
           onPressed: onPrintX,
           icon: const Icon(Icons.print_outlined, size: 18),
-          label: const Text('PRINT X-REPORT'),
+          label: Text(ref.t('reports.printXReportBtn')),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFD4AF37),
             foregroundColor: Colors.black,
@@ -2110,7 +2178,7 @@ class _QuickActionsSection extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: onExport,
           icon: const Icon(Icons.table_chart_outlined, size: 18),
-          label: const Text('EXPORT TO EXCEL'),
+          label: Text(ref.t('reports.exportExcelBtn')),
           style: OutlinedButton.styleFrom(
             foregroundColor: Colors.white,
             side: const BorderSide(color: Colors.white24),
@@ -2122,15 +2190,17 @@ class _QuickActionsSection extends StatelessWidget {
   }
 }
 
-class _ShiftArchivePreview extends StatelessWidget {
+class _ShiftArchivePreview extends ConsumerWidget {
   final AsyncValue<List<ZReportModel>> reportsAsync;
   const _ShiftArchivePreview({required this.reportsAsync});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return reportsAsync.when(
       data: (reports) {
-        if (reports.isEmpty) return const Text('No past shifts found', style: TextStyle(color: Colors.white24, fontSize: 12));
+        if (reports.isEmpty)
+          return Text(ref.t('reports.noArchive'),
+              style: const TextStyle(color: Colors.white24, fontSize: 12));
         return Column(
           children: reports.take(3).map((r) {
             final date = DateFormat('MMM dd, HH:mm').format(r.createdAt);
@@ -2140,7 +2210,9 @@ class _ShiftArchivePreview extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               dense: true,
               leading: const Icon(Icons.history, size: 16, color: Colors.white38),
-              title: Text('Shift #${r.zCount}', style: const TextStyle(fontSize: 12)),
+              title: Text(
+                  ref.t('shift.shiftNumber', replacements: {'id': r.zCount.toString()}),
+                  style: const TextStyle(fontSize: 12)),
               subtitle: Text(date, style: const TextStyle(fontSize: 10, color: Colors.white24)),
               trailing: Text('${total.toStringAsFixed(0)} ETB', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
             );
@@ -2153,14 +2225,16 @@ class _ShiftArchivePreview extends StatelessWidget {
   }
 }
 
-class _OrderAuditList extends StatelessWidget {
+class _OrderAuditList extends ConsumerWidget {
   final List<OrderModel> orders;
   const _OrderAuditList({required this.orders});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final recent = orders.reversed.take(10).toList();
-    if (recent.isEmpty) return const Text('No orders yet', style: TextStyle(color: Colors.white24, fontSize: 12));
+    if (recent.isEmpty)
+      return Text(ref.t('reports.noOrdersYet'),
+          style: const TextStyle(color: Colors.white24, fontSize: 12));
     
     return Column(
       children: [
@@ -2172,12 +2246,12 @@ class _OrderAuditList extends StatelessWidget {
             3: FlexColumnWidth(1.5),
           },
           children: [
-            const TableRow(
+            TableRow(
               children: [
-                Text('ID', style: TextStyle(fontSize: 10, color: Colors.white24, fontWeight: FontWeight.bold)),
-                Text('TIME', style: TextStyle(fontSize: 10, color: Colors.white24, fontWeight: FontWeight.bold)),
-                Text('WAITER', style: TextStyle(fontSize: 10, color: Colors.white24, fontWeight: FontWeight.bold)),
-                Text('TOTAL', textAlign: TextAlign.right, style: TextStyle(fontSize: 10, color: Colors.white24, fontWeight: FontWeight.bold)),
+                Text(ref.t('reports.auditTableId'), style: const TextStyle(fontSize: 10, color: Colors.white24, fontWeight: FontWeight.bold)),
+                Text(ref.t('reports.auditTableTime'), style: const TextStyle(fontSize: 10, color: Colors.white24, fontWeight: FontWeight.bold)),
+                Text(ref.t('reports.auditTableWaiter'), style: const TextStyle(fontSize: 10, color: Colors.white24, fontWeight: FontWeight.bold)),
+                Text(ref.t('reports.auditTableTotal'), textAlign: TextAlign.right, style: const TextStyle(fontSize: 10, color: Colors.white24, fontWeight: FontWeight.bold)),
               ],
             ),
             ...recent.map((o) => TableRow(
@@ -2195,21 +2269,21 @@ class _OrderAuditList extends StatelessWidget {
   }
 }
 
-class _DateFilterChips extends StatelessWidget {
+class _DateFilterChips extends ConsumerWidget {
   final DateFilter filter;
   final Function(DateFilter) onChanged;
 
   const _DateFilterChips({required this.filter, required this.onChanged});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Row(
       children: [
-        _filterChip('TODAY', DateFilter.today()),
+        _filterChip(ref.t('common.today'), DateFilter.today()),
         const SizedBox(width: 8),
-        _filterChip('YESTERDAY', DateFilter.yesterday()),
+        _filterChip(ref.t('common.yesterday'), DateFilter.yesterday()),
         const SizedBox(width: 8),
-        _filterChip('THIS WEEK', DateFilter.thisWeek()),
+        _filterChip(ref.t('common.thisWeek'), DateFilter.thisWeek()),
       ],
     );
   }
@@ -2277,7 +2351,7 @@ class ChargeManagementScreen extends ConsumerWidget {
                         content: Text(
                           ref.t(
                             'reports.deleteProductConfirm',
-                            replacements: {'name': charge.name},
+                             replacements: {'name': ref.ln(charge.name, charge.nameAmharic)},
                           ),
                         ),
                         actions: [
@@ -2318,6 +2392,7 @@ class ChargeManagementScreen extends ConsumerWidget {
     ChargeModel? charge,
   ) {
     final nameCtrl = TextEditingController(text: charge?.name);
+    final nameAmharicCtrl = TextEditingController(text: charge?.nameAmharic);
     final valueCtrl = TextEditingController(text: charge?.value.toString());
     String type = charge?.type ?? 'addition';
 
@@ -2334,14 +2409,27 @@ class ChargeManagementScreen extends ConsumerWidget {
             children: [
               TextField(
                 controller: nameCtrl,
+                style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  labelText: ref.t('charges.nameHint'),
+                  labelText: '${ref.t('charges.nameHint')} ${ref.t('common.english')}',
+                  labelStyle: const TextStyle(color: Colors.white54),
                 ),
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: nameAmharicCtrl,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: '${ref.t('charges.nameHint')} ${ref.t('common.amharic')}',
+                  labelStyle: const TextStyle(color: Colors.white54),
+                ),
+              ),
+              const SizedBox(height: 12),
               TextField(
                 controller: valueCtrl,
                 decoration: InputDecoration(
                   labelText: ref.t('charges.valueHint'),
+                  labelStyle: const TextStyle(color: Colors.white54),
                 ),
                 keyboardType: TextInputType.number,
               ),
@@ -2349,6 +2437,8 @@ class ChargeManagementScreen extends ConsumerWidget {
               DropdownButton<String>(
                 value: type,
                 isExpanded: true,
+                dropdownColor: const Color(0xFF1A1A1A),
+                style: const TextStyle(color: Colors.white),
                 items: [
                   DropdownMenuItem(
                     value: 'addition',
@@ -2369,10 +2459,17 @@ class ChargeManagementScreen extends ConsumerWidget {
               child: Text(ref.t('common.cancel')),
             ),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD4AF37),
+                foregroundColor: Colors.black,
+              ),
               onPressed: () {
                 final newCharge = ChargeModel(
                   id: charge?.id,
                   name: nameCtrl.text,
+                  nameAmharic: nameAmharicCtrl.text.trim().isEmpty
+                      ? null
+                      : nameAmharicCtrl.text.trim(),
                   type: type,
                   value: double.tryParse(valueCtrl.text) ?? 0.0,
                   isActive: charge?.isActive ?? true,
@@ -2393,7 +2490,7 @@ class ChargeManagementScreen extends ConsumerWidget {
   }
 }
 
-class _ChargeCard extends StatelessWidget {
+class _ChargeCard extends ConsumerWidget {
   final ChargeModel charge;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -2405,7 +2502,7 @@ class _ChargeCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isAddition = charge.type == 'addition';
     return GlassContainer(
       opacity: 0.05,
@@ -2457,7 +2554,7 @@ class _ChargeCard extends StatelessWidget {
           ),
           const Spacer(),
           Text(
-            charge.name,
+            ref.ln(charge.name, charge.nameAmharic),
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           Text(
@@ -2478,12 +2575,12 @@ class _ChargeCard extends StatelessWidget {
 
 
 
-class _TablePerformanceSection extends StatelessWidget {
+class _TablePerformanceSection extends ConsumerWidget {
   final List<OrderModel> orders;
   const _TablePerformanceSection({required this.orders});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tableStats = <String, Map<String, dynamic>>{};
     for (final o in orders) {
       tableStats.putIfAbsent(o.tableName, () => {'revenue': 0.0, 'count': 0});
@@ -2516,7 +2613,7 @@ class _TablePerformanceSection extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    Text('${entry.value['count']} orders', style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                    Text(ref.t('reports.ordersCount', replacements: {'count': entry.value['count'].toString()}), style: const TextStyle(color: Colors.white38, fontSize: 11)),
                   ],
                 ),
               ),

@@ -8,7 +8,9 @@ class OrderModel {
   final int waiterId;
   final int? cashierId;
   final String tableName;
+  final String? tableNameAmharic;
   final String waiterName;
+  final String? waiterNameAmharic;
   final String cashierName;
   final OrderStatus status;
   final DateTime createdAt;
@@ -26,7 +28,9 @@ class OrderModel {
     required this.waiterId,
     this.cashierId,
     required this.tableName,
+    this.tableNameAmharic,
     required this.waiterName,
+    this.waiterNameAmharic,
     this.cashierName = '',
     this.status = OrderStatus.pending,
     required this.createdAt,
@@ -60,7 +64,9 @@ class OrderModel {
       waiterId: waiterId,
       cashierId: cashierId ?? this.cashierId,
       tableName: tableName,
+      tableNameAmharic: tableNameAmharic,
       waiterName: waiterName,
+      waiterNameAmharic: waiterNameAmharic,
       cashierName: cashierName ?? this.cashierName,
       status: status ?? this.status,
       createdAt: createdAt,
@@ -82,7 +88,9 @@ class OrderModel {
       waiterId: map['waiter_id'] ?? 0,
       cashierId: map['cashier_id'],
       tableName: map['table_name'] ?? '',
+      tableNameAmharic: map['table_name_amharic'],
       waiterName: map['waiter_name'] ?? '',
+      waiterNameAmharic: map['waiter_name_amharic'],
       cashierName: map['cashier_name'] ?? '',
       status: OrderStatus.values.firstWhere(
         (e) => e.toString().split('.').last == map['status'],
@@ -118,7 +126,9 @@ class OrderModel {
       'payment_method': paymentMethod,
       'shift_id': shiftId,
       'table_name': tableName,
+      'table_name_amharic': tableNameAmharic,
       'waiter_name': waiterName,
+      'waiter_name_amharic': waiterNameAmharic,
       'cashier_name': cashierName,
     };
   }

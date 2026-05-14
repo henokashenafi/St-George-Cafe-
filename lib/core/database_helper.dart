@@ -42,7 +42,7 @@ class DatabaseHelper {
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 8,
+        version: 10,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -152,6 +152,19 @@ class DatabaseHelper {
         )
       ''');
     }
+    if (oldVersion < 9) {
+      await db.execute('ALTER TABLE categories ADD COLUMN name_amharic TEXT');
+      await db.execute('ALTER TABLE products ADD COLUMN name_amharic TEXT');
+      await db.execute('ALTER TABLE waiters ADD COLUMN name_amharic TEXT');
+      await db.execute('ALTER TABLE tables ADD COLUMN name_amharic TEXT');
+    }
+    if (oldVersion < 10) {
+      await db.execute('ALTER TABLE pos_charges ADD COLUMN name_amharic TEXT');
+      await db.execute('ALTER TABLE table_zones ADD COLUMN name_amharic TEXT');
+      // Update default charges with Amharic names
+      await db.execute("UPDATE pos_charges SET name_amharic = 'ቫት' WHERE name = 'VAT'");
+      await db.execute("UPDATE pos_charges SET name_amharic = 'የአገልግሎት ክፍያ' WHERE name = 'Service Charge'");
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -159,6 +172,7 @@ class DatabaseHelper {
       CREATE TABLE categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
+        name_amharic TEXT,
         icon TEXT
       )
     ''');
@@ -169,6 +183,7 @@ class DatabaseHelper {
         category_id INTEGER,
         category_ids TEXT,
         name TEXT NOT NULL,
+        name_amharic TEXT,
         price REAL NOT NULL,
         image_path TEXT,
         FOREIGN KEY (category_id) REFERENCES categories (id)
@@ -179,6 +194,7 @@ class DatabaseHelper {
       CREATE TABLE waiters (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
+        name_amharic TEXT,
         code TEXT UNIQUE
       )
     ''');
@@ -187,6 +203,7 @@ class DatabaseHelper {
       CREATE TABLE table_zones (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
+        name_amharic TEXT,
         waiter_id INTEGER,
         FOREIGN KEY (waiter_id) REFERENCES waiters (id)
       )
@@ -196,6 +213,7 @@ class DatabaseHelper {
       CREATE TABLE tables (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
+        name_amharic TEXT,
         status TEXT DEFAULT 'available',
         zone_id INTEGER,
         FOREIGN KEY (zone_id) REFERENCES table_zones (id)
@@ -298,6 +316,7 @@ class DatabaseHelper {
       CREATE TABLE pos_charges (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
+        name_amharic TEXT,
         type TEXT NOT NULL,
         value REAL NOT NULL,
         is_active INTEGER DEFAULT 1
@@ -305,8 +324,8 @@ class DatabaseHelper {
     ''');
 
     await _seedData(db);
-    await db.insert('pos_charges', {'name': 'VAT', 'type': 'addition', 'value': 0.0, 'is_active': 1});
-    await db.insert('pos_charges', {'name': 'Service Charge', 'type': 'addition', 'value': 5.0, 'is_active': 1});
+    await db.insert('pos_charges', {'name': 'VAT', 'name_amharic': 'ቫት', 'type': 'addition', 'value': 0.0, 'is_active': 1});
+    await db.insert('pos_charges', {'name': 'Service Charge', 'name_amharic': 'የአገልግሎት ክፍያ', 'type': 'addition', 'value': 5.0, 'is_active': 1});
   }
 
   Future _seedUsers(Database db) async {

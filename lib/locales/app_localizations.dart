@@ -174,4 +174,13 @@ extension AppLocalizationsExtension on WidgetRef {
     }
     return AppLocalizations.get(key);
   }
+
+  /// Localized Name helper: returns amharic if current language is AM and amharic is not null
+  String ln(String english, String? amharic) {
+    final lang = watch(languageProvider);
+    if (lang == AppLanguage.am && amharic != null && amharic.trim().isNotEmpty) {
+      return amharic;
+    }
+    return english;
+  }
 }

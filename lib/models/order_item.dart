@@ -3,6 +3,7 @@ class OrderItem {
   final int? orderId;
   final int productId;
   final String productName;
+  final String? productNameAmharic;
   final int quantity;
   final double unitPrice;
   final double subtotal;
@@ -16,6 +17,7 @@ class OrderItem {
     this.orderId,
     required this.productId,
     required this.productName,
+    this.productNameAmharic,
     this.categoryName,
     required this.quantity,
     required this.unitPrice,
@@ -40,6 +42,7 @@ class OrderItem {
       orderId: orderId ?? this.orderId,
       productId: productId,
       productName: productName,
+      productNameAmharic: productNameAmharic,
       categoryName: categoryName ?? this.categoryName,
       quantity: quantity ?? this.quantity,
       unitPrice: unitPrice,
@@ -56,6 +59,7 @@ class OrderItem {
       orderId: map['order_id'],
       productId: map['product_id'] ?? 0,
       productName: map['product_name'] ?? '',
+      productNameAmharic: map['product_name_amharic'],
       categoryName: map['category_name'],
       quantity: map['quantity'] ?? 1,
       unitPrice: (map['unit_price'] as num? ?? 0).toDouble(),
