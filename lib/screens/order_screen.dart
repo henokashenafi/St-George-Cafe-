@@ -368,7 +368,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     
     setState(() => _isProcessing = true);
     try {
-      TopToaster.show(context, 'Processing job...', isError: false);
+      TopToaster.show(context, ref.t('reports.processing'), isError: false);
 
       if (selectedTable == null) {
         TopToaster.show(context, ref.t('dashboard.selectTable'), isError: true);
@@ -402,14 +402,14 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             .map((e) => e.copyWith(isPrintedToKitchen: true))
             .toList();
 
-        TopToaster.show(context, 'Saving order...', isError: false);
+        TopToaster.show(context, ref.t('reports.saving'), isError: false);
         final roundNumber = await ref
             .read(activeOrderServiceProvider)
             .addItems(order.id!, itemsToPrint, selectedTable!.id!);
 
         bool printed = true;
         if (!skipPrint) {
-          TopToaster.show(context, 'Sending to printer...', isError: false);
+          TopToaster.show(context, ref.t('reports.sendingToPrinter'), isError: false);
           final printerName = settings['default_printer_name'];
 
           printed = await BillService.generateKitchenSlip(
@@ -465,7 +465,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      TopToaster.show(context, 'Generating bill PDF...', isError: false);
+      TopToaster.show(context, ref.t('reports.generatingPdf'), isError: false);
       final discountEnabled = (settings['discount_enabled'] ?? 'true') == 'true';
 
       // If there are unsent local items, warn
@@ -497,7 +497,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
       }
 
       if (order.items.isEmpty) {
-        TopToaster.show(context, 'No items in order', isError: true);
+        TopToaster.show(context, ref.t('reports.noItemsInOrder'), isError: true);
         return;
       }
 
@@ -550,6 +550,9 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           paymentMethod: _paymentMethod,
         );
 
+        // Invalidate active order immediately so buttons disable
+        ref.invalidate(activeOrderProvider(order.tableId));
+
         await ref.read(auditServiceProvider).log(
           'Order Completed',
           details: 'ID: ${order.id}, Total: ${subtotal.toStringAsFixed(2)}, Table: ${order.tableName}',
@@ -562,7 +565,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             isError: true,
           );
         } else if (mounted) {
-          TopToaster.show(context, 'Receipt generated ✓');
+          TopToaster.show(context, ref.t('reports.receiptGenerated'));
         }
 
         ref.refresh(tablesProvider);
@@ -579,33 +582,75 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   Future<void> _printBoth(OrderModel? activeOrder, Map<String, String> settings) async {
     if (_isProcessing) return;
     setState(() => _isProcessing = true);
-    
+
     try {
       OrderModel? order = activeOrder;
-      final itemsForKitchen = List<OrderItem>.from(localItems);
 
-      // Step 1: Save items to kitchen Round if localItems exist
-      if (itemsForKitchen.isNotEmpty) {
-        // Temporarily unset isProcessing so _sendToKitchen can run
-        _isProcessing = false;
-        order = await _sendToKitchen(order, settings, skipPrint: true);
-        _isProcessing = true;
-        if (order == null) return;
+      // Step 1: If there are unsent local items, save them to the order first.
+      // We handle the save inline here to avoid the _isProcessing race condition
+      // that existed when calling _sendToKitchen() from within _printBoth().
+      if (localItems.isNotEmpty) {
+        if (selectedTable == null) {
+          TopToaster.show(context, ref.t('dashboard.selectTable'), isError: true);
+          return;
+        }
+        if (order == null) {
+          // No active order yet — create one now.
+
+          if (selectedWaiter == null) {
+            TopToaster.show(context, ref.t('order.selectWaiter'), isError: true);
+            return;
+          }
+          final currentUser = ref.read(authProvider)!;
+          order = await ref
+              .read(activeOrderServiceProvider)
+              .createNewOrder(
+                OrderModel(
+                  tableId: selectedTable!.id!,
+                  waiterId: selectedWaiter!.id!,
+                  cashierId: currentUser.id,
+                  tableName: selectedTable!.name,
+                  waiterName: selectedWaiter!.name,
+                  cashierName: currentUser.username,
+                  createdAt: DateTime.now(),
+                  updatedAt: DateTime.now(),
+                ),
+              );
+          if (order == null) {
+            TopToaster.show(context, ref.t('reports.failedToCreateOrder'), isError: true);
+            return;
+          }
+        }
+
+        // Save items to DB (skip kitchen print — combined PDF handles it)
+        final itemsToSave = localItems
+            .map((e) => e.copyWith(isPrintedToKitchen: true))
+            .toList();
+        await ref
+            .read(activeOrderServiceProvider)
+            .addItems(order.id!, itemsToSave, selectedTable!.id!);
+
+        // Re-fetch updated order with all saved items
+        order = await ref
+            .read(posRepositoryProvider)
+            .getActiveOrderForTable(selectedTable!.id!);
+
+        if (order == null) {
+          TopToaster.show(context, ref.t('reports.noItemsToPrint'), isError: true);
+          return;
+        }
+        setState(() => localItems = []);
       }
 
-      if (order == null || order.items.isEmpty) {
-        TopToaster.show(context, 'No items to print.', isError: true);
-        return;
-      }
-
+      final finalOrder = order!;
       final charges = (await ref.read(chargesProvider.future)).where((c) => c.isActive).toList();
       if (!mounted) return;
 
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => _BillConfirmDialog(
-          order: order!,
-          subtotal: order.totalAmount,
+          order: finalOrder,
+          subtotal: finalOrder.totalAmount,
           charges: charges,
           discountEnabled: (settings['discount_enabled'] ?? 'true') == 'true',
           initialDiscount: _discountAmount,
@@ -619,21 +664,20 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         final printerName = settings['default_printer_name'];
         final cafeSettings = await ref.read(cafeSettingsProvider.future);
         
-        // Determine max round number for kitchen slip part
         int maxRound = 1;
-        if (order.items.isNotEmpty) {
-          maxRound = order.items.map((e) => e.kitchenRound ?? 1).reduce((a, b) => a > b ? a : b);
+        if (finalOrder.items.isNotEmpty) {
+          maxRound = finalOrder.items.map((e) => e.kitchenRound ?? 1).reduce((a, b) => a > b ? a : b);
         }
 
-        TopToaster.show(context, 'Generating combined PDF...', isError: false);
+        TopToaster.show(context, ref.t('reports.generatingPdf'), isError: false);
 
         final printed = await BillService.generateCombinedSlipAndBill(
-          order: order.copyWith(discountAmount: _discountAmount),
-          kitchenItems: itemsForKitchen,
-          receiptItems: order.items,
+          order: finalOrder.copyWith(discountAmount: _discountAmount),
+          kitchenItems: finalOrder.items,
+          receiptItems: finalOrder.items,
           roundNumber: maxRound,
           settings: cafeSettings,
-          cashierName: order.cashierName,
+          cashierName: finalOrder.cashierName,
           activeCharges: charges,
           printerName: printerName,
         );
@@ -641,19 +685,22 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         double totalAdditions = 0;
         double totalDeductions = 0;
         for (final c in charges) {
-          final amount = order.totalAmount * (c.value / 100);
+          final amount = finalOrder.totalAmount * (c.value / 100);
           if (c.type == 'addition') totalAdditions += amount;
           else totalDeductions += amount;
         }
 
         await ref.read(posRepositoryProvider).completeOrder(
-          order.id!,
-          order.tableId,
+          finalOrder.id!,
+          finalOrder.tableId,
           cashierId: ref.read(authProvider)?.id,
           serviceCharge: totalAdditions,
           discountAmount: _discountAmount + totalDeductions,
           paymentMethod: _paymentMethod,
         );
+
+        // Invalidate active order immediately so buttons disable
+        ref.invalidate(activeOrderProvider(finalOrder.tableId));
 
         if (mounted && !printed) {
           TopToaster.show(
@@ -662,7 +709,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             isError: true,
           );
         } else if (mounted) {
-          TopToaster.show(context, 'Combined Print generated ✓');
+          TopToaster.show(context, ref.t('reports.combinedPrintGenerated'));
         }
 
         ref.refresh(tablesProvider);
@@ -822,7 +869,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                       selectedTable != null
                           ? ref.t(
                               'order.title',
-                              replacements: {'table': selectedTable!.name},
+                              replacements: {
+                                'table': ref.ln(
+                                    selectedTable!.name, selectedTable!.nameAmharic)
+                              },
                             )
                           : ref.t('main.newOrder'),
                       style: const TextStyle(
@@ -993,7 +1043,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                 .map(
                                                   (w) => DropdownMenuItem(
                                                     value: w.id,
-                                                    child: Text(w.name),
+                                                    child: Text(
+                                                        ref.ln(w.name, w.nameAmharic)),
                                                   ),
                                                 )
                                                 .toList(),
@@ -1072,7 +1123,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                 .map(
                                                   (t) => DropdownMenuItem(
                                                     value: t.id,
-                                                    child: Text(t.name),
+                                                    child: Text(
+                                                        ref.ln(t.name, t.nameAmharic)),
                                                   ),
                                                 )
                                                 .toList(),
@@ -1111,7 +1163,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                     .map(
                                       (e) => _SuggestionItem(
                                         icon: Icons.person,
-                                        title: e.value.name,
+                                        title: ref.ln(e.value.name, e.value.nameAmharic),
                                         subtitle: 'Code: ${e.value.code}',
                                         isHighlighted:
                                             e.key == _suggestionIndex,
@@ -1131,7 +1183,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                     .map(
                                       (e) => _SuggestionItem(
                                         icon: Icons.table_bar,
-                                        title: e.value.name,
+                                        title: ref.ln(e.value.name, e.value.nameAmharic),
                                         subtitle:
                                             '${e.value.status == TableStatus.occupied ? ref.t('tables.statusOccupied') : ref.t('tables.statusAvailable')} • ${e.value.zoneName ?? ref.t('tables.noZoneAssigned')}',
                                         accentColor:
@@ -1159,7 +1211,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                     .map(
                                       (e) => _SuggestionItem(
                                         icon: Icons.restaurant_menu,
-                                        title: e.value.name,
+                                        title: ref.ln(e.value.name,
+                                            e.value.nameAmharic),
                                         subtitle:
                                             '${e.value.price.toStringAsFixed(2)} ETB',
                                         isHighlighted:
@@ -1186,7 +1239,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                         : selectedCategoryId == cats[i - 1].id;
                                     final name = i == 0
                                         ? ref.t('common.all')
-                                        : cats[i - 1].name;
+                                        : ref.ln(cats[i - 1].name, cats[i - 1].nameAmharic);
                                     return Padding(
                                       padding: const EdgeInsets.only(right: 8),
                                       child: InkWell(
@@ -1333,7 +1386,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                               .start,
                                                       children: [
                                                         Text(
-                                                          p.name,
+                                                          ref.ln(p.name, p.nameAmharic),
                                                           style: TextStyle(
                                                             fontWeight:
                                                                 FontWeight.bold,
@@ -1488,7 +1541,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                             .map(
                                               (w) => DropdownMenuItem(
                                                 value: w.id,
-                                                child: Text(w.name),
+                                                child: Text(
+                                                    ref.ln(w.name, w.nameAmharic)),
                                               ),
                                             )
                                             .toList(),
@@ -1544,7 +1598,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                     children: [
                                                       Expanded(
                                                         child: Text(
-                                                          t.name,
+                                                          ref.ln(t.name,
+                                                              t.nameAmharic),
                                                           overflow: TextOverflow
                                                               .ellipsis,
                                                           maxLines: 1,
@@ -1781,7 +1836,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                               }
                                               chargeWidgets.add(
                                                 _SummaryRow(
-                                                  '${c.name} (${c.value}%)',
+                                                  '${ref.ln(c.name, c.nameAmharic)} (${c.value}%)',
                                                   '${c.type == 'addition' ? '' : '- '}${amount.toStringAsFixed(2)} ${ref.t('common.currency')}',
                                                   color: c.type == 'addition'
                                                       ? null
@@ -2065,7 +2120,7 @@ class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
             ...widget.charges.map((c) {
               final amount = widget.subtotal * (c.value / 100);
               return _Row(
-                '${c.name} (${c.value}%)',
+                '${ref.ln(c.name, c.nameAmharic)} (${c.value}%)',
                 '${(c.type == 'addition' ? '' : '- ')}${amount.toStringAsFixed(2)} ${ref.t('common.currency')}',
               );
             }),

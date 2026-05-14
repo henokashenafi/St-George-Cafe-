@@ -115,7 +115,7 @@ class _TablesTab extends ConsumerWidget {
                       ),
                     ),
                     title: Text(
-                      t.name,
+                      ref.ln(t.name, t.nameAmharic),
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     subtitle: Text(
@@ -203,18 +203,24 @@ class _TablesTab extends ConsumerWidget {
     List<TableZone> zones,
   ) {
     final nameController = TextEditingController(text: existing?.name ?? '');
+    final amharicController = TextEditingController(text: existing?.nameAmharic ?? '');
     int? selectedZoneId = existing?.zoneId;
 
     Future<void> doSave(BuildContext ctx) async {
       if (nameController.text.trim().isEmpty) return;
       final repo = ref.read(posRepositoryProvider);
       if (existing == null) {
-        await repo.addTable(nameController.text.trim(), zoneId: selectedZoneId);
+        await repo.addTable(
+          nameController.text.trim(),
+          zoneId: selectedZoneId,
+          nameAmharic: amharicController.text.trim(),
+        );
       } else {
         await repo.updateTable(
           existing.id!,
           nameController.text.trim(),
           zoneId: selectedZoneId,
+          nameAmharic: amharicController.text.trim(),
         );
       }
       ref.invalidate(tablesProvider);
@@ -242,10 +248,19 @@ class _TablesTab extends ConsumerWidget {
                   style: const TextStyle(color: Colors.white),
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
-                    labelText: ref.t('tables.tableName'),
+                    labelText: ref.t('tables.tableName') + ' (English)',
                     labelStyle: const TextStyle(color: Colors.white54),
                   ),
-                  onSubmitted: (_) => doSave(ctx),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: amharicController,
+                  style: const TextStyle(color: Colors.white),
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    labelText: ref.t('tables.tableName') + ' (አማርኛ)',
+                    labelStyle: const TextStyle(color: Colors.white54),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int?>(
@@ -256,18 +271,18 @@ class _TablesTab extends ConsumerWidget {
                     labelText: ref.t('tables.zoneOptional'),
                     labelStyle: const TextStyle(color: Colors.white54),
                   ),
-                  items: [
-                    DropdownMenuItem<int?>(
-                      value: null,
-                      child: Text(ref.t('tables.noZone')),
-                    ),
-                    ...zones.map(
-                      (z) => DropdownMenuItem<int?>(
-                        value: z.id,
-                        child: Text(z.name),
+                    items: [
+                      DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text(ref.t('tables.noZone')),
                       ),
-                    ),
-                  ],
+                      ...zones.map(
+                        (z) => DropdownMenuItem<int?>(
+                          value: z.id,
+                          child: Text(ref.ln(z.name, z.nameAmharic)),
+                        ),
+                      ),
+                    ],
                   onChanged: (v) => setDialogState(() => selectedZoneId = v),
                 ),
               ],
@@ -407,7 +422,7 @@ class _ZonesTab extends ConsumerWidget {
                             ),
                           ),
                           title: Text(
-                            z.name,
+                            ref.ln(z.name, z.nameAmharic),
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           subtitle: Text(
@@ -465,6 +480,8 @@ class _ZonesTab extends ConsumerWidget {
     List<Waiter> waiters,
   ) {
     final nameController = TextEditingController(text: existing?.name ?? '');
+    final amharicController =
+        TextEditingController(text: existing?.nameAmharic ?? '');
     int? selectedWaiterId = existing?.waiterId;
 
     Future<void> doSave(BuildContext ctx) async {
@@ -474,12 +491,14 @@ class _ZonesTab extends ConsumerWidget {
         await repo.addTableZone(
           nameController.text.trim(),
           waiterId: selectedWaiterId,
+          nameAmharic: amharicController.text.trim(),
         );
       } else {
         await repo.updateTableZone(
           existing.id!,
           nameController.text.trim(),
           waiterId: selectedWaiterId,
+          nameAmharic: amharicController.text.trim(),
         );
       }
       ref.invalidate(tableZonesProvider);
@@ -508,7 +527,17 @@ class _ZonesTab extends ConsumerWidget {
                   style: const TextStyle(color: Colors.white),
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
-                    labelText: ref.t('tables.zoneName'),
+                    labelText: ref.t('tables.zoneName') + ' (English)',
+                    labelStyle: const TextStyle(color: Colors.white54),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: amharicController,
+                  style: const TextStyle(color: Colors.white),
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    labelText: ref.t('tables.zoneName') + ' (አማርኛ)',
                     labelStyle: const TextStyle(color: Colors.white54),
                   ),
                   onSubmitted: (_) => doSave(ctx),
@@ -530,7 +559,7 @@ class _ZonesTab extends ConsumerWidget {
                     ...waiters.map(
                       (w) => DropdownMenuItem<int?>(
                         value: w.id,
-                        child: Text(w.name),
+                        child: Text(ref.ln(w.name, w.nameAmharic)),
                       ),
                     ),
                   ],

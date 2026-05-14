@@ -1,12 +1,14 @@
 class TableZone {
   final int? id;
   final String name;
+  final String? nameAmharic;
   final int? waiterId;
   final String? waiterName; // convenience
 
   TableZone({
     this.id,
     required this.name,
+    this.nameAmharic,
     this.waiterId,
     this.waiterName,
   });
@@ -15,6 +17,7 @@ class TableZone {
     return TableZone(
       id: map['id'],
       name: map['name'],
+      nameAmharic: map['name_amharic'],
       waiterId: map['waiter_id'],
       waiterName: map['waiter_name'],
     );
@@ -24,6 +27,7 @@ class TableZone {
     return {
       'id': id,
       'name': name,
+      'name_amharic': nameAmharic,
       'waiter_id': waiterId,
     };
   }

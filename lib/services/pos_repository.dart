@@ -363,7 +363,7 @@ class PosRepository {
     return maps.map((m) => TableZone.fromMap(m)).toList();
   }
 
-  Future<int> addTableZone(String name, {int? waiterId}) async {
+  Future<int> addTableZone(String name, {int? waiterId, String? nameAmharic}) async {
     if (kIsWeb) {
       final id =
           (_webStorage['table_zones']!.isEmpty
@@ -375,6 +375,7 @@ class PosRepository {
       _webStorage['table_zones']!.add({
         'id': id,
         'name': name,
+        'name_amharic': nameAmharic,
         'waiter_id': waiterId,
       });
       await _saveWebData();
@@ -383,18 +384,24 @@ class PosRepository {
     final db = await _dbHelper.database;
     return await db.insert('table_zones', {
       'name': name,
+      'name_amharic': nameAmharic,
       'waiter_id': waiterId,
     });
   }
 
-  Future<void> updateTableZone(int id, String name, {int? waiterId}) async {
+  Future<void> updateTableZone(int id, String name,
+      {int? waiterId, String? nameAmharic}) async {
     if (kIsWeb) {
       final index = _webStorage['table_zones']!.indexWhere(
         (z) => z['id'] == id,
       );
       if (index != -1) {
-        _webStorage['table_zones']![index]['name'] = name;
-        _webStorage['table_zones']![index]['waiter_id'] = waiterId;
+        _webStorage['table_zones']![index] = {
+          'id': id,
+          'name': name,
+          'name_amharic': nameAmharic,
+          'waiter_id': waiterId,
+        };
       }
       await _saveWebData();
       return;
@@ -402,7 +409,11 @@ class PosRepository {
     final db = await _dbHelper.database;
     await db.update(
       'table_zones',
-      {'name': name, 'waiter_id': waiterId},
+      {
+        'name': name,
+        'name_amharic': nameAmharic,
+        'waiter_id': waiterId,
+      },
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -742,6 +753,7 @@ class PosRepository {
           orElse: () => {},
         );
         enrichedMap['table_name'] = table['name'] ?? 'Unknown';
+        enrichedMap['table_name_amharic'] = table['name_amharic'];
       }
       if (enrichedMap['waiter_name'] == null) {
         final waiter = _webStorage['waiters']!.firstWhere(
@@ -749,6 +761,7 @@ class PosRepository {
           orElse: () => {},
         );
         enrichedMap['waiter_name'] = waiter['name'] ?? 'Unknown';
+        enrichedMap['waiter_name_amharic'] = waiter['name_amharic'];
       }
       if (enrichedMap['cashier_name'] == null) {
         final cashier = _webStorage['users']!.firstWhere(
@@ -761,13 +774,13 @@ class PosRepository {
     }
     final db = await _dbHelper.database;
     final maps = await db.rawQuery(
-      'SELECT o.*, t.name as table_name, w.name as waiter_name, u.username as cashier_name FROM orders o JOIN tables t ON o.table_id = t.id JOIN waiters w ON o.waiter_id = w.id LEFT JOIN users u ON o.cashier_id = u.id WHERE o.table_id = ? AND o.status = \'pending\' LIMIT 1',
+      'SELECT o.*, t.name as table_name, t.name_amharic as table_name_amharic, w.name as waiter_name, w.name_amharic as waiter_name_amharic, u.username as cashier_name FROM orders o JOIN tables t ON o.table_id = t.id JOIN waiters w ON o.waiter_id = w.id LEFT JOIN users u ON o.cashier_id = u.id WHERE o.table_id = ? AND o.status = \'pending\' LIMIT 1',
       [tableId],
     );
     if (maps.isEmpty) return null;
     final orderId = maps.first['id'];
     final itemMaps = await db.rawQuery(
-      'SELECT oi.*, p.name as product_name, c.name as category_name FROM order_items oi JOIN products p ON oi.product_id = p.id JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
+      'SELECT oi.*, p.name as product_name, p.name_amharic as product_name_amharic, c.name as category_name FROM order_items oi JOIN products p ON oi.product_id = p.id JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
       [orderId],
     );
     final items = itemMaps.map((i) => OrderItem.fromMap(i)).toList();
@@ -1063,13 +1076,13 @@ class PosRepository {
       args = [to.toIso8601String()];
     }
     final maps = await db.rawQuery(
-      'SELECT o.*, t.name as table_name, w.name as waiter_name, u.username as cashier_name FROM orders o JOIN tables t ON o.table_id = t.id JOIN waiters w ON o.waiter_id = w.id LEFT JOIN users u ON o.cashier_id = u.id $whereClause ORDER BY o.created_at DESC',
+      'SELECT o.*, t.name as table_name, t.name_amharic as table_name_amharic, w.name as waiter_name, w.name_amharic as waiter_name_amharic, u.username as cashier_name FROM orders o JOIN tables t ON o.table_id = t.id JOIN waiters w ON o.waiter_id = w.id LEFT JOIN users u ON o.cashier_id = u.id $whereClause ORDER BY o.created_at DESC',
       args,
     );
     List<OrderModel> orders = [];
     for (var map in maps) {
       final itemMaps = await db.rawQuery(
-        'SELECT oi.*, p.name as product_name, c.name as category_name FROM order_items oi JOIN products p ON oi.product_id = p.id JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
+        'SELECT oi.*, p.name as product_name, p.name_amharic as product_name_amharic, c.name as category_name FROM order_items oi JOIN products p ON oi.product_id = p.id JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
         [map['id']],
       );
       orders.add(
@@ -1562,13 +1575,13 @@ class PosRepository {
     }
     final db = await _dbHelper.database;
     final maps = await db.rawQuery(
-      'SELECT o.*, t.name as table_name, w.name as waiter_name, u.username as cashier_name FROM orders o JOIN tables t ON o.table_id = t.id JOIN waiters w ON o.waiter_id = w.id LEFT JOIN users u ON o.cashier_id = u.id WHERE o.shift_id = ? ORDER BY o.created_at DESC',
+      'SELECT o.*, t.name as table_name, t.name_amharic as table_name_amharic, w.name as waiter_name, w.name_amharic as waiter_name_amharic, u.username as cashier_name FROM orders o JOIN tables t ON o.table_id = t.id JOIN waiters w ON o.waiter_id = w.id LEFT JOIN users u ON o.cashier_id = u.id WHERE o.shift_id = ? ORDER BY o.created_at DESC',
       [shiftId],
     );
     List<OrderModel> orders = [];
     for (var map in maps) {
       final itemMaps = await db.rawQuery(
-        'SELECT oi.*, p.name as product_name, c.name as category_name FROM order_items oi JOIN products p ON oi.product_id = p.id JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
+        'SELECT oi.*, p.name as product_name, p.name_amharic as product_name_amharic, c.name as category_name FROM order_items oi JOIN products p ON oi.product_id = p.id JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
         [map['id']],
       );
       orders.add(

@@ -19,6 +19,7 @@ import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:st_george_pos/widgets/language_switcher.dart';
 import 'package:st_george_pos/screens/audit_logs_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:st_george_pos/core/widgets/top_toaster.dart';
 
 
 void main() async {
@@ -171,7 +172,11 @@ class DashboardScreen extends ConsumerWidget {
         flexibleSpace: ClipRect(
           child: BackdropFilter(
             filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(color: Colors.transparent),
+            child: Container(
+              width: double.infinity,
+              height: double.infinity,
+              color: Colors.transparent,
+            ),
           ),
         ),
         actions: [
@@ -207,15 +212,25 @@ class DashboardScreen extends ConsumerWidget {
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
+            tooltip: ref.t('common.refresh'),
             onPressed: () {
               ref.invalidate(tablesProvider);
+              ref.invalidate(waitersProvider);
+              ref.invalidate(categoriesProvider);
+              ref.invalidate(productsProvider(null));
               ref.invalidate(currentShiftProvider);
               ref.invalidate(ordersProvider);
               ref.invalidate(zReportsProvider);
               ref.invalidate(chargesProvider);
+              ref.invalidate(chargesListProvider);
               ref.invalidate(appSettingsProvider);
               ref.invalidate(cafeSettingsProvider);
-              TopToaster.show(context, ref.t('common.refreshing'));
+              
+              // Reset UI state to home
+              ref.read(dashboardViewProvider.notifier).state = DashboardView.home;
+              ref.read(selectedTableProvider.notifier).set(null);
+              
+              TopToaster.show(context, ref.t('common.refreshing'), isError: false);
             },
           ),
           const SizedBox(width: 8),
@@ -339,7 +354,7 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                       _SidebarItem(
                         icon: Icons.history_edu_outlined,
-                        label: 'AUDIT',
+                        label: ref.t('navigation.audit'),
                         isActive:
                             ref.watch(dashboardViewProvider) ==
                             DashboardView.auditLogs,
@@ -349,7 +364,7 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                       _SidebarItem(
                         icon: Icons.tune,
-                        label: 'SETTINGS',
+                        label: ref.t('navigation.settings'),
                         isActive:
                             ref.watch(dashboardViewProvider) ==
                                 DashboardView.settings &&

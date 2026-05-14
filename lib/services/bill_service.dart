@@ -3,6 +3,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
+import 'package:st_george_pos/core/widgets/top_toaster.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:st_george_pos/models/order.dart';
 import 'package:st_george_pos/models/order_item.dart';
@@ -29,6 +30,12 @@ class BillService {
       bold: _fontBold!,
       italic: _fontRegular!,
     );
+  }
+
+  static String _ln(String? en, String? am) {
+    // For printing, we prioritize Amharic if available, otherwise fallback to English
+    if (am != null && am.trim().isNotEmpty) return am;
+    return en ?? '';
   }
 
   // ── Kitchen Slip PDF (A5 compact) ────────────────────────────────────────
@@ -86,7 +93,7 @@ class BillService {
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Text(
-                  '${t('print.table')}: ${order.tableName}',
+                  '${t('print.table')}: ${_ln(order.tableName, order.tableNameAmharic)}',
                   style: pw.TextStyle(
                     fontSize: 14,
                     fontWeight: pw.FontWeight.bold,
@@ -99,7 +106,7 @@ class BillService {
               ],
             ),
             pw.SizedBox(height: 4),
-            _infoRow(t('print.waiter'), order.waiterName),
+            _infoRow(t('print.waiter'), _ln(order.waiterName, order.waiterNameAmharic)),
             _infoRow(t('print.time'), '$timeStr  |  $dateStr'),
             pw.Divider(thickness: 2),
             pw.SizedBox(height: 6),
@@ -112,7 +119,7 @@ class BillService {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      '${item.quantity} x  ${item.productName}',
+                      '${item.quantity} x  ${_ln(item.productName, item.productNameAmharic)}',
                       style: pw.TextStyle(
                         fontSize: 15,
                         fontWeight: pw.FontWeight.bold,
@@ -264,8 +271,8 @@ class BillService {
             // ── Info ─────────────────────────────────────────────────────
             _infoRow(t('bill.date'), dateStr, fontSize: 9),
             _infoRow(t('bill.voucher'), voucherNo, fontSize: 9),
-            _infoRow(t('bill.waiter'), order.waiterName, fontSize: 9),
-            _infoRow(t('bill.table'), order.tableName, fontSize: 9),
+            _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 9),
+            _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 9),
             pw.Divider(thickness: 0.5),
 
             // ── Items Table (Thermal Style) ──────────────────────────────
@@ -322,7 +329,7 @@ class BillService {
                     pw.Expanded(
                       flex: 4,
                       child: pw.Text(
-                        item.productName,
+                        _ln(item.productName, item.productNameAmharic),
                         style: const pw.TextStyle(fontSize: 9),
                       ),
                     ),
@@ -500,7 +507,7 @@ class BillService {
                 ],
               ),
               pw.SizedBox(height: 4),
-              _infoRow(t('print.waiter'), order.waiterName),
+              _infoRow(t('print.waiter'), _ln(order.waiterName, order.waiterNameAmharic)),
               _infoRow(t('print.time'), '$timeStr  |  $dateStr'),
               pw.Divider(thickness: 2),
               pw.SizedBox(height: 6),
@@ -511,7 +518,7 @@ class BillService {
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Text(
-                        '${item.quantity} x  ${item.productName}',
+                        '${item.quantity} x  ${_ln(item.productName, item.productNameAmharic)}',
                         style: pw.TextStyle(
                           fontSize: 15,
                           fontWeight: pw.FontWeight.bold,
@@ -583,8 +590,8 @@ class BillService {
             pw.Divider(thickness: 0.5),
             _infoRow(t('bill.date'), dateStr, fontSize: 9),
             _infoRow(t('bill.voucher'), voucherNo, fontSize: 9),
-            _infoRow(t('bill.waiter'), order.waiterName, fontSize: 9),
-            _infoRow(t('bill.table'), order.tableName, fontSize: 9),
+            _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 9),
+            _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 9),
             pw.Divider(thickness: 0.5),
             pw.Row(
               children: [
@@ -639,7 +646,7 @@ class BillService {
                     pw.Expanded(
                       flex: 4,
                       child: pw.Text(
-                        item.productName,
+                        _ln(item.productName, item.productNameAmharic),
                         style: const pw.TextStyle(fontSize: 9),
                       ),
                     ),
@@ -1154,12 +1161,21 @@ class BillService {
 
     // ── Web: always use browser print dialog ────────────────────────────────
     if (kIsWeb) {
-      await Printing.layoutPdf(
-        onLayout: (_) async => pdfBytes,
-        name: documentName,
-        format: format,
-      );
-      return true;
+      debugPrint('[Print] Web detected, using layoutPdf for browser dialog...');
+      try {
+        await Printing.layoutPdf(
+          onLayout: (_) async => pdfBytes,
+          name: documentName,
+          // On Web, sometimes roll80 causes preview issues in standard browsers.
+          // We provide the format but allow the browser to adapt.
+          format: format,
+          dynamicLayout: false, // Prevents re-layout which can lose gesture context
+        );
+        return true;
+      } catch (e) {
+        debugPrint('[Print] layoutPdf error on Web: $e');
+        return false;
+      }
     }
 
     // ── Desktop: try directPrintPdf if a printer is configured ──────────────
