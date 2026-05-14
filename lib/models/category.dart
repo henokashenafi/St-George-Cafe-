@@ -23,4 +23,18 @@ class Category {
       'icon': icon,
     };
   }
+
+  Category copyWith({
+    int? id,
+    String? name,
+    String? nameAmharic,
+    String? icon,
+  }) {
+    return Category(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      nameAmharic: nameAmharic ?? this.nameAmharic,
+      icon: icon ?? this.icon,
+    );
+  }
 }

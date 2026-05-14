@@ -45,7 +45,7 @@
     "discount": "Discount",
     "total": "TOTAL",
     "unsentItems": "Unsent Items",
-    "unsentItemsMessage": "You have new items not sent to kitchen. Send them first or discard?",
+    "unsentItemsMessage": "You have new items not sent to the preparation station. Send them first or discard?",
     "goBack": "Go Back",
     "discardAndBill": "Discard & Bill",
     "confirmBill": "Confirm Bill",
@@ -69,7 +69,7 @@
     "confirmQty": "CONFIRM",
     "waiterHint": "Type waiter name…  (Enter or tap to select)",
     "tableHint": "Type table name…  (Enter or tap to select)",
-    "productHint": "Search item…  (Enter when empty = Send to Kitchen)",
+    "productHint": "Search item…  (Enter when empty = Send to Station)",
     "heldOrderInfo": "{waiter}  •  {items} items",
     "printBoth": "Print Order + Bill",
     "removeConfirm": "Remove Item?",
@@ -505,7 +505,7 @@
     "description": "Description"
   },
   "print": {
-    "kitchenOrder": "KITCHEN ORDER",
+    "kitchenOrder": "STATION ORDER",
     "table": "Table",
     "waiter": "Waiter",
     "time": "Time",

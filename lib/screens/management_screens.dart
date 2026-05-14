@@ -185,13 +185,26 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                             selected: selectedCategoryId == cat.id,
                             onTap: () =>
                                 setState(() => selectedCategoryId = cat.id),
-                            trailing: IconButton(
-                              icon: const Icon(
-                                Icons.delete_outline,
-                                color: Colors.redAccent,
-                                size: 18,
-                              ),
-                              onPressed: () => _deleteCategory(cat.id!),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    color: Colors.white54,
+                                    size: 18,
+                                  ),
+                                  onPressed: () => _showCategoryDialog(context, cat),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.redAccent,
+                                    size: 18,
+                                  ),
+                                  onPressed: () => _deleteCategory(cat.id!),
+                                ),
+                              ],
                             ),
                           );
                         },
@@ -291,10 +304,19 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
 
     Future<void> doSave(BuildContext ctx) async {
       if (nameCtrl.text.trim().isEmpty) return;
-      await ref.read(posRepositoryProvider).addCategory(
-            nameCtrl.text.trim(),
-            nameAmharic: amharicCtrl.text.trim(),
-          );
+      if (existing == null) {
+        await ref.read(posRepositoryProvider).addCategory(
+              nameCtrl.text.trim(),
+              nameAmharic: amharicCtrl.text.trim(),
+            );
+      } else {
+        await ref.read(posRepositoryProvider).updateCategory(
+              existing.copyWith(
+                name: nameCtrl.text.trim(),
+                nameAmharic: amharicCtrl.text.trim(),
+              ),
+            );
+      }
       ref.invalidate(categoriesProvider);
       Navigator.pop(ctx);
     }
@@ -416,23 +438,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                       labelStyle: const TextStyle(color: Colors.white54),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String?>(
-                    value: selectedPrinter,
-                    dropdownColor: const Color(0xFF1A1A1A),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      labelText: ref.t('management.stationPrinter'),
-                      labelStyle: const TextStyle(color: Colors.white54),
-                    ),
-                    items: [
-                      DropdownMenuItem(
-                          value: null, child: Text(ref.t('management.defaultPrinter'))),
-                      ...availablePrinters.map((p) =>
-                          DropdownMenuItem(value: p.name, child: Text(p.name))),
-                    ],
-                    onChanged: (val) => setState(() => selectedPrinter = val),
-                  ),
+
                 ],
               ),
             ),
@@ -513,17 +519,20 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
     final amharicFocus = FocusNode();
     final priceFocus = FocusNode();
     int? selectedStationId = existing?.stationId;
+    List<int> selectedCategoryIds = existing != null 
+        ? List.from(existing.categoryIds) 
+        : (selectedCategoryId != null ? [selectedCategoryId!] : []);
 
     Future<void> doSave(BuildContext ctx) async {
       final price = double.tryParse(priceCtrl.text);
       if (nameCtrl.text.trim().isEmpty ||
           price == null ||
-          selectedCategoryId == null) return;
+          selectedCategoryIds.isEmpty) return;
       final repo = ref.read(posRepositoryProvider);
       if (existing == null) {
         await repo.addProduct(
           Product(
-            categoryId: selectedCategoryId!,
+            categoryIds: selectedCategoryIds,
             name: nameCtrl.text.trim(),
             nameAmharic: amharicCtrl.text.trim(),
             price: price,
@@ -534,7 +543,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
         await repo.updateProduct(
           Product(
             id: existing.id,
-            categoryId: selectedCategoryId!,
+            categoryIds: selectedCategoryIds,
             name: nameCtrl.text.trim(),
             nameAmharic: amharicCtrl.text.trim(),
             price: price,
@@ -556,69 +565,113 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
               ? ref.t('management.addProduct')
               : ref.t('common.edit'),
         ),
-        content: SizedBox(
-          width: 400,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  autofocus: true,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: ref.t('management.productName'),
-                    labelStyle: const TextStyle(color: Colors.white54),
+        content: StatefulBuilder(
+          builder: (ctx, setState) => SizedBox(
+            width: 400,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    autofocus: true,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: ref.t('management.productName'),
+                      labelStyle: const TextStyle(color: Colors.white54),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: amharicCtrl,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText:
-                        '${ref.t('management.productName')} (አማርኛ)',
-                    labelStyle: const TextStyle(color: Colors.white54),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: amharicCtrl,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText:
+                          '${ref.t('management.productName')} (አማርኛ)',
+                      labelStyle: const TextStyle(color: Colors.white54),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: priceCtrl,
-                  style: const TextStyle(color: Colors.white),
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: ref.t('management.price'),
-                    labelStyle: const TextStyle(color: Colors.white54),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: priceCtrl,
+                    style: const TextStyle(color: Colors.white),
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: ref.t('management.price'),
+                      labelStyle: const TextStyle(color: Colors.white54),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Consumer(
-                  builder: (context, ref, child) {
-                    final stationsAsync = ref.watch(stationsProvider);
-                    return stationsAsync.when(
-                      data: (stations) => DropdownButtonFormField<int?>(
-                        value: selectedStationId,
-                        dropdownColor: const Color(0xFF1A1A1A),
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          labelText: ref.t('management.selectStation'),
-                          labelStyle:
-                              const TextStyle(color: Colors.white54),
+                  const SizedBox(height: 16),
+                  Text(
+                    ref.t('management.categories'),
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  Consumer(
+                    builder: (context, childRef, child) {
+                      final catsAsync = childRef.watch(categoriesProvider);
+                      return catsAsync.when(
+                        data: (cats) => Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: cats.map((cat) {
+                            final isSelected = selectedCategoryIds.contains(cat.id);
+                            return FilterChip(
+                              label: Text(childRef.ln(cat.name, cat.nameAmharic)),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                setState(() {
+                                  if (selected) {
+                                    selectedCategoryIds.add(cat.id!);
+                                  } else {
+                                    selectedCategoryIds.remove(cat.id!);
+                                  }
+                                });
+                              },
+                              selectedColor: const Color(0xFFD4AF37),
+                              checkmarkColor: Colors.black,
+                              labelStyle: TextStyle(
+                                color: isSelected ? Colors.black : Colors.white,
+                              ),
+                              backgroundColor: Colors.white10,
+                            );
+                          }).toList(),
                         ),
-                        items: stations
-                            .map((s) => DropdownMenuItem(
-                                  value: s.id,
-                                  child: Text(ref.ln(s.name, s.nameAmharic)),
-                                ))
-                            .toList(),
-                        onChanged: (val) => selectedStationId = val,
-                      ),
-                      loading: () => const LinearProgressIndicator(),
-                      error: (e, _) => Text('Error: $e'),
-                    );
-                  },
-                ),
-              ],
+                        loading: () => const CircularProgressIndicator(),
+                        error: (e, _) => Text('Error: $e'),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final stationsAsync = ref.watch(stationsProvider);
+                      return stationsAsync.when(
+                        data: (stations) => DropdownButtonFormField<int?>(
+                          value: selectedStationId,
+                          dropdownColor: const Color(0xFF1A1A1A),
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            labelText: ref.t('management.selectStation'),
+                            labelStyle:
+                                const TextStyle(color: Colors.white54),
+                          ),
+                          items: stations
+                              .map((s) => DropdownMenuItem(
+                                    value: s.id,
+                                    child: Text(ref.ln(s.name, s.nameAmharic)),
+                                  ))
+                              .toList(),
+                          onChanged: (val) => selectedStationId = val,
+                        ),
+                        loading: () => const LinearProgressIndicator(),
+                        error: (e, _) => Text('Error: $e'),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -681,7 +734,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
 
   void _deleteProduct(int id) async {
     final prodName = ref.read(productsProvider(selectedCategoryId)).value
-        ?.firstWhere((p) => p.id == id, orElse: () => Product(id: id, categoryId: 0, name: '', price: 0))?.name ?? '';
+        ?.firstWhere((p) => p.id == id, orElse: () => Product(id: id, categoryIds: [], name: '', price: 0))?.name ?? '';
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

@@ -1,15 +1,17 @@
 class Product {
   final int? id;
-  final int categoryId;
+  final List<int> categoryIds;
   final String name;
   final String? nameAmharic;
   final double price;
   final String? imagePath;
   final int? stationId;
 
+  int get categoryId => categoryIds.isNotEmpty ? categoryIds.first : 0;
+
   Product({
     this.id,
-    required this.categoryId,
+    required this.categoryIds,
     required this.name,
     this.nameAmharic,
     required this.price,
@@ -19,7 +21,7 @@ class Product {
 
   Product copyWith({
     int? id,
-    int? categoryId,
+    List<int>? categoryIds,
     String? name,
     String? nameAmharic,
     double? price,
@@ -28,7 +30,7 @@ class Product {
   }) {
     return Product(
       id: id ?? this.id,
-      categoryId: categoryId ?? this.categoryId,
+      categoryIds: categoryIds ?? this.categoryIds,
       name: name ?? this.name,
       nameAmharic: nameAmharic ?? this.nameAmharic,
       price: price ?? this.price,
@@ -38,9 +40,19 @@ class Product {
   }
 
   factory Product.fromMap(Map<String, dynamic> map) {
+    List<int> parseCategories() {
+      if (map['category_ids'] != null && map['category_ids'].toString().isNotEmpty) {
+        return map['category_ids'].toString().split(',').map((e) => int.tryParse(e.trim()) ?? 0).where((e) => e > 0).toList();
+      }
+      if (map['category_id'] != null) {
+        return [map['category_id'] as int];
+      }
+      return [];
+    }
+
     return Product(
       id: map['id'],
-      categoryId: map['category_id'] ?? 0,
+      categoryIds: parseCategories(),
       name: map['name'],
       nameAmharic: map['name_amharic'],
       price: (map['price'] as num).toDouble(),
@@ -53,6 +65,7 @@ class Product {
     return {
       'id': id,
       'category_id': categoryId,
+      'category_ids': categoryIds.join(','),
       'name': name,
       'name_amharic': nameAmharic,
       'price': price,

@@ -583,6 +583,19 @@ class PosRepository {
     });
   }
 
+  Future<void> updateCategory(Category category) async {
+    if (kIsWeb) {
+      final idx = _webStorage['categories']!.indexWhere((e) => e['id'] == category.id);
+      if (idx != -1) {
+        _webStorage['categories']![idx] = category.toMap();
+        await _saveWebData();
+      }
+      return;
+    }
+    final db = await _dbHelper.database;
+    await db.update('categories', category.toMap(), where: 'id = ?', whereArgs: [category.id]);
+  }
+
   Future<void> deleteCategory(int id) async {
     if (kIsWeb) {
       _webStorage['categories']!.removeWhere((e) => e['id'] == id);
@@ -672,15 +685,26 @@ class PosRepository {
     if (kIsWeb) {
       final list = _webStorage['products']!;
       final filtered = categoryId != null
-          ? list.where((e) => e['category_id'] == categoryId).toList()
+          ? list.where((e) {
+              if (e['category_id'] == categoryId) return true;
+              if (e['category_ids'] != null) {
+                final ids = e['category_ids'].toString().split(',').map((x) => x.trim());
+                if (ids.contains(categoryId.toString())) return true;
+              }
+              return false;
+            }).toList()
           : list;
       return filtered.map((p) => Product.fromMap(p)).toList();
     }
     final db = await _dbHelper.database;
     final maps = await db.query(
       'products',
-      where: categoryId != null ? "category_id = ?" : null,
-      whereArgs: categoryId != null ? [categoryId] : null,
+      where: categoryId != null 
+          ? "category_id = ? OR category_ids = ? OR category_ids LIKE ? OR category_ids LIKE ? OR category_ids LIKE ?" 
+          : null,
+      whereArgs: categoryId != null 
+          ? [categoryId, '$categoryId', '$categoryId,%', '%,$categoryId', '%,$categoryId,%'] 
+          : null,
     );
 
     return maps.map((m) => Product.fromMap(m)).toList();

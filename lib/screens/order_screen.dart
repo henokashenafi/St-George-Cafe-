@@ -429,31 +429,21 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         if (!skipPrint) {
           TopToaster.show(context, ref.t('reports.sendingToPrinter'), isError: false);
           
-          // ── Group items by station ──────────────────────────────────────
-          final stations = ref.read(stationsProvider).value ?? [];
-          final Map<int?, List<OrderItem>> grouped = {};
-          for (final item in localItems) {
-            grouped.putIfAbsent(item.stationId, () => []).add(item);
-          }
-
-          // ── Print each group ────────────────────────────────────────────
-          for (final entry in grouped.entries) {
-            final stationId = entry.key;
-            final stationItems = entry.value;
-            
-            final station = stations.where((s) => s.id == stationId).firstOrNull;
-            final stationPrinter = station?.printerName ?? settings['default_printer_name'];
-            final stationName = station?.name ?? ref.t('print.kitchenOrder');
-
-            final result = await BillService.generateKitchenSlip(
-              order: order,
-              items: stationItems,
-              roundNumber: roundNumber,
-              printerName: stationPrinter,
-              stationName: stationName,
-            );
-            if (!result) printed = false;
-          }
+          // ── Print as a combined continuous slip ─────────────────────────
+          final cafeSettings = await ref.read(cafeSettingsProvider.future);
+          final charges = (await ref.read(chargesProvider.future)).where((c) => c.isActive).toList();
+          
+          final result = await BillService.generateCombinedSlipAndBill(
+            order: order!,
+            kitchenItems: localItems,
+            receiptItems: [], // Empty receipt list skips the customer receipt
+            roundNumber: roundNumber ?? 1,
+            settings: cafeSettings,
+            cashierName: order.cashierName,
+            activeCharges: charges,
+            printerName: settings['default_printer_name'],
+          );
+          if (!result) printed = false;
         }
 
         final uniqueStationsCount = localItems.map((e) => e.stationId).toSet().length;
@@ -2067,7 +2057,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                   borderRadius: BorderRadius.zero,
                                                 ),
                                               ),
-                                              onPressed: (_isProcessing || _bothPrinted || selectedTable == null || (activeOrderAsync.value == null && localItems.isEmpty))
+                                              onPressed: (_isProcessing || _bothPrinted || _kitchenPrinted || _billPrinted || selectedTable == null || (activeOrderAsync.value == null && localItems.isEmpty))
                                                   ? null
                                                   : () async {
                                                       final settings = ref.read(appSettingsProvider).value ?? {};

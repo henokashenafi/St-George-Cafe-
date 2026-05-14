@@ -15,21 +15,32 @@ import 'package:st_george_pos/locales/app_localizations.dart';
 class BillService {
   static pw.Font? _fontRegular;
   static pw.Font? _fontBold;
+  static bool _useEnglishFallback = false;
 
   /// Call this to clear cached fonts (e.g. after a hot restart in dev)
   static void resetFontCache() {
     _fontRegular = null;
     _fontBold = null;
+    _useEnglishFallback = false;
   }
 
   static Future<pw.ThemeData> _getEthiopicTheme() async {
     if (_fontRegular == null || _fontBold == null) {
-      final regularData =
-          await rootBundle.load('assets/fonts/NotoSansEthiopic-Regular.ttf');
-      final boldData =
-          await rootBundle.load('assets/fonts/NotoSansEthiopic-Bold.ttf');
-      _fontRegular = pw.Font.ttf(regularData);
-      _fontBold = pw.Font.ttf(boldData);
+      try {
+        final regularData =
+            await rootBundle.load('assets/fonts/NotoSansEthiopic-Regular.ttf');
+        final boldData =
+            await rootBundle.load('assets/fonts/NotoSansEthiopic-Bold.ttf');
+        // Pre-flight check to see if parsing succeeds
+        _fontRegular = pw.Font.ttf(regularData);
+        _fontBold = pw.Font.ttf(boldData);
+        _useEnglishFallback = false;
+      } catch (e) {
+        debugPrint('Failed to load Ethiopic font: $e');
+        _fontRegular = pw.Font.helvetica();
+        _fontBold = pw.Font.helveticaBold();
+        _useEnglishFallback = true;
+      }
     }
     return pw.ThemeData.withFont(
       base: _fontRegular!,
@@ -39,6 +50,7 @@ class BillService {
   }
 
   static String _ln(String? en, String? am) {
+    if (_useEnglishFallback) return en ?? '';
     // For printing, we prioritize Amharic if available, otherwise fallback to English
     if (am != null && am.trim().isNotEmpty) return am;
     return en ?? '';
@@ -78,7 +90,7 @@ class BillService {
               child: pw.Text(
                 (stationName ?? t('print.kitchenOrder')).toUpperCase(),
                 style: pw.TextStyle(
-                  fontSize: 22,
+                  fontSize: 16,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
@@ -102,7 +114,7 @@ class BillService {
                 pw.Text(
                   '${t('print.table')}: ${_ln(order.tableName, order.tableNameAmharic)}',
                   style: pw.TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
@@ -128,7 +140,7 @@ class BillService {
                     pw.Text(
                       '${item.quantity} x  ${_ln(item.productName, item.productNameAmharic)}',
                       style: pw.TextStyle(
-                        fontSize: 15,
+                        fontSize: 12,
                         fontWeight: pw.FontWeight.bold,
                       ),
                     ),
@@ -493,7 +505,7 @@ class BillService {
                       child: pw.Text(
                         stationName.toUpperCase(),
                         style: pw.TextStyle(
-                          fontSize: 20,
+                          fontSize: 16,
                           fontWeight: pw.FontWeight.bold,
                         ),
                       ),
@@ -570,161 +582,163 @@ class BillService {
             // ==========================================
             // PART 2: CUSTOMER RECEIPT
             // ==========================================
-            pw.Center(
-              child: pw.Text(
-                cafeName.toUpperCase(),
-                style: pw.TextStyle(
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ),
-            if (settings.address.isNotEmpty)
+            if (receiptItems.isNotEmpty) ...[
               pw.Center(
                 child: pw.Text(
-                  settings.address,
-                  style: const pw.TextStyle(fontSize: 8),
+                  cafeName.toUpperCase(),
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
                 ),
               ),
-            if (settings.phone.isNotEmpty)
+              if (settings.address.isNotEmpty)
+                pw.Center(
+                  child: pw.Text(
+                    settings.address,
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
+                ),
+              if (settings.phone.isNotEmpty)
+                pw.Center(
+                  child: pw.Text(
+                    'Tel: ${settings.phone}',
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
+                ),
+              pw.SizedBox(height: 10),
               pw.Center(
                 child: pw.Text(
-                  'Tel: ${settings.phone}',
-                  style: const pw.TextStyle(fontSize: 8),
-                ),
-              ),
-            pw.SizedBox(height: 10),
-            pw.Center(
-              child: pw.Text(
-                t('bill.cashSalesInvoice').toUpperCase(),
-                style: pw.TextStyle(
-                  fontSize: 10,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ),
-            pw.Divider(thickness: 0.5),
-            _infoRow(t('bill.date'), dateStr, fontSize: 9),
-            _infoRow(t('bill.voucher'), voucherNo, fontSize: 9),
-            _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 9),
-            _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 9),
-            pw.Divider(thickness: 0.5),
-            pw.Row(
-              children: [
-                pw.Expanded(
-                  flex: 4,
-                  child: pw.Text(
-                    t('bill.description'),
-                    style: pw.TextStyle(
-                      fontSize: 8,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
+                  t('bill.cashSalesInvoice').toUpperCase(),
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
                   ),
                 ),
-                pw.SizedBox(width: 20,
-                  child: pw.Text(
-                    t('bill.qty'),
-                    textAlign: pw.TextAlign.center,
-                    style: pw.TextStyle(
-                      fontSize: 8,
-                      fontWeight: pw.FontWeight.bold,
+              ),
+              pw.Divider(thickness: 0.5),
+              _infoRow(t('bill.date'), dateStr, fontSize: 9),
+              _infoRow(t('bill.voucher'), voucherNo, fontSize: 9),
+              _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 9),
+              _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 9),
+              pw.Divider(thickness: 0.5),
+              pw.Row(
+                children: [
+                  pw.Expanded(
+                    flex: 4,
+                    child: pw.Text(
+                      t('bill.description'),
+                      style: pw.TextStyle(
+                        fontSize: 8,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-                pw.SizedBox(width: 36,
-                  child: pw.Text(
-                    t('bill.price'),
-                    textAlign: pw.TextAlign.right,
-                    style: pw.TextStyle(
-                      fontSize: 8,
-                      fontWeight: pw.FontWeight.bold,
+                  pw.SizedBox(width: 20,
+                    child: pw.Text(
+                      t('bill.qty'),
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        fontSize: 8,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-                pw.SizedBox(width: 40,
-                  child: pw.Text(
-                    t('bill.total'),
-                    textAlign: pw.TextAlign.right,
-                    style: pw.TextStyle(
-                      fontSize: 8,
-                      fontWeight: pw.FontWeight.bold,
+                  pw.SizedBox(width: 36,
+                    child: pw.Text(
+                      t('bill.price'),
+                      textAlign: pw.TextAlign.right,
+                      style: pw.TextStyle(
+                        fontSize: 8,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            pw.SizedBox(height: 4),
-            ...receiptItems.map(
-              (item) => pw.Padding(
-                padding: const pw.EdgeInsets.symmetric(vertical: 2),
-                child: pw.Row(
-                  children: [
-                    pw.Expanded(
-                      flex: 4,
-                      child: pw.Text(
-                        _ln(item.productName, item.productNameAmharic),
-                        style: const pw.TextStyle(fontSize: 9),
+                  pw.SizedBox(width: 40,
+                    child: pw.Text(
+                      t('bill.total'),
+                      textAlign: pw.TextAlign.right,
+                      style: pw.TextStyle(
+                        fontSize: 8,
+                        fontWeight: pw.FontWeight.bold,
                       ),
                     ),
-                    pw.SizedBox(
-                      width: 20,
-                      child: pw.Text(
-                        '${item.quantity}',
-                        textAlign: pw.TextAlign.center,
-                        style: const pw.TextStyle(fontSize: 9),
-                      ),
-                    ),
-                    pw.SizedBox(
-                      width: 36,
-                      child: pw.Text(
-                        _fmt(item.unitPrice),
-                        textAlign: pw.TextAlign.right,
-                        style: const pw.TextStyle(fontSize: 9),
-                      ),
-                    ),
-                    pw.SizedBox(
-                      width: 40,
-                      child: pw.Text(
-                        _fmt(item.subtotal),
-                        textAlign: pw.TextAlign.right,
-                        style: const pw.TextStyle(fontSize: 9),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
-            pw.Divider(thickness: 0.5),
-            _totalRow(t('bill.subtotal'), subtotal, fontSize: 9),
-            ...appliedCharges.where((c) => (c['amount'] as num).abs() > 0.01).map(
-              (c) => _totalRow(c['name'], c['amount'], fontSize: 9),
-            ),
-            if (discount > 0)
-              _totalRow(t('bill.discount'), -discount, fontSize: 9),
-            pw.SizedBox(height: 4),
-            _totalRow(
-              t('bill.grandTotal'),
-              grandTotal,
-              bold: true,
-              fontSize: 12,
-            ),
-            pw.Divider(thickness: 1),
-            pw.SizedBox(height: 10),
-            pw.Center(
-              child: pw.Text(
-                t('bill.thankYou'),
-                style: pw.TextStyle(
-                  fontSize: 8,
-                  fontWeight: pw.FontWeight.bold,
+              pw.SizedBox(height: 4),
+              ...receiptItems.map(
+                (item) => pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                  child: pw.Row(
+                    children: [
+                      pw.Expanded(
+                        flex: 4,
+                        child: pw.Text(
+                          _ln(item.productName, item.productNameAmharic),
+                          style: const pw.TextStyle(fontSize: 9),
+                        ),
+                      ),
+                      pw.SizedBox(
+                        width: 20,
+                        child: pw.Text(
+                          '${item.quantity}',
+                          textAlign: pw.TextAlign.center,
+                          style: const pw.TextStyle(fontSize: 9),
+                        ),
+                      ),
+                      pw.SizedBox(
+                        width: 36,
+                        child: pw.Text(
+                          _fmt(item.unitPrice),
+                          textAlign: pw.TextAlign.right,
+                          style: const pw.TextStyle(fontSize: 9),
+                        ),
+                      ),
+                      pw.SizedBox(
+                        width: 40,
+                        child: pw.Text(
+                          _fmt(item.subtotal),
+                          textAlign: pw.TextAlign.right,
+                          style: const pw.TextStyle(fontSize: 9),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            pw.Center(
-              child: pw.Text(
-                t('reports.poweredBy'),
-                style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+              pw.Divider(thickness: 0.5),
+              _totalRow(t('bill.subtotal'), subtotal, fontSize: 9),
+              ...appliedCharges.where((c) => (c['amount'] as num).abs() > 0.01).map(
+                (c) => _totalRow(c['name'], c['amount'], fontSize: 9),
               ),
-            ),
+              if (discount > 0)
+                _totalRow(t('bill.discount'), -discount, fontSize: 9),
+              pw.SizedBox(height: 4),
+              _totalRow(
+                t('bill.grandTotal'),
+                grandTotal,
+                bold: true,
+                fontSize: 12,
+              ),
+              pw.Divider(thickness: 1),
+              pw.SizedBox(height: 10),
+              pw.Center(
+                child: pw.Text(
+                  t('bill.thankYou'),
+                  style: pw.TextStyle(
+                    fontSize: 8,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ),
+              pw.Center(
+                child: pw.Text(
+                  t('reports.poweredBy'),
+                  style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+                ),
+              ),
+            ],
           ],
         ),
       ),
