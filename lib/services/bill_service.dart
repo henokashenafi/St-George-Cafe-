@@ -48,7 +48,6 @@ class BillService {
             await rootBundle.load('fonts/NotoSansEthiopic-Regular.ttf');
         final boldData =
             await rootBundle.load('fonts/NotoSansEthiopic-Bold.ttf');
-        // Pre-flight check to see if parsing succeeds
         _fontRegular = pw.Font.ttf(regularData);
         _fontBold = pw.Font.ttf(boldData);
         _useEnglishFallback = false;
@@ -63,6 +62,7 @@ class BillService {
       base: _fontRegular!,
       bold: _fontBold!,
       italic: _fontRegular!,
+      fontFallback: [pw.Font.helvetica(), pw.Font.helveticaBold()],
     );
   }
 
@@ -100,7 +100,7 @@ class BillService {
       pw.Page(
         pageFormat: PdfPageFormat.roll80,
         theme: theme,
-        margin: const pw.EdgeInsets.all(12),
+        margin: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 0),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
@@ -109,7 +109,7 @@ class BillService {
               child: pw.Text(
                 (stationName ?? t('print.kitchenOrder')).toUpperCase(),
                 style: pw.TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
@@ -118,36 +118,35 @@ class BillService {
               child: pw.Text(
                 t('print.roundNumber', replacements: {'n': '$roundNumber'}),
                 style: pw.TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
             ),
-            pw.SizedBox(height: 8),
-            pw.Divider(thickness: 2),
+            pw.Divider(thickness: 1),
 
             // ── Info ─────────────────────────────────────────────────────
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Text(
-                  '${t('print.table')}: ${_ln(order.tableName, order.tableNameAmharic)}',
+                  '${t('print.table')} ${_ln(order.tableName, order.tableNameAmharic)}',
                   style: pw.TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
                 pw.Text(
-                  '${t('print.orderNumber')}: #${order.id ?? "—"}',
-                  style: const pw.TextStyle(fontSize: 12),
+                  '${t('print.orderNumber')} ${order.id ?? ""}',
+                  style: const pw.TextStyle(fontSize: 10),
                 ),
               ],
             ),
+            pw.SizedBox(height: 2),
+            _infoRow(t('print.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 10),
+            _infoRow(t('print.time'), '$timeStr  |  $dateStr', fontSize: 10),
+            pw.Divider(thickness: 1),
             pw.SizedBox(height: 4),
-            _infoRow(t('print.waiter'), _ln(order.waiterName, order.waiterNameAmharic)),
-            _infoRow(t('print.time'), '$timeStr  |  $dateStr'),
-            pw.Divider(thickness: 2),
-            pw.SizedBox(height: 6),
 
             // ── Items ─────────────────────────────────────────────────────
             ...items.map(
@@ -179,31 +178,13 @@ class BillService {
               ),
             ),
 
-            pw.SizedBox(height: 8),
-            pw.Divider(thickness: 2),
+            pw.SizedBox(height: 4),
+            pw.Divider(thickness: 1),
             pw.Center(
               child: pw.Text(
-                '${t('print.items', replacements: {'count': '${items.length}'})} - ${t('print.roundNumber', replacements: {'n': '$roundNumber'})}',
-                style: const pw.TextStyle(fontSize: 11),
+                'Powered by Askualalink',
+                style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700),
               ),
-            ),
-            pw.SizedBox(height: 2),
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.center,
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
-              children: [
-                pw.Text(
-                  'Powered by Askualalink',
-                  style: pw.TextStyle(
-                    fontSize: 7,
-                    color: PdfColors.grey700,
-                  ),
-                ),
-                if (_askualaLogo != null) ...[
-                  pw.SizedBox(width: 6),
-                  pw.Image(_askualaLogo!, width: 20),
-                ],
-              ],
             ),
           ],
         ),
@@ -274,7 +255,7 @@ class BillService {
       pw.Page(
         pageFormat: PdfPageFormat.roll80,
         theme: theme,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
+        margin: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 0),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
@@ -302,7 +283,7 @@ class BillService {
                   style: const pw.TextStyle(fontSize: 8),
                 ),
               ),
-            pw.SizedBox(height: 4),
+            pw.SizedBox(height: 2),
             pw.Center(
               child: pw.Text(
                 t('bill.cashSalesInvoice').toUpperCase(),
@@ -315,12 +296,12 @@ class BillService {
             pw.Divider(thickness: 0.5),
 
             // ── Info ─────────────────────────────────────────────────────
-            _infoRow(t('bill.date'), dateStr, fontSize: 9),
-            _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 9),
-            _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 9),
+            _infoRow(t('bill.date'), dateStr, fontSize: 10),
+            _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 10),
+            _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 10),
             if (order.customerTin != null && order.customerTin!.isNotEmpty)
-              _infoRow(t('orderConfirm.tin'), order.customerTin!, fontSize: 9),
-            pw.Divider(thickness: 0.5),
+              _infoRow(t('orderConfirm.tin'), order.customerTin!, fontSize: 10),
+            pw.Divider(thickness: 1),
 
             // ── Items Table (Thermal Style) ──────────────────────────────
             pw.Row(
@@ -367,7 +348,7 @@ class BillService {
                 ),
               ],
             ),
-            pw.SizedBox(height: 4),
+            pw.SizedBox(height: 2),
             ...items.map(
               (item) => pw.Padding(
                 padding: const pw.EdgeInsets.symmetric(vertical: 0),
@@ -417,7 +398,7 @@ class BillService {
             ),
             if (discount > 0)
               _totalRow(t('bill.discount'), -discount, fontSize: 9),
-            pw.SizedBox(height: 4),
+            pw.SizedBox(height: 2),
             _totalRow(
               t('bill.grandTotal'),
               grandTotal,
@@ -425,9 +406,7 @@ class BillService {
               fontSize: 12,
             ),
             pw.Divider(thickness: 1),
-
-            // ── Footer ────────────────────────────────────────────────────
-            pw.SizedBox(height: 4),
+            pw.SizedBox(height: 2),
             pw.Center(
               child: pw.Text(
                 t('bill.thankYou'),
@@ -437,20 +416,12 @@ class BillService {
                 ),
               ),
             ),
-            pw.SizedBox(height: 2),
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.center,
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
-              children: [
-                pw.Text(
-                  'Powered by Askualalink',
-                  style: pw.TextStyle(fontSize: 7, color: PdfColors.grey700),
-                ),
-                if (_askualaLogo != null) ...[
-                  pw.SizedBox(width: 6),
-                  pw.Image(_askualaLogo!, width: 20),
-                ],
-              ],
+            pw.SizedBox(height: 1),
+            pw.Center(
+              child: pw.Text(
+                'Powered by Askualalink',
+                style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700),
+              ),
             ),
           ],
         ),
@@ -513,7 +484,7 @@ class BillService {
             ),
           ],
         ),
-        pw.SizedBox(height: 4),
+        pw.SizedBox(height: 2),
         ...stationItems.map(
           (item) => pw.Padding(
             padding: const pw.EdgeInsets.symmetric(vertical: 0),
@@ -601,7 +572,7 @@ class BillService {
             style: const pw.TextStyle(fontSize: 7),
           ),
         ),
-      pw.SizedBox(height: 4),
+      pw.SizedBox(height: 2),
       pw.Center(
         child: pw.Text(
           t('bill.cashSalesInvoice').toUpperCase(),
@@ -662,7 +633,7 @@ class BillService {
           ),
         ],
       ),
-      pw.SizedBox(height: 4),
+      pw.SizedBox(height: 2),
       ...receiptItems.map(
         (item) => pw.Padding(
           padding: const pw.EdgeInsets.symmetric(vertical: 0),
@@ -710,7 +681,7 @@ class BillService {
       ),
       if (discount > 0)
         _totalRow(t('bill.discount'), -discount, fontSize: 8),
-      pw.SizedBox(height: 4),
+      pw.SizedBox(height: 2),
       _totalRow(
         t('bill.grandTotal'),
         grandTotal,
