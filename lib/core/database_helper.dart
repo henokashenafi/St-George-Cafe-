@@ -44,7 +44,7 @@ class DatabaseHelper {
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 14,
+        version: 15,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -186,6 +186,10 @@ class DatabaseHelper {
     if (oldVersion < 14) {
       try { await db.execute('ALTER TABLE orders ADD COLUMN customer_tin TEXT'); } catch (_) {}
     }
+    if (oldVersion < 15) {
+      try { await db.execute('ALTER TABLE products ADD COLUMN category_ids TEXT'); } catch (_) {}
+      try { await db.execute('UPDATE products SET category_ids = category_id'); } catch (_) {}
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -208,6 +212,7 @@ class DatabaseHelper {
         price REAL NOT NULL,
         image_path TEXT,
         station_id INTEGER,
+        category_ids TEXT,
         FOREIGN KEY (category_id) REFERENCES categories (id),
         FOREIGN KEY (station_id) REFERENCES serving_stations (id)
       )
