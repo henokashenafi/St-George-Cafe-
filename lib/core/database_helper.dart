@@ -44,7 +44,7 @@ class DatabaseHelper {
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 13,
+        version: 14,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -181,7 +181,10 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE order_items ADD COLUMN category_name TEXT');
     }
     if (oldVersion < 13) {
-      await db.execute('ALTER TABLE order_items ADD COLUMN station_name_amharic TEXT');
+      try { await db.execute('ALTER TABLE order_items ADD COLUMN station_name_amharic TEXT'); } catch (_) {}
+    }
+    if (oldVersion < 14) {
+      try { await db.execute('ALTER TABLE orders ADD COLUMN customer_tin TEXT'); } catch (_) {}
     }
   }
 
@@ -259,6 +262,7 @@ class DatabaseHelper {
         waiter_name TEXT,
         waiter_name_amharic TEXT,
         cashier_name TEXT,
+        customer_tin TEXT,
         FOREIGN KEY (table_id) REFERENCES tables (id),
         FOREIGN KEY (waiter_id) REFERENCES waiters (id),
         FOREIGN KEY (cashier_id) REFERENCES users (id),
