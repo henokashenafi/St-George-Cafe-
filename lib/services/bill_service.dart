@@ -18,6 +18,18 @@ class BillService {
   static pw.Font? _fontRegular;
   static pw.Font? _fontBold;
   static bool _useEnglishFallback = false;
+  static pw.MemoryImage? _askualaLogo;
+
+  static Future<void> _loadLogo() async {
+    if (_askualaLogo == null) {
+      try {
+        final logoData = await rootBundle.load('assets/images/askualalogo.jpg');
+        _askualaLogo = pw.MemoryImage(logoData.buffer.asUint8List());
+      } catch (e) {
+        debugPrint('Failed to load askualalogo: $e');
+      }
+    }
+  }
 
   /// Call this to clear cached fonts (e.g. after a hot restart in dev)
   static void resetFontCache() {
@@ -25,15 +37,16 @@ class BillService {
     _fontRegular = null;
     _fontBold = null;
     _useEnglishFallback = false;
+    _askualaLogo = null;
   }
 
   static Future<pw.ThemeData> _getEthiopicTheme() async {
     if (_fontRegular == null || _fontBold == null) {
       try {
         final regularData =
-            await rootBundle.load('assets/fonts/NotoSansEthiopic-Regular.ttf');
+            await rootBundle.load('fonts/NotoSansEthiopic-Regular.ttf');
         final boldData =
-            await rootBundle.load('assets/fonts/NotoSansEthiopic-Bold.ttf');
+            await rootBundle.load('fonts/NotoSansEthiopic-Bold.ttf');
         // Pre-flight check to see if parsing succeeds
         _fontRegular = pw.Font.ttf(regularData);
         _fontBold = pw.Font.ttf(boldData);
@@ -80,6 +93,7 @@ class BillService {
     final dateStr = DateFormat('dd/MM/yyyy').format(now);
 
     final theme = await _getEthiopicTheme();
+    await _loadLogo();
 
     pdf.addPage(
       pw.Page(
@@ -172,15 +186,23 @@ class BillService {
                 style: const pw.TextStyle(fontSize: 11),
               ),
             ),
-            pw.SizedBox(height: 10),
-            pw.Center(
-              child: pw.Text(
-                t('reports.poweredBy'),
-                style: pw.TextStyle(
-                  fontSize: 12,
-                  fontWeight: pw.FontWeight.bold,
+            pw.SizedBox(height: 2),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text(
+                  'Powered by Askualalink',
+                  style: pw.TextStyle(
+                    fontSize: 7,
+                    color: PdfColors.grey700,
+                  ),
                 ),
-              ),
+                if (_askualaLogo != null) ...[
+                  pw.SizedBox(width: 6),
+                  pw.Image(_askualaLogo!, width: 20),
+                ],
+              ],
             ),
           ],
         ),
@@ -208,16 +230,15 @@ class BillService {
   }) async {
     SystemLogService.log('Generating Bill: Order #${order.id} for Table ${order.tableName}');
     // Use active locale for receipts (Amharic when set)
-    String t(String key, {Map<String, String>? replacements}) =>
-        AppLocalizations.getAmharic(key, replacements: replacements);
+    final t = AppLocalizations.getAmharic;
+    final theme = await _getEthiopicTheme();
+    await _loadLogo();
 
     final pdf = pw.Document();
     final now = DateTime.now();
     final dateStr = DateFormat('dd/MM/yyyy').format(now);
     final voucherNo =
         'RCS-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${(order.id ?? 0).toString().padLeft(3, '0')}';
-
-    final theme = await _getEthiopicTheme();
 
     final subtotal = items.fold(0.0, (s, i) => s + i.subtotal);
 
@@ -252,7 +273,7 @@ class BillService {
       pw.Page(
         pageFormat: PdfPageFormat.roll80,
         theme: theme,
-        margin: const pw.EdgeInsets.all(10),
+        margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
@@ -280,7 +301,7 @@ class BillService {
                   style: const pw.TextStyle(fontSize: 8),
                 ),
               ),
-            pw.SizedBox(height: 10),
+            pw.SizedBox(height: 4),
             pw.Center(
               child: pw.Text(
                 t('bill.cashSalesInvoice').toUpperCase(),
@@ -347,7 +368,7 @@ class BillService {
             pw.SizedBox(height: 4),
             ...items.map(
               (item) => pw.Padding(
-                padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                padding: const pw.EdgeInsets.symmetric(vertical: 0),
                 child: pw.Row(
                   children: [
                     pw.Expanded(
@@ -404,7 +425,7 @@ class BillService {
             pw.Divider(thickness: 1),
 
             // ── Footer ────────────────────────────────────────────────────
-            pw.SizedBox(height: 10),
+            pw.SizedBox(height: 4),
             pw.Center(
               child: pw.Text(
                 t('bill.thankYou'),
@@ -414,11 +435,20 @@ class BillService {
                 ),
               ),
             ),
-            pw.Center(
-              child: pw.Text(
-                t('reports.poweredBy'),
-                style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
-              ),
+            pw.SizedBox(height: 2),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text(
+                  'Powered by Askualalink',
+                  style: pw.TextStyle(fontSize: 7, color: PdfColors.grey700),
+                ),
+                if (_askualaLogo != null) ...[
+                  pw.SizedBox(width: 6),
+                  pw.Image(_askualaLogo!, width: 20),
+                ],
+              ],
             ),
           ],
         ),
@@ -439,6 +469,7 @@ class BillService {
     int roundNumber,
     OrderModel order,
     String Function(String, {Map<String, String>? replacements}) t,
+    pw.MemoryImage? logo,
   ) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -447,7 +478,7 @@ class BillService {
           child: pw.Text(
             stationName.toUpperCase(),
             style: pw.TextStyle(
-              fontSize: 16,
+              fontSize: 13,
               fontWeight: pw.FontWeight.bold,
             ),
           ),
@@ -456,7 +487,7 @@ class BillService {
           child: pw.Text(
             t('print.roundNumber', replacements: {'n': '$roundNumber'}),
             style: pw.TextStyle(
-              fontSize: 14,
+              fontSize: 12,
               fontWeight: pw.FontWeight.bold,
             ),
           ),
@@ -469,27 +500,27 @@ class BillService {
             pw.Text(
               '${t('print.table')}: ${order.tableName}',
               style: pw.TextStyle(
-                fontSize: 12,
+                fontSize: 10,
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
             pw.Text(
               '#${order.id ?? "—"}',
-              style: const pw.TextStyle(fontSize: 10),
+              style: const pw.TextStyle(fontSize: 9),
             ),
           ],
         ),
         pw.SizedBox(height: 4),
         ...stationItems.map(
           (item) => pw.Padding(
-            padding: const pw.EdgeInsets.symmetric(vertical: 2),
+            padding: const pw.EdgeInsets.symmetric(vertical: 0),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Text(
                   '${item.quantity} x  ${_ln(item.productName, item.productNameAmharic)}',
                   style: pw.TextStyle(
-                    fontSize: 13,
+                    fontSize: 11,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
@@ -499,7 +530,7 @@ class BillService {
                     child: pw.Text(
                       '>> ${item.notes}',
                       style: pw.TextStyle(
-                        fontSize: 9,
+                        fontSize: 8,
                         fontStyle: pw.FontStyle.italic,
                       ),
                     ),
@@ -507,6 +538,24 @@ class BillService {
               ],
             ),
           ),
+        ),
+        pw.SizedBox(height: 2),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.center,
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Text(
+              'Powered by Askualalink',
+              style: pw.TextStyle(
+                fontSize: 6,
+                color: PdfColors.grey700,
+              ),
+            ),
+            if (logo != null) ...[
+              pw.SizedBox(width: 6),
+              pw.Image(logo, width: 20),
+            ],
+          ],
         ),
       ],
     );
@@ -530,7 +579,7 @@ class BillService {
         child: pw.Text(
           cafeName.toUpperCase(),
           style: pw.TextStyle(
-            fontSize: 16,
+            fontSize: 13,
             fontWeight: pw.FontWeight.bold,
           ),
         ),
@@ -539,31 +588,31 @@ class BillService {
         pw.Center(
           child: pw.Text(
             settings.address,
-            style: const pw.TextStyle(fontSize: 8),
+            style: const pw.TextStyle(fontSize: 7),
           ),
         ),
       if (settings.phone.isNotEmpty)
         pw.Center(
           child: pw.Text(
             'Tel: ${settings.phone}',
-            style: const pw.TextStyle(fontSize: 8),
+            style: const pw.TextStyle(fontSize: 7),
           ),
         ),
-      pw.SizedBox(height: 10),
+      pw.SizedBox(height: 4),
       pw.Center(
         child: pw.Text(
           t('bill.cashSalesInvoice').toUpperCase(),
           style: pw.TextStyle(
-            fontSize: 10,
+            fontSize: 9,
             fontWeight: pw.FontWeight.bold,
           ),
         ),
       ),
       pw.Divider(thickness: 0.5),
-      _infoRow(t('bill.date'), dateStr, fontSize: 9),
-      _infoRow(t('bill.voucher'), voucherNo, fontSize: 9),
-      _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 9),
-      _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 9),
+      _infoRow(t('bill.date'), dateStr, fontSize: 8),
+      _infoRow(t('bill.voucher'), voucherNo, fontSize: 8),
+      _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 8),
+      _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 8),
       pw.Divider(thickness: 0.5),
       pw.Row(
         children: [
@@ -572,7 +621,7 @@ class BillService {
             child: pw.Text(
               t('bill.description'),
               style: pw.TextStyle(
-                fontSize: 8,
+                fontSize: 7,
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
@@ -582,7 +631,7 @@ class BillService {
               t('bill.qty'),
               textAlign: pw.TextAlign.center,
               style: pw.TextStyle(
-                fontSize: 8,
+                fontSize: 7,
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
@@ -592,7 +641,7 @@ class BillService {
               t('bill.price'),
               textAlign: pw.TextAlign.right,
               style: pw.TextStyle(
-                fontSize: 8,
+                fontSize: 7,
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
@@ -602,7 +651,7 @@ class BillService {
               t('bill.total'),
               textAlign: pw.TextAlign.right,
               style: pw.TextStyle(
-                fontSize: 8,
+                fontSize: 7,
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
@@ -612,14 +661,14 @@ class BillService {
       pw.SizedBox(height: 4),
       ...receiptItems.map(
         (item) => pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(vertical: 2),
+          padding: const pw.EdgeInsets.symmetric(vertical: 0),
           child: pw.Row(
             children: [
               pw.Expanded(
                 flex: 4,
                 child: pw.Text(
                   _ln(item.productName, item.productNameAmharic),
-                  style: const pw.TextStyle(fontSize: 9),
+                  style: const pw.TextStyle(fontSize: 7),
                 ),
               ),
               pw.SizedBox(
@@ -627,7 +676,7 @@ class BillService {
                 child: pw.Text(
                   '${item.quantity}',
                   textAlign: pw.TextAlign.center,
-                  style: const pw.TextStyle(fontSize: 9),
+                  style: const pw.TextStyle(fontSize: 7),
                 ),
               ),
               pw.SizedBox(
@@ -635,7 +684,7 @@ class BillService {
                 child: pw.Text(
                   _fmt(item.unitPrice),
                   textAlign: pw.TextAlign.right,
-                  style: const pw.TextStyle(fontSize: 9),
+                  style: const pw.TextStyle(fontSize: 7),
                 ),
               ),
               pw.SizedBox(
@@ -643,7 +692,7 @@ class BillService {
                 child: pw.Text(
                   _fmt(item.subtotal),
                   textAlign: pw.TextAlign.right,
-                  style: const pw.TextStyle(fontSize: 9),
+                  style: const pw.TextStyle(fontSize: 7),
                 ),
               ),
             ],
@@ -651,35 +700,44 @@ class BillService {
         ),
       ),
       pw.Divider(thickness: 0.5),
-      _totalRow(t('bill.subtotal'), subtotal, fontSize: 9),
+      _totalRow(t('bill.subtotal'), subtotal, fontSize: 8),
       ...appliedCharges.where((c) => (c['amount'] as num).abs() > 0.01).map(
-        (c) => _totalRow(c['name'], c['amount'], fontSize: 9),
+        (c) => _totalRow(c['name'], c['amount'], fontSize: 8),
       ),
       if (discount > 0)
-        _totalRow(t('bill.discount'), -discount, fontSize: 9),
+        _totalRow(t('bill.discount'), -discount, fontSize: 8),
       pw.SizedBox(height: 4),
       _totalRow(
         t('bill.grandTotal'),
         grandTotal,
         bold: true,
-        fontSize: 12,
+        fontSize: 11,
       ),
       pw.Divider(thickness: 1),
-      pw.SizedBox(height: 10),
+      pw.SizedBox(height: 4),
       pw.Center(
         child: pw.Text(
           t('bill.thankYou'),
           style: pw.TextStyle(
-            fontSize: 8,
+            fontSize: 7,
             fontWeight: pw.FontWeight.bold,
           ),
         ),
       ),
-      pw.Center(
-        child: pw.Text(
-          t('reports.poweredBy'),
-          style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
-        ),
+      pw.SizedBox(height: 2),
+      pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.center,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.Text(
+            'Powered by Askualalink',
+            style: pw.TextStyle(fontSize: 6, color: PdfColors.grey700),
+          ),
+          if (_askualaLogo != null) ...[
+            pw.SizedBox(width: 6),
+            pw.Image(_askualaLogo!, width: 20),
+          ],
+        ],
       ),
     ];
   }
@@ -697,6 +755,9 @@ class BillService {
     // Use active locale for receipts (Amharic when set)
     String t(String key, {Map<String, String>? replacements}) =>
         AppLocalizations.getAmharic(key, replacements: replacements);
+    
+    final theme = await _getEthiopicTheme();
+    await _loadLogo();
 
     final now = DateTime.now();
     final timeStr = DateFormat('HH:mm').format(now);
@@ -704,7 +765,7 @@ class BillService {
     final voucherNo =
         'RCS-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${(order.id ?? 0).toString().padLeft(3, '0')}';
 
-    final theme = await _getEthiopicTheme();
+
 
     // Group items by stationId for combined slip part
     final Map<int?, List<OrderItem>> groupedKitchen = {};
@@ -742,7 +803,7 @@ class BillService {
     bool allSuccess = true;
 
     if (isSilentPrinting) {
-      // ── SEQUENTIAL PRINTING (One job per station/receipt to force hardware cut) ──
+      // ── WINDOWS DESKTOP: SEQUENTIAL JOBS ──
       for (final entry in groupedKitchen.entries) {
         final stationItems = entry.value;
         final stationName = stationItems.first.stationName ?? t('print.kitchenOrder');
@@ -752,8 +813,8 @@ class BillService {
           pw.Page(
             pageFormat: PdfPageFormat.roll80,
             theme: theme,
-            margin: const pw.EdgeInsets.all(10),
-            build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t),
+            margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
+            build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t, _askualaLogo),
           ),
         );
 
@@ -764,8 +825,6 @@ class BillService {
           format: PdfPageFormat.roll80,
         );
         if (!success) allSuccess = false;
-        
-        // Brief delay to ensure OS print spooler sequences them cleanly
         await Future.delayed(const Duration(milliseconds: 300));
       }
 
@@ -775,7 +834,7 @@ class BillService {
           pw.Page(
             pageFormat: PdfPageFormat.roll80,
             theme: theme,
-            margin: const pw.EdgeInsets.all(10),
+            margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
             build: (ctx) => pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: _buildCustomerReceipt(
@@ -795,47 +854,41 @@ class BillService {
         if (!success) allSuccess = false;
       }
     } else {
-      // ── COMBINED PRINTING (Fallback to single document to avoid multiple UI popups) ──
+      // ── WEB FALLBACK: SINGLE MULTI-PAGE DOCUMENT ──
+      // Prevents browser popup blocking while still enforcing physical page breaks
+      // so the printer auto-cuts between the stations and receipt.
       final pdf = pw.Document();
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.roll80,
-          theme: theme,
-          margin: const pw.EdgeInsets.all(10),
-          build: (ctx) => pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              if (kitchenItems.isNotEmpty) ...[
-                ...groupedKitchen.entries.map((entry) {
-                  final stationItems = entry.value;
-                  final stationName = stationItems.first.stationName ?? t('print.kitchenOrder');
-                  
-                  return pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      _buildStationSlip(stationName, stationItems, roundNumber, order, t),
-                      pw.SizedBox(height: 10),
-                      pw.Center(
-                        child: pw.Text(
-                          '-------------------- ✂ --------------------',
-                          style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
-                        ),
-                      ),
-                      pw.SizedBox(height: 15),
-                    ],
-                  );
-                }),
-              ],
-              if (receiptItems.isNotEmpty) ...[
-                ..._buildCustomerReceipt(
-                  receiptItems, order, settings, voucherNo, dateStr,
-                  subtotal, discount, grandTotal, appliedCharges, cafeName, t
-                ),
-              ],
-            ],
+
+      for (final entry in groupedKitchen.entries) {
+        final stationItems = entry.value;
+        final stationName = stationItems.first.stationName ?? t('print.kitchenOrder');
+
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.roll80,
+            theme: theme,
+            margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
+            build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t, _askualaLogo),
           ),
-        ),
-      );
+        );
+      }
+
+      if (receiptItems.isNotEmpty) {
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.roll80,
+            theme: theme,
+            margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
+            build: (ctx) => pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: _buildCustomerReceipt(
+                receiptItems, order, settings, voucherNo, dateStr,
+                subtotal, discount, grandTotal, appliedCharges, cafeName, t
+              ),
+            ),
+          ),
+        );
+      }
 
       allSuccess = await _printDocument(
         pdf: pdf,
@@ -884,7 +937,7 @@ class BillService {
       pw.Page(
         pageFormat: PdfPageFormat.roll80,
         theme: theme,
-        margin: const pw.EdgeInsets.all(10),
+        margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
@@ -1197,7 +1250,7 @@ class BillService {
                   );
                   widgets.add(
                     pw.Container(
-                      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                      padding: const pw.EdgeInsets.symmetric(vertical: 0),
                       child: pw.Row(
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
@@ -1438,7 +1491,7 @@ class BillService {
     double fontSize = 11,
     PdfColor? color,
   }) => pw.Padding(
-    padding: const pw.EdgeInsets.symmetric(vertical: 2),
+    padding: const pw.EdgeInsets.symmetric(vertical: 0),
     child: pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       children: [

@@ -636,71 +636,50 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     try {
       OrderModel? order = activeOrder;
 
-      // Step 1: If there are unsent local items, save them to the order first.
-      // We handle the save inline here to avoid the _isProcessing race condition
-      // that existed when calling _sendToKitchen() from within _printBoth().
-      if (localItems.isNotEmpty) {
-        if (selectedTable == null) {
-          TopToaster.show(context, ref.t('dashboard.selectTable'), isError: true);
-          return;
-        }
-        if (order == null) {
-          // No active order yet — create one now.
+      // Combine items in-memory for the dialog
+      List<OrderItem> combinedItems = order != null ? List.from(order.items) : [];
+      combinedItems.addAll(localItems);
 
-          if (selectedWaiter == null) {
-            TopToaster.show(context, ref.t('order.selectWaiter'), isError: true);
-            return;
-          }
-          final currentUser = ref.read(authProvider)!;
-          order = await ref
-              .read(activeOrderServiceProvider)
-              .createNewOrder(
-                OrderModel(
-                  tableId: selectedTable!.id!,
-                  waiterId: selectedWaiter!.id!,
-                  cashierId: currentUser.id,
-                  tableName: selectedTable!.name,
-                  waiterName: selectedWaiter!.name,
-                  cashierName: currentUser.username,
-                  createdAt: DateTime.now(),
-                  updatedAt: DateTime.now(),
-                ),
-              );
-          if (order == null) {
-            TopToaster.show(context, ref.t('reports.failedToCreateOrder'), isError: true);
-            return;
-          }
-        }
-
-        // Save items to DB (skip kitchen print — combined PDF handles it)
-        final itemsToSave = localItems
-            .map((e) => e.copyWith(isPrintedToKitchen: true))
-            .toList();
-        await ref
-            .read(activeOrderServiceProvider)
-            .addItems(order.id!, itemsToSave, selectedTable!.id!);
-
-        // Re-fetch updated order with all saved items
-        order = await ref
-            .read(posRepositoryProvider)
-            .getActiveOrderForTable(selectedTable!.id!);
-
-        if (order == null) {
-          TopToaster.show(context, ref.t('reports.noItemsToPrint'), isError: true);
-          return;
-        }
-        setState(() => localItems = []);
+      if (combinedItems.isEmpty) {
+        TopToaster.show(context, ref.t('reports.noItemsInOrder'), isError: true);
+        return;
       }
 
-      final finalOrder = order!;
+      if (selectedTable == null) {
+        TopToaster.show(context, ref.t('dashboard.selectTable'), isError: true);
+        return;
+      }
+
+      if (order == null && selectedWaiter == null) {
+        TopToaster.show(context, ref.t('order.selectWaiter'), isError: true);
+        return;
+      }
+
+      double combinedTotal = combinedItems.fold(0, (s, i) => s + i.subtotal);
+
+      // Create a temporary order for the confirmation dialog
+      final dummyOrder = order ?? OrderModel(
+        id: 0,
+        tableId: selectedTable!.id!,
+        waiterId: selectedWaiter?.id ?? 0,
+        cashierId: ref.read(authProvider)?.id ?? 0,
+        tableName: selectedTable!.name,
+        waiterName: selectedWaiter?.name ?? '',
+        cashierName: ref.read(authProvider)?.username ?? '',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        items: combinedItems,
+        totalAmount: combinedTotal,
+      );
+
       final charges = (await ref.read(chargesProvider.future)).where((c) => c.isActive).toList();
       if (!mounted) return;
 
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => _BillConfirmDialog(
-          order: finalOrder,
-          subtotal: finalOrder.totalAmount,
+          order: dummyOrder.copyWith(items: combinedItems, totalAmount: combinedTotal),
+          subtotal: combinedTotal,
           charges: charges,
           discountEnabled: (settings['discount_enabled'] ?? 'true') == 'true',
           initialDiscount: _discountAmount,
@@ -711,6 +690,36 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
       );
 
       if (confirmed == true && mounted) {
+        // --- NOW WE PERMANENTLY SAVE TO THE DATABASE ---
+        if (order == null) {
+          final currentUser = ref.read(authProvider)!;
+          order = await ref.read(activeOrderServiceProvider).createNewOrder(
+            OrderModel(
+              tableId: selectedTable!.id!,
+              waiterId: selectedWaiter!.id!,
+              cashierId: currentUser.id,
+              tableName: selectedTable!.name,
+              waiterName: selectedWaiter!.name,
+              cashierName: currentUser.username,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ),
+          );
+          if (order == null) {
+            TopToaster.show(context, ref.t('reports.failedToCreateOrder'), isError: true);
+            return;
+          }
+        }
+
+        if (localItems.isNotEmpty) {
+          final itemsToSave = localItems.map((e) => e.copyWith(isPrintedToKitchen: true)).toList();
+          await ref.read(activeOrderServiceProvider).addItems(order.id!, itemsToSave, selectedTable!.id!);
+          setState(() => localItems = []);
+          
+          order = await ref.read(posRepositoryProvider).getActiveOrderForTable(selectedTable!.id!);
+        }
+
+        final finalOrder = order!;
         final printerName = settings['default_printer_name'];
         final cafeSettings = await ref.read(cafeSettingsProvider.future);
         
