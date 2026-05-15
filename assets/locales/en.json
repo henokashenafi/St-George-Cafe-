@@ -152,6 +152,7 @@
     "waiterName": "Waiter Name",
     "code": "Code",
     "noOrdersInRange": "No orders in range",
+    "noMatchingWaiter": "No matching orders for this waiter",
     "order": "Order #{id} — {table}",
     "date": "Date",
     "table": "Table",
@@ -313,16 +314,17 @@
     "add": "Add Charge",
     "edit": "Edit Charge",
     "addition": "Addition (+)",
-    "deduction": "Deduction (-)",
-    "nameHint": "Name (e.g. VAT, Service)",
+    "nameHint": "Name",
     "valueHint": "Value (%)",
-    "dynamicTitle": "DYNAMIC CHARGES (ADDITIONS & DEDUCTIONS)"
+    "dynamicTitle": "DYNAMIC CHARGES (ADDITIONS & DEDUCTIONS)",
+    "deduction": "Deduction (-)"
   },
   "filters": {
     "today": "Today",
     "thisWeek": "This Week",
     "thisMonth": "This Month",
-    "allTime": "All Time"
+    "allTime": "All Time",
+    "customRange": "Custom Range"
   },
   "settings": {
     "cafeInformation": "CAFE INFORMATION",

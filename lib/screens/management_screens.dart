@@ -1104,7 +1104,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                       child: Text(
                         searchQuery.isEmpty
                             ? ref.t('management.noOrdersInRange')
-                            : 'No matching orders for this waiter',
+                            : ref.t('management.noMatchingWaiter'),
                       ),
                     ),
                   );
@@ -1122,7 +1122,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                         ),
                       ),
                       subtitle: Text(
-                        '${ref.t('bill.waiter')}: ${o.waiterName}  |  ${ref.t('bill.cashier')}: ${o.cashierName}  |  ${DateFormat('dd/MM HH:mm').format(o.createdAt)}',
+                        '${ref.t('bill.waiter')}: ${ref.ln(o.waiterName, o.waiterNameAmharic)}  |  ${ref.t('bill.cashier')}: ${o.cashierName}  |  ${DateFormat('dd/MM HH:mm').format(o.createdAt)}',
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -2576,22 +2576,22 @@ class _DateFilterChips extends ConsumerWidget {
         const SizedBox(width: 8),
         _filterChip(ref.t('common.thisWeek'), DateFilter.thisWeek()),
         const SizedBox(width: 8),
-        _filterChip('THIS MONTH', DateFilter.thisMonth()),
+        _filterChip(ref.t('filters.thisMonth'), DateFilter.thisMonth()),
         const SizedBox(width: 8),
-        _filterChip('ALL TIME', DateFilter.allTime()),
+        _filterChip(ref.t('filters.allTime'), DateFilter.allTime()),
         const SizedBox(width: 16),
         Container(width: 1, height: 24, color: Colors.white10),
         const SizedBox(width: 16),
         IconButton(
-          onPressed: () => _showCustomDatePicker(context),
+          onPressed: () => _showCustomDatePicker(context, ref),
           icon: const Icon(Icons.date_range_outlined, color: Color(0xFFD4AF37), size: 20),
-          tooltip: 'Custom Range',
+          tooltip: ref.t('filters.customRange'),
         ),
       ],
     );
   }
 
-  Future<void> _showCustomDatePicker(BuildContext context) async {
+  Future<void> _showCustomDatePicker(BuildContext context, WidgetRef ref) async {
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2023),
@@ -2599,6 +2599,9 @@ class _DateFilterChips extends ConsumerWidget {
       initialDateRange: filter.from != null && filter.to != null
           ? DateTimeRange(start: filter.from!, end: filter.to!)
           : null,
+      helpText: ref.t('filters.customRange'),
+      saveText: ref.t('common.save'),
+      cancelText: ref.t('common.cancel'),
       builder: (context, child) {
         return Theme(
           data: ThemeData.dark().copyWith(
@@ -2747,7 +2750,7 @@ class ChargeManagementScreen extends ConsumerWidget {
                 controller: nameCtrl,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  labelText: '${ref.t('charges.nameHint')} ${ref.t('common.english')}',
+                  labelText: '${ref.t('charges.nameHint')} (${ref.t('common.english')})',
                   labelStyle: const TextStyle(color: Colors.white54),
                 ),
               ),
@@ -2756,7 +2759,7 @@ class ChargeManagementScreen extends ConsumerWidget {
                 controller: nameAmharicCtrl,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  labelText: '${ref.t('charges.nameHint')} ${ref.t('common.amharic')}',
+                  labelText: '${ref.t('charges.nameHint')} (${ref.t('common.amharic')})',
                   labelStyle: const TextStyle(color: Colors.white54),
                 ),
               ),
@@ -2858,7 +2861,7 @@ class _ChargeCard extends ConsumerWidget {
                   borderRadius: BorderRadius.zero,
                 ),
                 child: Text(
-                  charge.type.toUpperCase(),
+                  ref.t('charges.${charge.type}').toUpperCase(),
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
