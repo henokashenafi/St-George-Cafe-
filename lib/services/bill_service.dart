@@ -478,7 +478,7 @@ class BillService {
           child: pw.Text(
             stationName.toUpperCase(),
             style: pw.TextStyle(
-              fontSize: 16,
+              fontSize: 13,
               fontWeight: pw.FontWeight.bold,
             ),
           ),
@@ -487,7 +487,7 @@ class BillService {
           child: pw.Text(
             t('print.roundNumber', replacements: {'n': '$roundNumber'}),
             style: pw.TextStyle(
-              fontSize: 14,
+              fontSize: 12,
               fontWeight: pw.FontWeight.bold,
             ),
           ),
@@ -500,13 +500,13 @@ class BillService {
             pw.Text(
               '${t('print.table')}: ${order.tableName}',
               style: pw.TextStyle(
-                fontSize: 12,
+                fontSize: 10,
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
             pw.Text(
               '#${order.id ?? "—"}',
-              style: const pw.TextStyle(fontSize: 10),
+              style: const pw.TextStyle(fontSize: 9),
             ),
           ],
         ),
@@ -520,7 +520,7 @@ class BillService {
                 pw.Text(
                   '${item.quantity} x  ${_ln(item.productName, item.productNameAmharic)}',
                   style: pw.TextStyle(
-                    fontSize: 13,
+                    fontSize: 11,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
@@ -530,7 +530,7 @@ class BillService {
                     child: pw.Text(
                       '>> ${item.notes}',
                       style: pw.TextStyle(
-                        fontSize: 9,
+                        fontSize: 8,
                         fontStyle: pw.FontStyle.italic,
                       ),
                     ),
@@ -547,7 +547,7 @@ class BillService {
             pw.Text(
               'Powered by Askualalink',
               style: pw.TextStyle(
-                fontSize: 7,
+                fontSize: 6,
                 color: PdfColors.grey700,
               ),
             ),
@@ -579,7 +579,7 @@ class BillService {
         child: pw.Text(
           cafeName.toUpperCase(),
           style: pw.TextStyle(
-            fontSize: 16,
+            fontSize: 13,
             fontWeight: pw.FontWeight.bold,
           ),
         ),
@@ -588,14 +588,14 @@ class BillService {
         pw.Center(
           child: pw.Text(
             settings.address,
-            style: const pw.TextStyle(fontSize: 8),
+            style: const pw.TextStyle(fontSize: 7),
           ),
         ),
       if (settings.phone.isNotEmpty)
         pw.Center(
           child: pw.Text(
             'Tel: ${settings.phone}',
-            style: const pw.TextStyle(fontSize: 8),
+            style: const pw.TextStyle(fontSize: 7),
           ),
         ),
       pw.SizedBox(height: 4),
@@ -603,16 +603,16 @@ class BillService {
         child: pw.Text(
           t('bill.cashSalesInvoice').toUpperCase(),
           style: pw.TextStyle(
-            fontSize: 10,
+            fontSize: 9,
             fontWeight: pw.FontWeight.bold,
           ),
         ),
       ),
       pw.Divider(thickness: 0.5),
-      _infoRow(t('bill.date'), dateStr, fontSize: 9),
-      _infoRow(t('bill.voucher'), voucherNo, fontSize: 9),
-      _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 9),
-      _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 9),
+      _infoRow(t('bill.date'), dateStr, fontSize: 8),
+      _infoRow(t('bill.voucher'), voucherNo, fontSize: 8),
+      _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 8),
+      _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 8),
       pw.Divider(thickness: 0.5),
       pw.Row(
         children: [
@@ -621,7 +621,7 @@ class BillService {
             child: pw.Text(
               t('bill.description'),
               style: pw.TextStyle(
-                fontSize: 8,
+                fontSize: 7,
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
@@ -631,7 +631,7 @@ class BillService {
               t('bill.qty'),
               textAlign: pw.TextAlign.center,
               style: pw.TextStyle(
-                fontSize: 8,
+                fontSize: 7,
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
@@ -641,7 +641,7 @@ class BillService {
               t('bill.price'),
               textAlign: pw.TextAlign.right,
               style: pw.TextStyle(
-                fontSize: 8,
+                fontSize: 7,
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
@@ -651,7 +651,7 @@ class BillService {
               t('bill.total'),
               textAlign: pw.TextAlign.right,
               style: pw.TextStyle(
-                fontSize: 8,
+                fontSize: 7,
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
@@ -668,7 +668,7 @@ class BillService {
                 flex: 4,
                 child: pw.Text(
                   _ln(item.productName, item.productNameAmharic),
-                  style: const pw.TextStyle(fontSize: 8),
+                  style: const pw.TextStyle(fontSize: 7),
                 ),
               ),
               pw.SizedBox(
@@ -676,7 +676,7 @@ class BillService {
                 child: pw.Text(
                   '${item.quantity}',
                   textAlign: pw.TextAlign.center,
-                  style: const pw.TextStyle(fontSize: 8),
+                  style: const pw.TextStyle(fontSize: 7),
                 ),
               ),
               pw.SizedBox(
@@ -684,7 +684,7 @@ class BillService {
                 child: pw.Text(
                   _fmt(item.unitPrice),
                   textAlign: pw.TextAlign.right,
-                  style: const pw.TextStyle(fontSize: 8),
+                  style: const pw.TextStyle(fontSize: 7),
                 ),
               ),
               pw.SizedBox(
@@ -692,7 +692,7 @@ class BillService {
                 child: pw.Text(
                   _fmt(item.subtotal),
                   textAlign: pw.TextAlign.right,
-                  style: const pw.TextStyle(fontSize: 8),
+                  style: const pw.TextStyle(fontSize: 7),
                 ),
               ),
             ],
@@ -700,18 +700,18 @@ class BillService {
         ),
       ),
       pw.Divider(thickness: 0.5),
-      _totalRow(t('bill.subtotal'), subtotal, fontSize: 9),
+      _totalRow(t('bill.subtotal'), subtotal, fontSize: 8),
       ...appliedCharges.where((c) => (c['amount'] as num).abs() > 0.01).map(
-        (c) => _totalRow(c['name'], c['amount'], fontSize: 9),
+        (c) => _totalRow(c['name'], c['amount'], fontSize: 8),
       ),
       if (discount > 0)
-        _totalRow(t('bill.discount'), -discount, fontSize: 9),
+        _totalRow(t('bill.discount'), -discount, fontSize: 8),
       pw.SizedBox(height: 4),
       _totalRow(
         t('bill.grandTotal'),
         grandTotal,
         bold: true,
-        fontSize: 12,
+        fontSize: 11,
       ),
       pw.Divider(thickness: 1),
       pw.SizedBox(height: 4),
@@ -719,7 +719,7 @@ class BillService {
         child: pw.Text(
           t('bill.thankYou'),
           style: pw.TextStyle(
-            fontSize: 8,
+            fontSize: 7,
             fontWeight: pw.FontWeight.bold,
           ),
         ),
@@ -731,7 +731,7 @@ class BillService {
         children: [
           pw.Text(
             'Powered by Askualalink',
-            style: pw.TextStyle(fontSize: 7, color: PdfColors.grey700),
+            style: pw.TextStyle(fontSize: 6, color: PdfColors.grey700),
           ),
           if (_askualaLogo != null) ...[
             pw.SizedBox(width: 6),
