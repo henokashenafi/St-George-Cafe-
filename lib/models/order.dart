@@ -20,6 +20,7 @@ class OrderModel {
   final double discountAmount;
   final String paymentMethod;
   final int? shiftId;
+  final String? customerTin;
   final List<OrderItem> items;
 
   OrderModel({
@@ -40,6 +41,7 @@ class OrderModel {
     this.discountAmount = 0.0,
     this.paymentMethod = 'cash',
     this.shiftId,
+    this.customerTin,
     this.items = const [],
   });
 
@@ -56,6 +58,7 @@ class OrderModel {
     double? discountAmount,
     String? paymentMethod,
     int? shiftId,
+    String? customerTin,
     List<OrderItem>? items,
   }) {
     return OrderModel(
@@ -76,6 +79,7 @@ class OrderModel {
       discountAmount: discountAmount ?? this.discountAmount,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       shiftId: shiftId ?? this.shiftId,
+      customerTin: customerTin ?? this.customerTin,
       items: items ?? this.items,
     );
   }
@@ -107,6 +111,7 @@ class OrderModel {
       discountAmount: (map['discount_amount'] as num? ?? 0).toDouble(),
       paymentMethod: map['payment_method'] ?? 'cash',
       shiftId: map['shift_id'],
+      customerTin: map['customer_tin'],
       items: items,
     );
   }
@@ -125,6 +130,7 @@ class OrderModel {
       'discount_amount': discountAmount,
       'payment_method': paymentMethod,
       'shift_id': shiftId,
+      'customer_tin': customerTin,
       'table_name': tableName,
       'table_name_amharic': tableNameAmharic,
       'waiter_name': waiterName,

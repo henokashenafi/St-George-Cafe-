@@ -30,17 +30,17 @@
     // Ensure we have basic data if empty
     if (data.products.length === 0) {
         data.categories = [
-            { id: 1, name: 'Coffee' },
-            { id: 2, name: 'Tea' },
-            { id: 3, name: 'Pastries' },
-            { id: 4, name: 'Soft Drinks' }
+            { id: 1, name: 'Coffee', name_amharic: 'ቡና' },
+            { id: 2, name: 'Tea', name_amharic: 'ሻይ' },
+            { id: 3, name: 'Pastries', name_amharic: 'መክሰስ' },
+            { id: 4, name: 'Soft Drinks', name_amharic: 'ለስላሳ' }
         ];
         data.products = [
-            { id: 1, category_id: 1, name: 'Macchiato', price: 35.0 },
-            { id: 2, category_id: 1, name: 'Black Coffee', price: 25.0 },
-            { id: 3, category_id: 2, name: 'Black Tea', price: 15.0 },
-            { id: 4, category_id: 3, name: 'Croissant', price: 55.0 },
-            { id: 5, category_id: 4, name: 'Coca Cola', price: 30.0 }
+            { id: 1, category_id: 1, name: 'Macchiato', name_amharic: 'ማኪያቶ', price: 35.0 },
+            { id: 2, category_id: 1, name: 'Black Coffee', name_amharic: 'ጥቁር ቡና', price: 25.0 },
+            { id: 3, category_id: 2, name: 'Black Tea', name_amharic: 'ጥቁር ሻይ', price: 15.0 },
+            { id: 4, category_id: 3, name: 'Croissant', name_amharic: 'ክሮይሰንት', price: 55.0 },
+            { id: 5, category_id: 4, name: 'Coca Cola', name_amharic: 'ኮካ ኮላ', price: 30.0 }
         ];
     }
     
@@ -48,13 +48,18 @@
         data.tables = Array.from({ length: 10 }, (_, i) => ({
             id: i + 1,
             name: `Table ${i + 1}`,
+            name_amharic: `ጠረጴዛ ${i + 1}`,
             status: 'available',
             zone_id: null
         }));
     }
     
     if (data.waiters.length === 0) {
-        data.waiters = [{ id: 1, name: 'Default Waiter', code: 'W001' }];
+        data.waiters = [
+            { id: 1, name: 'Default Waiter', name_amharic: 'መደበኛ አስተናጋጅ', code: 'W001' },
+            { id: 2, name: 'Abebe', name_amharic: 'አበበ', code: 'W002' },
+            { id: 3, name: 'Kebe', name_amharic: 'ከበደ', code: 'W003' }
+        ];
     }
 
     const startId = (data.orders.length > 0) ? Math.max(...data.orders.map(o => o.id)) + 1 : 1;
@@ -75,7 +80,7 @@
             orderTime.setHours(8 + Math.floor(Math.random() * 14), Math.floor(Math.random() * 60));
 
             const table = data.tables[Math.floor(Math.random() * data.tables.length)];
-            const waiter = data.waiters[0];
+            const waiter = data.waiters[Math.floor(Math.random() * data.waiters.length)];
             
             // Random items (1 to 5)
             const itemCount = 1 + Math.floor(Math.random() * 5);
@@ -84,6 +89,7 @@
 
             for (let i = 0; i < itemCount; i++) {
                 const product = data.products[Math.floor(Math.random() * data.products.length)];
+                const category = data.categories.find(c => c.id === product.category_id);
                 const qty = 1 + Math.floor(Math.random() * 3);
                 const itemTotal = product.price * qty;
                 
@@ -92,7 +98,9 @@
                     order_id: currentOrderId,
                     product_id: product.id,
                     product_name: product.name,
-                    category_name: data.categories.find(c => c.id === product.category_id).name,
+                    product_name_amharic: product.name_amharic,
+                    category_name: category.name,
+                    category_name_amharic: category.name_amharic,
                     quantity: qty,
                     unit_price: product.price,
                     subtotal: itemTotal,
@@ -112,8 +120,10 @@
                 id: currentOrderId++,
                 table_id: table.id,
                 table_name: table.name,
+                table_name_amharic: table.name_amharic,
                 waiter_id: waiter.id,
                 waiter_name: waiter.name,
+                waiter_name_amharic: waiter.name_amharic,
                 cashier_id: 1,
                 cashier_name: 'Director',
                 total_amount: subtotal,

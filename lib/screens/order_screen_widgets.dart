@@ -207,6 +207,8 @@ class BillConfirmDialog extends ConsumerStatefulWidget {
   final bool discountEnabled;
   final double initialDiscount;
   final ValueChanged<double> onDiscountChanged;
+  final String initialTin;
+  final ValueChanged<String> onTinChanged;
 
   const BillConfirmDialog({
     super.key,
@@ -216,7 +218,9 @@ class BillConfirmDialog extends ConsumerStatefulWidget {
     required this.serviceChargePercent,
     required this.discountEnabled,
     required this.initialDiscount,
+    required this.initialTin,
     required this.onDiscountChanged,
+    required this.onTinChanged,
   });
 
   @override
@@ -225,6 +229,7 @@ class BillConfirmDialog extends ConsumerStatefulWidget {
 
 class _BillConfirmDialogState extends ConsumerState<BillConfirmDialog> {
   late TextEditingController _discountCtrl;
+  late TextEditingController _tinCtrl;
   double _discount = 0;
 
   @override
@@ -234,11 +239,13 @@ class _BillConfirmDialogState extends ConsumerState<BillConfirmDialog> {
     _discountCtrl = TextEditingController(
       text: _discount > 0 ? _discount.toString() : '',
     );
+    _tinCtrl = TextEditingController(text: widget.initialTin);
   }
 
   @override
   void dispose() {
     _discountCtrl.dispose();
+    _tinCtrl.dispose();
     super.dispose();
   }
 
@@ -312,6 +319,29 @@ class _BillConfirmDialogState extends ConsumerState<BillConfirmDialog> {
                   widget.onDiscountChanged(_discount);
                 },
                 onSubmitted: (_) => Navigator.pop(context, true),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _tinCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: ref.t('orderConfirm.tin'),
+                  labelStyle: const TextStyle(color: kTextSub),
+                  filled: true,
+                  fillColor: kBg,
+                  prefixIcon: const Icon(Icons.badge_outlined, color: kTextSub),
+                  border: const OutlineInputBorder(
+                    borderRadius: BorderRadius.zero,
+                    borderSide: BorderSide(color: kBorder),
+                  ),
+                ),
+                onChanged: (v) {
+                  widget.onTinChanged(v);
+                },
               ),
             ],
             const Divider(color: kBorder, height: 20),

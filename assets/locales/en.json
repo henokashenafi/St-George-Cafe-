@@ -84,6 +84,7 @@
     "subtotal": "Subtotal",
     "service": "Service ({percent}%)",
     "discount": "Discount (ETB)",
+    "tin": "TIN Number (Optional)",
     "totalToPay": "TOTAL TO PAY",
     "cancel": "Cancel",
     "printBill": "Print Bill"
@@ -283,7 +284,8 @@
     "categoryShareSubtitle": "Distribution by category",
     "liveOperations": "LIVE OPERATIONS",
     "printXReportBtn": "PRINT X-REPORT",
-    "exportExcelBtn": "EXPORT TO EXCEL",
+    "exportXExcelBtn": "DAILY REPORT",
+    "exportExcelBtn": "EXPORT EXCEL REPORT",
     "processing": "Processing...",
     "saving": "Saving...",
     "sendingToPrinter": "Sending to printer...",

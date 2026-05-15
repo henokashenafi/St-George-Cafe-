@@ -49,6 +49,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   String _sortOption = 'alpha';
   Waiter? selectedWaiter;
   double _discountAmount = 0;
+  String _customerTin = '';
   String _paymentMethod = 'cash';
   bool _isProcessing = false;
   
@@ -559,8 +560,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           discountEnabled: discountEnabled,
           initialDiscount: _discountAmount,
           initialPaymentMethod: _paymentMethod,
+          initialTin: _customerTin,
           onDiscountChanged: (v) => _discountAmount = v,
           onPaymentMethodChanged: (v) => _paymentMethod = v,
+          onTinChanged: (v) => _customerTin = v,
         ),
       );
 
@@ -569,7 +572,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         final cafeSettings = await ref.read(cafeSettingsProvider.future);
         
         final printed = await BillService.generateAndDownloadBill(
-          order: order.copyWith(discountAmount: _discountAmount),
+          order: order.copyWith(
+            discountAmount: _discountAmount,
+            customerTin: _customerTin,
+          ),
           items: order.items,
           settings: cafeSettings,
           cashierName: order.cashierName,
@@ -592,6 +598,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           serviceCharge: totalAdditions,
           discountAmount: _discountAmount + totalDeductions,
           paymentMethod: _paymentMethod,
+          customerTin: _customerTin,
         );
 
         // Invalidate active order immediately so buttons disable
@@ -684,8 +691,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           discountEnabled: (settings['discount_enabled'] ?? 'true') == 'true',
           initialDiscount: _discountAmount,
           initialPaymentMethod: _paymentMethod,
+          initialTin: _customerTin,
           onDiscountChanged: (v) => _discountAmount = v,
           onPaymentMethodChanged: (v) => _paymentMethod = v,
+          onTinChanged: (v) => _customerTin = v,
         ),
       );
 
@@ -731,7 +740,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         TopToaster.show(context, ref.t('reports.generatingPdf'), isError: false);
 
         final printed = await BillService.generateCombinedSlipAndBill(
-          order: finalOrder.copyWith(discountAmount: _discountAmount),
+          order: finalOrder.copyWith(
+            discountAmount: _discountAmount,
+            customerTin: _customerTin,
+          ),
           kitchenItems: finalOrder.items,
           receiptItems: finalOrder.items,
           roundNumber: maxRound,
@@ -756,6 +768,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
           serviceCharge: totalAdditions,
           discountAmount: _discountAmount + totalDeductions,
           paymentMethod: _paymentMethod,
+          customerTin: _customerTin,
         );
 
         // Invalidate active order immediately so buttons disable
@@ -2153,6 +2166,8 @@ class _BillConfirmDialog extends ConsumerStatefulWidget {
   final String initialPaymentMethod;
   final ValueChanged<double> onDiscountChanged;
   final ValueChanged<String> onPaymentMethodChanged;
+  final String initialTin;
+  final ValueChanged<String> onTinChanged;
 
   const _BillConfirmDialog({
     required this.order,
@@ -2161,8 +2176,10 @@ class _BillConfirmDialog extends ConsumerStatefulWidget {
     required this.discountEnabled,
     required this.initialDiscount,
     this.initialPaymentMethod = 'cash',
+    required this.initialTin,
     required this.onDiscountChanged,
     required this.onPaymentMethodChanged,
+    required this.onTinChanged,
   });
 
   @override
@@ -2171,6 +2188,7 @@ class _BillConfirmDialog extends ConsumerStatefulWidget {
 
 class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
   late TextEditingController _discountCtrl;
+  late TextEditingController _tinCtrl;
   double _discount = 0;
   String _paymentMethod = 'cash';
 
@@ -2182,11 +2200,13 @@ class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
     _discountCtrl = TextEditingController(
       text: _discount > 0 ? _discount.toString() : '',
     );
+    _tinCtrl = TextEditingController(text: widget.initialTin);
   }
 
   @override
   void dispose() {
     _discountCtrl.dispose();
+    _tinCtrl.dispose();
     super.dispose();
   }
 
@@ -2237,6 +2257,26 @@ class _BillConfirmDialogState extends ConsumerState<_BillConfirmDialog> {
                     _discount = double.tryParse(v) ?? 0;
                     widget.onDiscountChanged(_discount);
                   });
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _tinCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: ref.t('orderConfirm.tin'),
+                  labelStyle: const TextStyle(color: Colors.white54),
+                  prefixIcon: const Icon(
+                    Icons.badge_outlined,
+                    color: Colors.white38,
+                  ),
+                ),
+                onChanged: (v) {
+                  widget.onTinChanged(v);
                 },
               ),
               const SizedBox(height: 16),

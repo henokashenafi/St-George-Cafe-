@@ -318,6 +318,8 @@ class BillService {
             _infoRow(t('bill.voucher'), voucherNo, fontSize: 9),
             _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 9),
             _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 9),
+            if (order.customerTin != null && order.customerTin!.isNotEmpty)
+              _infoRow(t('orderConfirm.tin'), order.customerTin!, fontSize: 9),
             pw.Divider(thickness: 0.5),
 
             // ── Items Table (Thermal Style) ──────────────────────────────
@@ -613,6 +615,8 @@ class BillService {
       _infoRow(t('bill.voucher'), voucherNo, fontSize: 8),
       _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 8),
       _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 8),
+      if (order.customerTin != null && order.customerTin!.isNotEmpty)
+        _infoRow(t('orderConfirm.tin'), order.customerTin!, fontSize: 8),
       pw.Divider(thickness: 0.5),
       pw.Row(
         children: [
