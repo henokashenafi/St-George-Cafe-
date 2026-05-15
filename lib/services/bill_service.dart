@@ -13,6 +13,7 @@ import 'package:st_george_pos/models/z_report.dart';
 import 'package:st_george_pos/services/audit_service.dart';
 import 'package:st_george_pos/services/system_log_service.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
+import 'package:st_george_pos/core/utils/date_utils.dart';
 
 class BillService {
   static pw.Font? _fontRegular;
@@ -267,7 +268,7 @@ class BillService {
 
     final cafeName = settings.name.isNotEmpty
         ? settings.name
-        : 'LDA CAFE';
+        : AppLocalizations.get('app.title');
 
     pdf.addPage(
       pw.Page(
@@ -761,7 +762,6 @@ class BillService {
 
     final now = DateTime.now();
     final timeStr = DateFormat('HH:mm').format(now);
-    final dateStr = DateFormat('dd/MM/yyyy').format(now);
     final voucherNo =
         'RCS-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${(order.id ?? 0).toString().padLeft(3, '0')}';
 
@@ -794,10 +794,11 @@ class BillService {
 
     final discount = order.discountAmount;
     final grandTotal = subtotal + totalAdditions - totalDeductions - discount;
+    final String dateStr = PosDateUtils.formatEthiopianDateTime(DateTime.now());
 
     final cafeName = settings.name.isNotEmpty
         ? settings.name
-        : 'ST GEORGE CAFE';
+        : AppLocalizations.get('app.title');
 
     final bool isSilentPrinting = !kIsWeb && printerName != null && printerName.isNotEmpty;
     bool allSuccess = true;
