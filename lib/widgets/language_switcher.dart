@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:ethiopian_datetime/ethiopian_datetime.dart';
+import 'package:st_george_pos/core/utils/date_utils.dart';
 
 class EthiopianDateDisplay extends StatelessWidget {
   const EthiopianDateDisplay({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final now = ETDateTime.now();
-    final formatted = ETDateFormat("MMMM d, yyyy").format(now);
+    final formatted = PosDateUtils.formatEthiopianDate(DateTime.now());
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

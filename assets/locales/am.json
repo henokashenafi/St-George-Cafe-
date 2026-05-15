@@ -124,7 +124,10 @@
   "management": {
     "categories": "ምድቦች",
     "products": "እቃዎች",
-    "waiters": "አስተናጋጆች እና ጠረጴዛዎች",
+    "waiters": "አስተናጋጆች",
+    "waitersAndTables": "አስተናጋጆች እና ጠረጴዛዎች",
+    "tables": "ጠረጴዛዎች",
+    "add": "ጨምር",
     "orders": "ትዕዛዛት",
     "reports": "ሪፖርቶች",
     "preparationStations": "የዝግጅት ቦታዎች",
@@ -151,7 +154,8 @@
     "price": "ዋጋ",
     "waiterName": "የአስተናጋጅ ስም",
     "code": "ኮድ",
-    "noOrdersInRange": "በዚህ ክልል ምንም ትዕዛዛት የለም",
+    "noOrdersInRange": "በዚህ የቀን ገደብ ውስጥ ምንም ትዕዛዞች የሉም",
+    "noMatchingWaiter": "ለዚህ አስተናጋጅ ምንም ትዕዛዞች አልተገኙም",
     "order": "ትዕዛዝ #{id} — {table}",
     "date": "ቀን",
     "table": "ጠረጴዛ",
@@ -314,16 +318,17 @@
     "add": "ክፍያ ጨምር",
     "edit": "ክፍያ አርም",
     "addition": "መደመር (+)",
-    "deduction": "መቀነስ (-)",
-    "nameHint": "ስም (ለምሳሌ VAT, አገልግሎት)",
+    "nameHint": "ስም",
     "valueHint": "ዋጋ (%)",
-    "dynamicTitle": "ተለዋዋጭ ክፍያዎች (መደመር እና መቀነስ)"
+    "dynamicTitle": "ተለዋዋጭ ክፍያዎች (መደመር እና መቀነስ)",
+    "deduction": "መቀነስ (-)"
   },
   "filters": {
     "today": "ዛሬ",
     "thisWeek": "ይህ ሳምንት",
     "thisMonth": "ይህ ወር",
-    "allTime": "ሁሉም ጊዜ"
+    "allTime": "ሁሉም ጊዜ",
+    "customRange": "የቀን ገደብ ይምረጡ"
   },
   "settings": {
     "cafeInformation": "የካፌ መረጃ",
@@ -430,6 +435,7 @@
     "delete": "ሰርዝ",
     "save": "አስቀምጥ",
     "cancel": "ይቅር",
+    "clear": "አጽዳ",
     "deleteConfirmTitle": "ሰርዝ",
     "discountLabel": "ቅነሳ (ብር)",
     "tableDoesNotHaveWaiter": "ይህ ጠረጴዛ የተመደበ አስተናጋጅ የለውም። እባክዎ በጠረጴዛ አስተዳዳሪው ያዋቅሩት።",

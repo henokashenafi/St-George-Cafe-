@@ -361,7 +361,7 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                       _SidebarItem(
                         icon: Icons.bug_report_outlined,
-                        label: 'SYSTEM',
+                        label: ref.t('systemLogs.title'),
                         isActive:
                             ref.watch(dashboardViewProvider) ==
                             DashboardView.systemLogs,

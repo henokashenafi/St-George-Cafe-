@@ -14,6 +14,7 @@ class OrderItem {
   final int kitchenRound; // 0 = unsent, 1+ = round number sent to kitchen
   final int? stationId;
   final String? stationName;
+  final String? stationNameAmharic;
 
   OrderItem({
     this.id,
@@ -31,6 +32,7 @@ class OrderItem {
     this.kitchenRound = 0,
     this.stationId,
     this.stationName,
+    this.stationNameAmharic,
   });
 
   OrderItem copyWith({
@@ -45,6 +47,7 @@ class OrderItem {
     int? kitchenRound,
     int? stationId,
     String? stationName,
+    String? stationNameAmharic,
   }) {
     return OrderItem(
       id: id ?? this.id,
@@ -62,6 +65,7 @@ class OrderItem {
       kitchenRound: kitchenRound ?? this.kitchenRound,
       stationId: stationId ?? this.stationId,
       stationName: stationName ?? this.stationName,
+      stationNameAmharic: stationNameAmharic ?? this.stationNameAmharic,
     );
   }
 
@@ -82,6 +86,7 @@ class OrderItem {
       kitchenRound: (map['kitchen_round'] as int?) ?? 0,
       stationId: map['station_id'],
       stationName: map['station_name'],
+      stationNameAmharic: map['station_name_amharic'],
     );
   }
 
@@ -102,6 +107,7 @@ class OrderItem {
       'category_name_amharic': categoryNameAmharic,
       'station_id': stationId,
       'station_name': stationName,
+      'station_name_amharic': stationNameAmharic,
     };
   }
 }

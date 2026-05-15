@@ -235,6 +235,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             subtotal: product.price * qty,
             stationId: product.stationId,
             stationName: station?.name,
+            stationNameAmharic: station?.nameAmharic,
           ),
         );
       }
@@ -264,6 +265,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             subtotal: product.price,
             stationId: product.stationId,
             stationName: station?.name,
+            stationNameAmharic: station?.nameAmharic,
           ),
         );
       }
@@ -415,7 +417,9 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                 waiterId: selectedWaiter!.id!,
                 cashierId: currentUser.id,
                 tableName: selectedTable!.name,
+                tableNameAmharic: selectedTable!.nameAmharic,
                 waiterName: selectedWaiter!.name,
+                waiterNameAmharic: selectedWaiter!.nameAmharic,
                 cashierName: currentUser.username,
                 createdAt: DateTime.now(),
                 updatedAt: DateTime.now(),
@@ -1384,9 +1388,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                 data: (products) {
                                   final filtered = products
                                       .where(
-                                        (p) => p.name.toLowerCase().contains(
-                                          searchQuery.toLowerCase(),
-                                        ),
+                                        (p) => p.name.toLowerCase().contains(searchQuery.toLowerCase()) || (p.nameAmharic?.contains(searchQuery) ?? false),
                                       )
                                       .toList();
                                   if (_sortOption == 'alpha') {
@@ -1568,25 +1570,17 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                               builder: (context, ref, _) {
                                 final waitersAsync = ref.watch(waitersProvider);
                                 final tablesAsync = ref.watch(tablesProvider);
+                                final activeOrderAsync = ref.watch(activeOrderProvider(selectedTable?.id));
 
                                 // Populate filtering for assistant bar
                                 waitersAsync.whenData((ws) {
                                   _lastFilteredWaiters = ws
-                                      .where(
-                                        (w) => w.name.toLowerCase().contains(
-                                          waiterSearchQuery.toLowerCase(),
-                                        ),
-                                      )
+                                      .where((w) => w.name.toLowerCase().contains(waiterSearchQuery.toLowerCase()) || (w.nameAmharic?.contains(waiterSearchQuery) ?? false))
                                       .toList();
                                 });
                                 tablesAsync.whenData((ts) {
                                   _lastFilteredTables = ts
-                                      .where(
-                                        (t) => t.name.toLowerCase().contains(
-                                          _assistantController.text
-                                              .toLowerCase(),
-                                        ),
-                                      )
+                                      .where((t) => t.name.toLowerCase().contains(_assistantController.text.toLowerCase()) || (t.nameAmharic?.contains(_assistantController.text) ?? false))
                                       .toList();
                                 });
 
@@ -1729,8 +1723,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                           t.status ==
                                                                   TableStatus
                                                                       .occupied
-                                                              ? 'OCC'
-                                                              : 'FREE',
+                                                              ? ref.t('tables.occ')
+                                                              : ref.t('tables.free'),
                                                           style: TextStyle(
                                                             color:
                                                                 t.status ==
@@ -2444,7 +2438,7 @@ class _CartItemTile extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      item.productName,
+                      ref.ln(item.productName, item.productNameAmharic),
                       style: const TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 15,
