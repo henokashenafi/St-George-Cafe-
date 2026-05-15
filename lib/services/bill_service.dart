@@ -315,7 +315,6 @@ class BillService {
 
             // ── Info ─────────────────────────────────────────────────────
             _infoRow(t('bill.date'), dateStr, fontSize: 9),
-            _infoRow(t('bill.voucher'), voucherNo, fontSize: 9),
             _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 9),
             _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 9),
             if (order.customerTin != null && order.customerTin!.isNotEmpty)
@@ -612,7 +611,6 @@ class BillService {
       ),
       pw.Divider(thickness: 0.5),
       _infoRow(t('bill.date'), dateStr, fontSize: 8),
-      _infoRow(t('bill.voucher'), voucherNo, fontSize: 8),
       _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 8),
       _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 8),
       if (order.customerTin != null && order.customerTin!.isNotEmpty)

@@ -1879,4 +1879,28 @@ class PosRepository {
       }
     }
   }
+
+  Future<void> clearOrderHistory() async {
+    if (kIsWeb) {
+      _webStorage['orders'] = [];
+      _webStorage['order_items'] = [];
+      _webStorage['shifts'] = [];
+      _webStorage['z_reports'] = [];
+      _webStorage['audit_logs'] = [];
+      for (var t in _webStorage['tables']!) {
+        t['status'] = 'available';
+      }
+      await _saveWebData();
+      return;
+    }
+    final db = await _dbHelper.database;
+    await db.transaction((txn) async {
+      await txn.delete('orders');
+      await txn.delete('order_items');
+      await txn.delete('shifts');
+      await txn.delete('z_reports');
+      await txn.delete('audit_logs');
+      await txn.update('tables', {'status': 'available'});
+    });
+  }
 }

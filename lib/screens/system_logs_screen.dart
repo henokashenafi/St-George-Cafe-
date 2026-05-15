@@ -134,38 +134,89 @@ class _SystemLogsScreenState extends State<SystemLogsScreen> {
   }
 
   Future<void> _confirmDeleteDatabase(BuildContext context) async {
+    final passwordCtrl = TextEditingController();
+    bool isError = false;
+
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('DELETE DATABASE?'),
-        content: const Text(
-            'This will WIPE ALL DATA (orders, waiters, products, settings) and close the app. You will need to restart the app manually to create a fresh database.\n\nAre you absolutely sure?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCEL'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text('CLEAR ORDER HISTORY?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'This will delete ALL sales history, shifts, and reports. Menu items, waiters, and settings will NOT be touched.',
+                style: TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Enter Security Password:',
+                style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: passwordCtrl,
+                obscureText: true,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Password',
+                  hintStyle: const TextStyle(color: Colors.white24),
+                  errorText: isError ? 'Incorrect Password' : null,
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.05),
+                  border: const OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide.none),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('DELETE EVERYTHING'),
-          ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('CANCEL', style: TextStyle(color: Colors.white38)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (passwordCtrl.text == 'cafe12345678') {
+                  Navigator.pop(context, true);
+                } else {
+                  setState(() => isError = true);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+              ),
+              child: const Text('CLEAR HISTORY'),
+            ),
+          ],
+        ),
       ),
     );
 
     if (confirmed == true) {
       try {
-        final docDir = await getApplicationDocumentsDirectory();
-        final dbFile = File(p.join(docDir.path, 'st_george_pos.db'));
-        if (await dbFile.exists()) {
-          await dbFile.delete();
-          SystemLogService.log('Database deleted successfully.');
+        final db = await DatabaseHelper().database;
+        await db.transaction((txn) async {
+          await txn.delete('orders');
+          await txn.delete('order_items');
+          await txn.delete('shifts');
+          await txn.delete('z_reports');
+          await txn.delete('audit_logs');
+          await txn.update('tables', {'status': 'available'});
+        });
+        SystemLogService.log('History cleared successfully.');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Order history cleared successfully.')),
+          );
         }
-        // Force exit so the user restarts with a clean state
-        exit(0);
       } catch (e) {
-        SystemLogService.log('Error deleting database: $e');
+        SystemLogService.log('Error clearing history: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error: $e')),
