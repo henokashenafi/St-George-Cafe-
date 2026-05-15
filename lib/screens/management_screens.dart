@@ -2024,7 +2024,13 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
         final itemMap = <String, Map<String, dynamic>>{};
         for (final o in completed) {
           for (final it in o.items) {
-            itemMap.putIfAbsent(it.productName, () => {'qty': 0, 'rev': 0.0, 'cat': it.categoryName});
+            itemMap.putIfAbsent(it.productName, () => {
+              'qty': 0, 
+              'rev': 0.0, 
+              'name': it.productName,
+              'nameAm': it.productNameAmharic,
+              'cat': it.categoryName
+            });
             itemMap[it.productName]!['qty'] += it.quantity;
             itemMap[it.productName]!['rev'] += it.subtotal;
           }
@@ -2034,11 +2040,16 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
         final topItems = sortedItems.take(5).toList();
 
         // Category Share
-        final catMap = <String, double>{};
+        final catMap = <String, Map<String, dynamic>>{};
         for (final o in completed) {
           for (final it in o.items) {
             final c = it.categoryName ?? 'General';
-            catMap[c] = (catMap[c] ?? 0) + it.subtotal;
+            catMap.putIfAbsent(c, () => {
+              'rev': 0.0,
+              'name': c,
+              'nameAm': it.categoryNameAmharic,
+            });
+            catMap[c]!['rev'] += it.subtotal;
           }
         }
         
@@ -2097,7 +2108,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
                         const SizedBox(height: 32),
                         _QuickActionsSection(
                           pulseController: _pulseController,
-                          onPrintX: () => _printFilteredReport(context, ref, allOrders, ref.read(reportDateFilterProvider)),
+                          onExportX: () => _exportXToExcel(context, ref, allOrders, ref.read(reportDateFilterProvider)),
                           onExport: () => _exportToExcel(context, ref, allOrders, ref.read(reportDateFilterProvider)),
                         ),
                         const SizedBox(height: 32),
@@ -2224,6 +2235,19 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
     }).toList();
 
     await BillService.printReport(reportData: reportData, settings: settings, isZReport: false);
+  }
+
+  void _exportXToExcel(BuildContext context, WidgetRef ref, List<OrderModel> orders, DateFilter filter) async {
+    final path = await ExportService.exportXReportToExcel(orders, dateLabel: filter.label);
+    if (path != null) {
+      toastification.show(
+        context: context,
+        title: Text(kIsWeb ? ref.t('reports.downloadStarted') : ref.t('reports.exportedToDocs')),
+        description: kIsWeb ? null : Text(path),
+        autoCloseDuration: const Duration(seconds: 5),
+        type: ToastificationType.success,
+      );
+    }
   }
 
   void _exportToExcel(BuildContext context, WidgetRef ref, List<OrderModel> orders, DateFilter filter) async {
@@ -2379,7 +2403,7 @@ class _TopProductsAnalysis extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(e.key, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  Text(ref.ln(e.value['name'], e.value['nameAm']), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                   Text('${rev.toStringAsFixed(0)} ETB', style: const TextStyle(fontSize: 12, color: Color(0xFFD4AF37))),
                 ],
               ),
@@ -2402,22 +2426,23 @@ class _TopProductsAnalysis extends ConsumerWidget {
 }
 
 class _CategoryShareAnalysis extends ConsumerWidget {
-  final Map<String, double> catMap;
+  final Map<String, Map<String, dynamic>> catMap;
   final double totalRevenue;
   const _CategoryShareAnalysis(
       {required this.catMap, required this.totalRevenue});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sorted = catMap.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final sorted = catMap.entries.toList()..sort((a, b) => (b.value['rev'] as double).compareTo(a.value['rev'] as double));
     
     return Column(
       children: sorted.take(4).map((e) {
-        final share = totalRevenue > 0 ? e.value / totalRevenue : 0.0;
+        final rev = e.value['rev'] as double;
+        final share = totalRevenue > 0 ? rev / totalRevenue : 0.0;
         return ListTile(
           contentPadding: EdgeInsets.zero,
           dense: true,
-          title: Text(e.key, style: const TextStyle(fontSize: 12)),
+          title: Text(ref.ln(e.value['name'], e.value['nameAm']), style: const TextStyle(fontSize: 12)),
           trailing: Text('${(share * 100).toStringAsFixed(1)}%', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white54)),
         );
       }).toList(),
@@ -2427,13 +2452,14 @@ class _CategoryShareAnalysis extends ConsumerWidget {
 
 class _QuickActionsSection extends ConsumerWidget {
   final AnimationController pulseController;
-  final VoidCallback onPrintX;
+  final VoidCallback onExportX;
   final VoidCallback onExport;
 
-  const _QuickActionsSection(
-      {required this.pulseController,
-      required this.onPrintX,
-      required this.onExport});
+  const _QuickActionsSection({
+    required this.pulseController,
+    required this.onExportX,
+    required this.onExport,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2456,9 +2482,9 @@ class _QuickActionsSection extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
         ElevatedButton.icon(
-          onPressed: onPrintX,
-          icon: const Icon(Icons.print_outlined, size: 18),
-          label: Text(ref.t('reports.printXReportBtn')),
+          onPressed: onExportX,
+          icon: const Icon(Icons.table_view_outlined, size: 18),
+          label: Text(ref.t('reports.exportXExcelBtn')),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFD4AF37),
             foregroundColor: Colors.black,
@@ -2549,7 +2575,7 @@ class _OrderAuditList extends ConsumerWidget {
               children: [
                 Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text('#${o.id}', style: const TextStyle(fontSize: 11, color: Colors.white54))),
                 Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(DateFormat('HH:mm').format(o.createdAt), style: const TextStyle(fontSize: 11, color: Colors.white54))),
-                Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(o.waiterName, style: const TextStyle(fontSize: 11))),
+                Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(ref.ln(o.waiterName, o.waiterNameAmharic), style: const TextStyle(fontSize: 11))),
                 Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(o.grandTotal.toStringAsFixed(2), textAlign: TextAlign.right, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD4AF37)))),
               ],
             )),

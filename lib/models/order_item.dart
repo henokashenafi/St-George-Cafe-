@@ -10,6 +10,7 @@ class OrderItem {
   final bool isPrintedToKitchen;
   final String? notes;
   final String? categoryName;
+  final String? categoryNameAmharic;
   final int kitchenRound; // 0 = unsent, 1+ = round number sent to kitchen
   final int? stationId;
   final String? stationName;
@@ -22,6 +23,7 @@ class OrderItem {
     required this.productName,
     this.productNameAmharic,
     this.categoryName,
+    this.categoryNameAmharic,
     required this.quantity,
     required this.unitPrice,
     required this.subtotal,
@@ -41,6 +43,7 @@ class OrderItem {
     bool? isPrintedToKitchen,
     String? notes,
     String? categoryName,
+    String? categoryNameAmharic,
     int? kitchenRound,
     int? stationId,
     String? stationName,
@@ -53,6 +56,7 @@ class OrderItem {
       productName: productName,
       productNameAmharic: productNameAmharic,
       categoryName: categoryName ?? this.categoryName,
+      categoryNameAmharic: categoryNameAmharic ?? this.categoryNameAmharic,
       quantity: quantity ?? this.quantity,
       unitPrice: unitPrice,
       subtotal: subtotal ?? this.subtotal,
@@ -73,6 +77,7 @@ class OrderItem {
       productName: map['product_name'] ?? '',
       productNameAmharic: map['product_name_amharic'],
       categoryName: map['category_name'],
+      categoryNameAmharic: map['category_name_amharic'],
       quantity: map['quantity'] ?? 1,
       unitPrice: (map['unit_price'] as num? ?? 0).toDouble(),
       subtotal: (map['subtotal'] as num? ?? 0).toDouble(),
@@ -99,6 +104,7 @@ class OrderItem {
       'notes': notes,
       'kitchen_round': kitchenRound,
       'category_name': categoryName,
+      'category_name_amharic': categoryNameAmharic,
       'station_id': stationId,
       'station_name': stationName,
       'station_name_amharic': stationNameAmharic,

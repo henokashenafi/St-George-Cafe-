@@ -85,10 +85,10 @@ class PosRepository {
   Future<void> _seedWebData() async {
     // Categories
     _webStorage['categories'] = [
-      {'id': 1, 'name': 'Coffee'},
-      {'id': 2, 'name': 'Tea'},
-      {'id': 3, 'name': 'Pastries'},
-      {'id': 4, 'name': 'Soft Drinks'},
+      {'id': 1, 'name': 'Coffee', 'name_amharic': 'ቡና'},
+      {'id': 2, 'name': 'Tea', 'name_amharic': 'ሻይ'},
+      {'id': 3, 'name': 'Pastries', 'name_amharic': 'መክሰስ'},
+      {'id': 4, 'name': 'Soft Drinks', 'name_amharic': 'ለስላሳ'},
     ];
 
     // Stations
@@ -99,11 +99,11 @@ class PosRepository {
 
     // Products
     _webStorage['products'] = [
-      {'id': 1, 'category_id': 1, 'name': 'Macchiato', 'price': 35.0, 'station_id': 1},
-      {'id': 2, 'category_id': 1, 'name': 'Black Coffee', 'price': 25.0, 'station_id': 1},
-      {'id': 3, 'category_id': 2, 'name': 'Black Tea', 'price': 15.0, 'station_id': 1},
-      {'id': 4, 'category_id': 3, 'name': 'Croissant', 'price': 55.0, 'station_id': 1},
-      {'id': 5, 'category_id': 4, 'name': 'Coca Cola', 'price': 30.0, 'station_id': 2},
+      {'id': 1, 'category_id': 1, 'name': 'Macchiato', 'name_amharic': 'ማኪያቶ', 'price': 35.0, 'station_id': 1},
+      {'id': 2, 'category_id': 1, 'name': 'Black Coffee', 'name_amharic': 'ጥቁር ቡና', 'price': 25.0, 'station_id': 1},
+      {'id': 3, 'category_id': 2, 'name': 'Black Tea', 'name_amharic': 'ጥቁር ሻይ', 'price': 15.0, 'station_id': 1},
+      {'id': 4, 'category_id': 3, 'name': 'Croissant', 'name_amharic': 'ክሮይሰንት', 'price': 55.0, 'station_id': 1},
+      {'id': 5, 'category_id': 4, 'name': 'Coca Cola', 'name_amharic': 'ኮካ ኮላ', 'price': 30.0, 'station_id': 2},
     ];
 
     // Tables
@@ -119,7 +119,9 @@ class PosRepository {
 
     // Waiters
     _webStorage['waiters'] = [
-      {'id': 1, 'name': 'Default Waiter', 'code': 'W001'},
+      {'id': 1, 'name': 'Default Waiter', 'name_amharic': 'መደበኛ አስተናጋጅ', 'code': 'W001'},
+      {'id': 2, 'name': 'Abebe', 'name_amharic': 'አበበ', 'code': 'W002'},
+      {'id': 3, 'name': 'Kebe', 'name_amharic': 'ከበደ', 'code': 'W003'},
     ];
 
     await _saveWebData();
@@ -896,7 +898,7 @@ class PosRepository {
     if (maps.isEmpty) return null;
     final orderId = maps.first['id'];
     final itemMaps = await db.rawQuery(
-      'SELECT oi.*, p.name as product_name, p.name_amharic as product_name_amharic, c.name as category_name FROM order_items oi JOIN products p ON oi.product_id = p.id JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
+      'SELECT oi.*, p.name as product_name, p.name_amharic as product_name_amharic, c.name as category_name, c.name_amharic as category_name_amharic FROM order_items oi JOIN products p ON oi.product_id = p.id JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
       [orderId],
     );
     final items = itemMaps.map((i) => OrderItem.fromMap(i)).toList();
@@ -1060,6 +1062,7 @@ class PosRepository {
     double serviceCharge = 0,
     double discountAmount = 0,
     String paymentMethod = 'cash',
+    String? customerTin,
   }) async {
     if (kIsWeb) {
       final oIndex = _webStorage['orders']!.indexWhere(
@@ -1070,6 +1073,7 @@ class PosRepository {
         _webStorage['orders']![oIndex]['service_charge'] = serviceCharge;
         _webStorage['orders']![oIndex]['discount_amount'] = discountAmount;
         _webStorage['orders']![oIndex]['payment_method'] = paymentMethod;
+        _webStorage['orders']![oIndex]['customer_tin'] = customerTin;
         if (cashierId != null) {
           _webStorage['orders']![oIndex]['cashier_id'] = cashierId;
           final user = _webStorage['users']!.firstWhere(
@@ -1091,6 +1095,7 @@ class PosRepository {
         'service_charge': serviceCharge,
         'discount_amount': discountAmount,
         'payment_method': paymentMethod,
+        'customer_tin': customerTin,
         'updated_at': DateTime.now().toIso8601String(),
       };
       if (cashierId != null) updateData['cashier_id'] = cashierId;
@@ -1198,7 +1203,7 @@ class PosRepository {
     List<OrderModel> orders = [];
     for (var map in maps) {
       final itemMaps = await db.rawQuery(
-        'SELECT oi.*, p.name as product_name, p.name_amharic as product_name_amharic, c.name as category_name FROM order_items oi JOIN products p ON oi.product_id = p.id JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
+        'SELECT oi.*, p.name as product_name, p.name_amharic as product_name_amharic, c.name as category_name, c.name_amharic as category_name_amharic FROM order_items oi JOIN products p ON oi.product_id = p.id JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
         [map['id']],
       );
       orders.add(
@@ -1683,7 +1688,9 @@ class PosRepository {
           return OrderItem.fromMap({
             ...i,
             'product_name': product['name'] ?? '',
+            'product_name_amharic': product['name_amharic'],
             'category_name': category['name'] ?? 'General',
+            'category_name_amharic': category['name_amharic'],
           });
         }).toList();
         return OrderModel.fromMap(o, items: items);
@@ -1697,7 +1704,7 @@ class PosRepository {
     List<OrderModel> orders = [];
     for (var map in maps) {
       final itemMaps = await db.rawQuery(
-        'SELECT oi.*, p.name as product_name, p.name_amharic as product_name_amharic, c.name as category_name FROM order_items oi JOIN products p ON oi.product_id = p.id JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
+        'SELECT oi.*, p.name as product_name, p.name_amharic as product_name_amharic, c.name as category_name, c.name_amharic as category_name_amharic FROM order_items oi JOIN products p ON oi.product_id = p.id JOIN categories c ON p.category_id = c.id WHERE oi.order_id = ?',
         [map['id']],
       );
       orders.add(

@@ -83,6 +83,7 @@
     "subtotal": "የንዑስ ድምር",
     "service": "አገልግሎት ({percent}%)",
     "discount": "ቅነሳ (ብር)",
+    "tin": "የቲን ቁጥር (ካለ)",
     "totalToPay": "ለመክፈል ድምር",
     "cancel": "ይቅር",
     "printBill": "ደረሰኝ አትም"
@@ -286,7 +287,8 @@
     "categoryShareSubtitle": "በምድብ ስርጭት",
     "liveOperations": "የቀጥታ ስራ",
     "printXReportBtn": "X-ሪፖርት አትም",
-    "exportExcelBtn": "ወደ Excel ላክ",
+    "exportXExcelBtn": "የቀን ሪፖርት",
+    "exportExcelBtn": "የኤክሴል ሪፖርት አውጣ",
     "processing": "በመስራት ላይ...",
     "saving": "በማስቀመጥ ላይ...",
     "sendingToPrinter": "ወደ ማተሚያ እየተላከ ነው...",

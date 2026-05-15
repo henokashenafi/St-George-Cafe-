@@ -401,36 +401,45 @@ class DatabaseHelper {
     });
 
     // Seed Categories
-    final catIds = <String, int>{};
-    for (var cat in ['Coffee', 'Tea', 'Pastries', 'Soft Drinks']) {
-      final id = await db.insert('categories', {'name': cat});
-      catIds[cat] = id;
+    final localCatIdsMap = <String, int>{};
+    final categories = [
+      {'name': 'Coffee', 'name_amharic': 'ቡና'},
+      {'name': 'Tea', 'name_amharic': 'ሻይ'},
+      {'name': 'Pastries', 'name_amharic': 'መክሰስ'},
+      {'name': 'Soft Drinks', 'name_amharic': 'ለስላሳ'},
+    ];
+    for (var cat in categories) {
+      final id = await db.insert('categories', cat);
+      localCatIdsMap[cat['name']!] = id;
     }
 
     // Seed Products
     final products = [
-      {'category': 'Coffee', 'name': 'Macchiato', 'price': 35.0},
-      {'category': 'Coffee', 'name': 'Black Coffee', 'price': 25.0},
-      {'category': 'Coffee', 'name': 'Caffe Latte', 'price': 45.0},
-      {'category': 'Tea', 'name': 'Black Tea', 'price': 15.0},
-      {'category': 'Tea', 'name': 'Spiced Tea', 'price': 20.0},
-      {'category': 'Pastries', 'name': 'Croissant', 'price': 55.0},
-      {'category': 'Pastries', 'name': 'Chocolate Cake', 'price': 75.0},
-      {'category': 'Soft Drinks', 'name': 'Coca Cola', 'price': 30.0},
-      {'category': 'Soft Drinks', 'name': 'Water 0.5L', 'price': 20.0},
+      {'category': 'Coffee', 'name': 'Macchiato', 'name_amharic': 'ማኪያቶ', 'price': 35.0},
+      {'category': 'Coffee', 'name': 'Black Coffee', 'name_amharic': 'ጥቁር ቡና', 'price': 25.0},
+      {'category': 'Coffee', 'name': 'Caffe Latte', 'name_amharic': 'ላቴ', 'price': 45.0},
+      {'category': 'Tea', 'name': 'Black Tea', 'name_amharic': 'ጥቁር ሻይ', 'price': 15.0},
+      {'category': 'Tea', 'name': 'Spiced Tea', 'name_amharic': 'የቅመም ሻይ', 'price': 20.0},
+      {'category': 'Pastries', 'name': 'Croissant', 'name_amharic': 'ክሮይሰንት', 'price': 55.0},
+      {'category': 'Pastries', 'name': 'Chocolate Cake', 'name_amharic': 'ቸኮሌት ኬክ', 'price': 75.0},
+      {'category': 'Soft Drinks', 'name': 'Coca Cola', 'name_amharic': 'ኮካ ኮላ', 'price': 30.0},
+      {'category': 'Soft Drinks', 'name': 'Water 0.5L', 'name_amharic': 'ውሃ 0.5 ሊ', 'price': 20.0},
     ];
 
     for (var p in products) {
       await db.insert('products', {
-        'category_id': catIds[p['category']],
+        'category_id': localCatIdsMap[p['category']],
         'name': p['name'],
+        'name_amharic': p['name_amharic'],
         'price': p['price'],
         'station_id': kitchenId,
       });
     }
 
     // Seed Waiters
-    await db.insert('waiters', {'name': 'Default Waiter', 'code': 'W001'});
+    await db.insert('waiters', {'name': 'Default Waiter', 'name_amharic': 'መደበኛ አስተናጋጅ', 'code': 'W001'});
+    await db.insert('waiters', {'name': 'Abebe', 'name_amharic': 'አበበ', 'code': 'W002'});
+    await db.insert('waiters', {'name': 'Kebe', 'name_amharic': 'ከበደ', 'code': 'W003'});
     
     // Seed Tables
     for (var i = 1; i <= 10; i++) {
