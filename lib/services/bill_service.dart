@@ -18,6 +18,18 @@ class BillService {
   static pw.Font? _fontRegular;
   static pw.Font? _fontBold;
   static bool _useEnglishFallback = false;
+  static pw.MemoryImage? _askualaLogo;
+
+  static Future<void> _loadLogo() async {
+    if (_askualaLogo == null) {
+      try {
+        final logoData = await rootBundle.load('assets/images/askualalogo.jpg');
+        _askualaLogo = pw.MemoryImage(logoData.buffer.asUint8List());
+      } catch (e) {
+        debugPrint('Failed to load askualalogo: $e');
+      }
+    }
+  }
 
   /// Call this to clear cached fonts (e.g. after a hot restart in dev)
   static void resetFontCache() {
@@ -25,15 +37,16 @@ class BillService {
     _fontRegular = null;
     _fontBold = null;
     _useEnglishFallback = false;
+    _askualaLogo = null;
   }
 
   static Future<pw.ThemeData> _getEthiopicTheme() async {
     if (_fontRegular == null || _fontBold == null) {
       try {
         final regularData =
-            await rootBundle.load('assets/fonts/NotoSansEthiopic-Regular.ttf');
+            await rootBundle.load('fonts/NotoSansEthiopic-Regular.ttf');
         final boldData =
-            await rootBundle.load('assets/fonts/NotoSansEthiopic-Bold.ttf');
+            await rootBundle.load('fonts/NotoSansEthiopic-Bold.ttf');
         // Pre-flight check to see if parsing succeeds
         _fontRegular = pw.Font.ttf(regularData);
         _fontBold = pw.Font.ttf(boldData);
@@ -80,6 +93,7 @@ class BillService {
     final dateStr = DateFormat('dd/MM/yyyy').format(now);
 
     final theme = await _getEthiopicTheme();
+    await _loadLogo();
 
     pdf.addPage(
       pw.Page(
@@ -172,15 +186,23 @@ class BillService {
                 style: const pw.TextStyle(fontSize: 11),
               ),
             ),
-            pw.SizedBox(height: 10),
-            pw.Center(
-              child: pw.Text(
-                t('reports.poweredBy'),
-                style: pw.TextStyle(
-                  fontSize: 12,
-                  fontWeight: pw.FontWeight.bold,
+            pw.SizedBox(height: 2),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text(
+                  'Powered by Askualalink',
+                  style: pw.TextStyle(
+                    fontSize: 7,
+                    color: PdfColors.grey700,
+                  ),
                 ),
-              ),
+                if (_askualaLogo != null) ...[
+                  pw.SizedBox(width: 6),
+                  pw.Image(_askualaLogo!, width: 20),
+                ],
+              ],
             ),
           ],
         ),
@@ -208,16 +230,15 @@ class BillService {
   }) async {
     SystemLogService.log('Generating Bill: Order #${order.id} for Table ${order.tableName}');
     // Use active locale for receipts (Amharic when set)
-    String t(String key, {Map<String, String>? replacements}) =>
-        AppLocalizations.getAmharic(key, replacements: replacements);
+    final t = AppLocalizations.getAmharic;
+    final theme = await _getEthiopicTheme();
+    await _loadLogo();
 
     final pdf = pw.Document();
     final now = DateTime.now();
     final dateStr = DateFormat('dd/MM/yyyy').format(now);
     final voucherNo =
         'RCS-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${(order.id ?? 0).toString().padLeft(3, '0')}';
-
-    final theme = await _getEthiopicTheme();
 
     final subtotal = items.fold(0.0, (s, i) => s + i.subtotal);
 
@@ -252,7 +273,7 @@ class BillService {
       pw.Page(
         pageFormat: PdfPageFormat.roll80,
         theme: theme,
-        margin: const pw.EdgeInsets.all(10),
+        margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
@@ -414,11 +435,20 @@ class BillService {
                 ),
               ),
             ),
-            pw.Center(
-              child: pw.Text(
-                t('reports.poweredBy'),
-                style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
-              ),
+            pw.SizedBox(height: 2),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text(
+                  'Powered by Askualalink',
+                  style: pw.TextStyle(fontSize: 7, color: PdfColors.grey700),
+                ),
+                if (_askualaLogo != null) ...[
+                  pw.SizedBox(width: 6),
+                  pw.Image(_askualaLogo!, width: 20),
+                ],
+              ],
             ),
           ],
         ),
@@ -439,6 +469,7 @@ class BillService {
     int roundNumber,
     OrderModel order,
     String Function(String, {Map<String, String>? replacements}) t,
+    pw.MemoryImage? logo,
   ) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -507,6 +538,24 @@ class BillService {
               ],
             ),
           ),
+        ),
+        pw.SizedBox(height: 2),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.center,
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Text(
+              'Powered by Askualalink',
+              style: pw.TextStyle(
+                fontSize: 7,
+                color: PdfColors.grey700,
+              ),
+            ),
+            if (logo != null) ...[
+              pw.SizedBox(width: 6),
+              pw.Image(logo, width: 20),
+            ],
+          ],
         ),
       ],
     );
@@ -619,7 +668,7 @@ class BillService {
                 flex: 4,
                 child: pw.Text(
                   _ln(item.productName, item.productNameAmharic),
-                  style: const pw.TextStyle(fontSize: 9),
+                  style: const pw.TextStyle(fontSize: 8),
                 ),
               ),
               pw.SizedBox(
@@ -627,7 +676,7 @@ class BillService {
                 child: pw.Text(
                   '${item.quantity}',
                   textAlign: pw.TextAlign.center,
-                  style: const pw.TextStyle(fontSize: 9),
+                  style: const pw.TextStyle(fontSize: 8),
                 ),
               ),
               pw.SizedBox(
@@ -635,7 +684,7 @@ class BillService {
                 child: pw.Text(
                   _fmt(item.unitPrice),
                   textAlign: pw.TextAlign.right,
-                  style: const pw.TextStyle(fontSize: 9),
+                  style: const pw.TextStyle(fontSize: 8),
                 ),
               ),
               pw.SizedBox(
@@ -643,7 +692,7 @@ class BillService {
                 child: pw.Text(
                   _fmt(item.subtotal),
                   textAlign: pw.TextAlign.right,
-                  style: const pw.TextStyle(fontSize: 9),
+                  style: const pw.TextStyle(fontSize: 8),
                 ),
               ),
             ],
@@ -675,11 +724,20 @@ class BillService {
           ),
         ),
       ),
-      pw.Center(
-        child: pw.Text(
-          t('reports.poweredBy'),
-          style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
-        ),
+      pw.SizedBox(height: 2),
+      pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.center,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.Text(
+            'Powered by Askualalink',
+            style: pw.TextStyle(fontSize: 7, color: PdfColors.grey700),
+          ),
+          if (_askualaLogo != null) ...[
+            pw.SizedBox(width: 6),
+            pw.Image(_askualaLogo!, width: 20),
+          ],
+        ],
       ),
     ];
   }
@@ -697,6 +755,9 @@ class BillService {
     // Use active locale for receipts (Amharic when set)
     String t(String key, {Map<String, String>? replacements}) =>
         AppLocalizations.getAmharic(key, replacements: replacements);
+    
+    final theme = await _getEthiopicTheme();
+    await _loadLogo();
 
     final now = DateTime.now();
     final timeStr = DateFormat('HH:mm').format(now);
@@ -704,7 +765,7 @@ class BillService {
     final voucherNo =
         'RCS-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${(order.id ?? 0).toString().padLeft(3, '0')}';
 
-    final theme = await _getEthiopicTheme();
+
 
     // Group items by stationId for combined slip part
     final Map<int?, List<OrderItem>> groupedKitchen = {};
@@ -752,8 +813,8 @@ class BillService {
           pw.Page(
             pageFormat: PdfPageFormat.roll80,
             theme: theme,
-            margin: const pw.EdgeInsets.all(10),
-            build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t),
+            margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
+            build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t, _askualaLogo),
           ),
         );
 
@@ -775,7 +836,7 @@ class BillService {
           pw.Page(
             pageFormat: PdfPageFormat.roll80,
             theme: theme,
-            margin: const pw.EdgeInsets.all(10),
+            margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
             build: (ctx) => pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: _buildCustomerReceipt(
@@ -801,7 +862,7 @@ class BillService {
         pw.Page(
           pageFormat: PdfPageFormat.roll80,
           theme: theme,
-          margin: const pw.EdgeInsets.all(10),
+          margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
           build: (ctx) => pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
@@ -813,15 +874,7 @@ class BillService {
                   return pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      _buildStationSlip(stationName, stationItems, roundNumber, order, t),
-                      pw.SizedBox(height: 10),
-                      pw.Center(
-                        child: pw.Text(
-                          '-------------------- ✂ --------------------',
-                          style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
-                        ),
-                      ),
-                      pw.SizedBox(height: 15),
+                      _buildStationSlip(stationName, stationItems, roundNumber, order, t, _askualaLogo),
                     ],
                   );
                 }),
@@ -884,7 +937,7 @@ class BillService {
       pw.Page(
         pageFormat: PdfPageFormat.roll80,
         theme: theme,
-        margin: const pw.EdgeInsets.all(10),
+        margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
