@@ -471,13 +471,14 @@ class BillService {
     OrderModel order,
     String Function(String, {Map<String, String>? replacements}) t,
     pw.MemoryImage? logo,
+    String? stationNameAmharic,
   ) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         pw.Center(
           child: pw.Text(
-            stationName.toUpperCase(),
+            _ln(stationName, stationNameAmharic).toUpperCase(),
             style: pw.TextStyle(
               fontSize: 13,
               fontWeight: pw.FontWeight.bold,
@@ -499,7 +500,7 @@ class BillService {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text(
-              '${t('print.table')}: ${order.tableName}',
+              '${t('print.table')}: ${_ln(order.tableName, order.tableNameAmharic)}',
               style: pw.TextStyle(
                 fontSize: 10,
                 fontWeight: pw.FontWeight.bold,
@@ -808,6 +809,7 @@ class BillService {
       for (final entry in groupedKitchen.entries) {
         final stationItems = entry.value;
         final stationName = stationItems.first.stationName ?? t('print.kitchenOrder');
+        final stationNameAmharic = stationItems.first.stationNameAmharic;
 
         final pdf = pw.Document();
         pdf.addPage(
@@ -815,7 +817,7 @@ class BillService {
             pageFormat: PdfPageFormat.roll80,
             theme: theme,
             margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
-            build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t, _askualaLogo),
+            build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t, _askualaLogo, stationNameAmharic),
           ),
         );
 
@@ -863,13 +865,14 @@ class BillService {
       for (final entry in groupedKitchen.entries) {
         final stationItems = entry.value;
         final stationName = stationItems.first.stationName ?? t('print.kitchenOrder');
+        final stationNameAmharic = stationItems.first.stationNameAmharic;
 
         pdf.addPage(
           pw.Page(
             pageFormat: PdfPageFormat.roll80,
             theme: theme,
             margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
-            build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t, _askualaLogo),
+            build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t, _askualaLogo, stationNameAmharic),
           ),
         );
       }

@@ -451,10 +451,23 @@ class PosRepository {
 
   Future<List<TableModel>> getTables({int? zoneId}) async {
     if (kIsWeb) {
-      var list = _webStorage['tables']!;
-      if (zoneId != null)
+      var list = List<Map<String, dynamic>>.from(_webStorage['tables']!);
+      if (zoneId != null) {
         list = list.where((t) => t['zone_id'] == zoneId).toList();
-      return list.map((t) => TableModel.fromMap(t)).toList();
+      }
+      // Populate zone_name for Web
+      final zones = _webStorage['table_zones']!;
+      final result = list.map((t) {
+        final tableMap = Map<String, dynamic>.from(t);
+        if (tableMap['zone_id'] != null) {
+          final zoneMatch = zones.where((z) => z['id'] == tableMap['zone_id']);
+          if (zoneMatch.isNotEmpty) {
+            tableMap['zone_name'] = zoneMatch.first['name'];
+          }
+        }
+        return TableModel.fromMap(tableMap);
+      }).toList();
+      return result;
     }
     final db = await _dbHelper.database;
     final maps = await db.rawQuery('''

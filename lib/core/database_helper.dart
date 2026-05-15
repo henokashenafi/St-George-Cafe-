@@ -44,7 +44,7 @@ class DatabaseHelper {
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 12,
+        version: 13,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -180,6 +180,9 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE order_items ADD COLUMN product_name_amharic TEXT');
       await db.execute('ALTER TABLE order_items ADD COLUMN category_name TEXT');
     }
+    if (oldVersion < 13) {
+      await db.execute('ALTER TABLE order_items ADD COLUMN station_name_amharic TEXT');
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -300,6 +303,7 @@ class DatabaseHelper {
         notes TEXT,
         station_id INTEGER,
         station_name TEXT,
+        station_name_amharic TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         product_name TEXT,
         product_name_amharic TEXT,
@@ -347,15 +351,6 @@ class DatabaseHelper {
         type TEXT NOT NULL,
         value REAL NOT NULL,
         is_active INTEGER DEFAULT 1
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE serving_stations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        name_amharic TEXT,
-        printer_name TEXT
       )
     ''');
 

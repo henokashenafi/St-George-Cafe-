@@ -234,6 +234,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             subtotal: product.price * qty,
             stationId: product.stationId,
             stationName: station?.name,
+            stationNameAmharic: station?.nameAmharic,
           ),
         );
       }
@@ -263,6 +264,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             subtotal: product.price,
             stationId: product.stationId,
             stationName: station?.name,
+            stationNameAmharic: station?.nameAmharic,
           ),
         );
       }
@@ -1708,8 +1710,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                                                           t.status ==
                                                                   TableStatus
                                                                       .occupied
-                                                              ? 'OCC'
-                                                              : 'FREE',
+                                                              ? ref.t('tables.occ')
+                                                              : ref.t('tables.free'),
                                                           style: TextStyle(
                                                             color:
                                                                 t.status ==
@@ -2396,7 +2398,7 @@ class _CartItemTile extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      item.productName,
+                      ref.ln(item.productName, item.productNameAmharic),
                       style: const TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 15,
