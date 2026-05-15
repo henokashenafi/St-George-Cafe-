@@ -799,64 +799,36 @@ class BillService {
         ? settings.name
         : 'ST GEORGE CAFE';
 
-    final bool isSilentPrinting = !kIsWeb && printerName != null && printerName.isNotEmpty;
     bool allSuccess = true;
 
-    if (isSilentPrinting) {
-      // ── SEQUENTIAL PRINTING (One job per station/receipt to force hardware cut) ──
-      for (final entry in groupedKitchen.entries) {
-        final stationItems = entry.value;
-        final stationName = stationItems.first.stationName ?? t('print.kitchenOrder');
+    // ── SEQUENTIAL PRINTING (One job per station/receipt to force hardware cut) ──
+    for (final entry in groupedKitchen.entries) {
+      final stationItems = entry.value;
+      final stationName = stationItems.first.stationName ?? t('print.kitchenOrder');
 
-        final pdf = pw.Document();
-        pdf.addPage(
-          pw.Page(
-            pageFormat: PdfPageFormat.roll80,
-            theme: theme,
-            margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
-            build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t, _askualaLogo),
-          ),
-        );
+      final pdf = pw.Document();
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.roll80,
+          theme: theme,
+          margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
+          build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t, _askualaLogo),
+        ),
+      );
 
-        final success = await _printDocument(
-          pdf: pdf,
-          documentName: 'Station_${stationName}_${voucherNo}.pdf',
-          printerName: printerName,
-          format: PdfPageFormat.roll80,
-        );
-        if (!success) allSuccess = false;
-        
-        // Brief delay to ensure OS print spooler sequences them cleanly
-        await Future.delayed(const Duration(milliseconds: 300));
-      }
+      final success = await _printDocument(
+        pdf: pdf,
+        documentName: 'Station_${stationName}_${voucherNo}.pdf',
+        printerName: printerName,
+        format: PdfPageFormat.roll80,
+      );
+      if (!success) allSuccess = false;
+      
+      // Brief delay to ensure OS print spooler sequences them cleanly
+      await Future.delayed(const Duration(milliseconds: 300));
+    }
 
-      if (receiptItems.isNotEmpty) {
-        final pdf = pw.Document();
-        pdf.addPage(
-          pw.Page(
-            pageFormat: PdfPageFormat.roll80,
-            theme: theme,
-            margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
-            build: (ctx) => pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: _buildCustomerReceipt(
-                receiptItems, order, settings, voucherNo, dateStr,
-                subtotal, discount, grandTotal, appliedCharges, cafeName, t
-              ),
-            ),
-          ),
-        );
-
-        final success = await _printDocument(
-          pdf: pdf,
-          documentName: 'Receipt_${voucherNo}.pdf',
-          printerName: printerName,
-          format: PdfPageFormat.roll80,
-        );
-        if (!success) allSuccess = false;
-      }
-    } else {
-      // ── COMBINED PRINTING (Fallback to single document to avoid multiple UI popups) ──
+    if (receiptItems.isNotEmpty) {
       final pdf = pw.Document();
       pdf.addPage(
         pw.Page(
@@ -865,37 +837,21 @@ class BillService {
           margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
           build: (ctx) => pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              if (kitchenItems.isNotEmpty) ...[
-                ...groupedKitchen.entries.map((entry) {
-                  final stationItems = entry.value;
-                  final stationName = stationItems.first.stationName ?? t('print.kitchenOrder');
-                  
-                  return pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      _buildStationSlip(stationName, stationItems, roundNumber, order, t, _askualaLogo),
-                    ],
-                  );
-                }),
-              ],
-              if (receiptItems.isNotEmpty) ...[
-                ..._buildCustomerReceipt(
-                  receiptItems, order, settings, voucherNo, dateStr,
-                  subtotal, discount, grandTotal, appliedCharges, cafeName, t
-                ),
-              ],
-            ],
+            children: _buildCustomerReceipt(
+              receiptItems, order, settings, voucherNo, dateStr,
+              subtotal, discount, grandTotal, appliedCharges, cafeName, t
+            ),
           ),
         ),
       );
 
-      allSuccess = await _printDocument(
+      final success = await _printDocument(
         pdf: pdf,
-        documentName: 'CombinedPrint_${voucherNo}.pdf',
+        documentName: 'Receipt_${voucherNo}.pdf',
         printerName: printerName,
         format: PdfPageFormat.roll80,
       );
+      if (!success) allSuccess = false;
     }
 
     return allSuccess;
