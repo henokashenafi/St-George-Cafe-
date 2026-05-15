@@ -301,7 +301,7 @@ class BillService {
                   style: const pw.TextStyle(fontSize: 8),
                 ),
               ),
-            pw.SizedBox(height: 10),
+            pw.SizedBox(height: 4),
             pw.Center(
               child: pw.Text(
                 t('bill.cashSalesInvoice').toUpperCase(),
@@ -368,7 +368,7 @@ class BillService {
             pw.SizedBox(height: 4),
             ...items.map(
               (item) => pw.Padding(
-                padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                padding: const pw.EdgeInsets.symmetric(vertical: 0),
                 child: pw.Row(
                   children: [
                     pw.Expanded(
@@ -425,7 +425,7 @@ class BillService {
             pw.Divider(thickness: 1),
 
             // ── Footer ────────────────────────────────────────────────────
-            pw.SizedBox(height: 10),
+            pw.SizedBox(height: 4),
             pw.Center(
               child: pw.Text(
                 t('bill.thankYou'),
@@ -513,7 +513,7 @@ class BillService {
         pw.SizedBox(height: 4),
         ...stationItems.map(
           (item) => pw.Padding(
-            padding: const pw.EdgeInsets.symmetric(vertical: 2),
+            padding: const pw.EdgeInsets.symmetric(vertical: 0),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
@@ -598,7 +598,7 @@ class BillService {
             style: const pw.TextStyle(fontSize: 8),
           ),
         ),
-      pw.SizedBox(height: 10),
+      pw.SizedBox(height: 4),
       pw.Center(
         child: pw.Text(
           t('bill.cashSalesInvoice').toUpperCase(),
@@ -661,7 +661,7 @@ class BillService {
       pw.SizedBox(height: 4),
       ...receiptItems.map(
         (item) => pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(vertical: 2),
+          padding: const pw.EdgeInsets.symmetric(vertical: 0),
           child: pw.Row(
             children: [
               pw.Expanded(
@@ -714,7 +714,7 @@ class BillService {
         fontSize: 12,
       ),
       pw.Divider(thickness: 1),
-      pw.SizedBox(height: 10),
+      pw.SizedBox(height: 4),
       pw.Center(
         child: pw.Text(
           t('bill.thankYou'),
@@ -799,59 +799,103 @@ class BillService {
         ? settings.name
         : 'ST GEORGE CAFE';
 
+    final bool isSilentPrinting = !kIsWeb && printerName != null && printerName.isNotEmpty;
     bool allSuccess = true;
 
-    // ── SEQUENTIAL PRINTING (One job per station/receipt to force hardware cut) ──
-    for (final entry in groupedKitchen.entries) {
-      final stationItems = entry.value;
-      final stationName = stationItems.first.stationName ?? t('print.kitchenOrder');
+    if (isSilentPrinting) {
+      // ── WINDOWS DESKTOP: SEQUENTIAL JOBS ──
+      for (final entry in groupedKitchen.entries) {
+        final stationItems = entry.value;
+        final stationName = stationItems.first.stationName ?? t('print.kitchenOrder');
 
-      final pdf = pw.Document();
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.roll80,
-          theme: theme,
-          margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
-          build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t, _askualaLogo),
-        ),
-      );
+        final pdf = pw.Document();
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.roll80,
+            theme: theme,
+            margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
+            build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t, _askualaLogo),
+          ),
+        );
 
-      final success = await _printDocument(
-        pdf: pdf,
-        documentName: 'Station_${stationName}_${voucherNo}.pdf',
-        printerName: printerName,
-        format: PdfPageFormat.roll80,
-      );
-      if (!success) allSuccess = false;
-      
-      // Brief delay to ensure OS print spooler sequences them cleanly
-      await Future.delayed(const Duration(milliseconds: 300));
-    }
+        final success = await _printDocument(
+          pdf: pdf,
+          documentName: 'Station_${stationName}_${voucherNo}.pdf',
+          printerName: printerName,
+          format: PdfPageFormat.roll80,
+        );
+        if (!success) allSuccess = false;
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
 
-    if (receiptItems.isNotEmpty) {
-      final pdf = pw.Document();
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.roll80,
-          theme: theme,
-          margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
-          build: (ctx) => pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: _buildCustomerReceipt(
-              receiptItems, order, settings, voucherNo, dateStr,
-              subtotal, discount, grandTotal, appliedCharges, cafeName, t
+      if (receiptItems.isNotEmpty) {
+        final pdf = pw.Document();
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.roll80,
+            theme: theme,
+            margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
+            build: (ctx) => pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: _buildCustomerReceipt(
+                receiptItems, order, settings, voucherNo, dateStr,
+                subtotal, discount, grandTotal, appliedCharges, cafeName, t
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      final success = await _printDocument(
+        final success = await _printDocument(
+          pdf: pdf,
+          documentName: 'Receipt_${voucherNo}.pdf',
+          printerName: printerName,
+          format: PdfPageFormat.roll80,
+        );
+        if (!success) allSuccess = false;
+      }
+    } else {
+      // ── WEB FALLBACK: SINGLE MULTI-PAGE DOCUMENT ──
+      // Prevents browser popup blocking while still enforcing physical page breaks
+      // so the printer auto-cuts between the stations and receipt.
+      final pdf = pw.Document();
+
+      for (final entry in groupedKitchen.entries) {
+        final stationItems = entry.value;
+        final stationName = stationItems.first.stationName ?? t('print.kitchenOrder');
+
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.roll80,
+            theme: theme,
+            margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
+            build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t, _askualaLogo),
+          ),
+        );
+      }
+
+      if (receiptItems.isNotEmpty) {
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.roll80,
+            theme: theme,
+            margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
+            build: (ctx) => pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: _buildCustomerReceipt(
+                receiptItems, order, settings, voucherNo, dateStr,
+                subtotal, discount, grandTotal, appliedCharges, cafeName, t
+              ),
+            ),
+          ),
+        );
+      }
+
+      allSuccess = await _printDocument(
         pdf: pdf,
-        documentName: 'Receipt_${voucherNo}.pdf',
+        documentName: 'CombinedPrint_${voucherNo}.pdf',
         printerName: printerName,
         format: PdfPageFormat.roll80,
       );
-      if (!success) allSuccess = false;
     }
 
     return allSuccess;
@@ -1206,7 +1250,7 @@ class BillService {
                   );
                   widgets.add(
                     pw.Container(
-                      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                      padding: const pw.EdgeInsets.symmetric(vertical: 0),
                       child: pw.Row(
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
@@ -1447,7 +1491,7 @@ class BillService {
     double fontSize = 11,
     PdfColor? color,
   }) => pw.Padding(
-    padding: const pw.EdgeInsets.symmetric(vertical: 2),
+    padding: const pw.EdgeInsets.symmetric(vertical: 0),
     child: pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       children: [
