@@ -30,14 +30,14 @@ class BillService {
 
   // Aggressive format for problematic thermal printers
   static PdfPageFormat _getDynamicThermalFormat(int itemCount, {int extraRows = 0}) {
-    // Calculate approximate height: Header(~120) + Info(~80) + Items(N*22) + Totals(~100) + Footer(~60) + Safety(60)
-    double calculatedHeight = 360 + (itemCount * 22) + (extraRows * 20);
+    // Tightened height: Header(~80) + Info(~60) + Items(N*22) + Totals(~80) + Footer(~60) + Safety(20)
+    double calculatedHeight = 220 + (itemCount * 22) + (extraRows * 20);
     
     return PdfPageFormat(
       80 * PdfPageFormat.mm,
       calculatedHeight,
       marginLeft: 12,
-      marginRight: 35, // Very aggressive right margin to pull "Total" column into view
+      marginRight: 22, // Adjusted to reclaim width while staying safe from cropping
       marginTop: 0,
       marginBottom: 0,
     );
@@ -209,13 +209,13 @@ class BillService {
                 pw.Text(
                   'Powered by Askualalink',
                   style: pw.TextStyle(
-                    fontSize: 7,
+                    fontSize: 10,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
                 if (_askualaLogo != null) ...[
-                  pw.SizedBox(width: 4),
-                  pw.Image(_askualaLogo!, width: 24),
+                  pw.SizedBox(width: 6),
+                  pw.Image(_askualaLogo!, width: 42),
                 ],
               ],
             ),
@@ -460,13 +460,13 @@ class BillService {
                 pw.Text(
                   'Powered by Askualalink',
                   style: pw.TextStyle(
-                    fontSize: 7,
+                    fontSize: 10,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
                 if (_askualaLogo != null) ...[
-                  pw.SizedBox(width: 4),
-                  pw.Image(_askualaLogo!, width: 24),
+                  pw.SizedBox(width: 6),
+                  pw.Image(_askualaLogo!, width: 42),
                 ],
               ],
             ),
@@ -570,13 +570,13 @@ class BillService {
             pw.Text(
               'Powered by Askualalink',
               style: pw.TextStyle(
-                fontSize: 6,
+                fontSize: 9,
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
             if (logo != null) ...[
               pw.SizedBox(width: 6),
-              pw.Image(logo, width: 20),
+              pw.Image(logo, width: 32),
             ],
           ],
         ),
@@ -756,13 +756,13 @@ class BillService {
           pw.Text(
             'Powered by Askualalink',
             style: pw.TextStyle(
-              fontSize: 6,
+              fontSize: 9,
               fontWeight: pw.FontWeight.bold,
             ),
           ),
           if (_askualaLogo != null) ...[
             pw.SizedBox(width: 6),
-            pw.Image(_askualaLogo!, width: 20),
+            pw.Image(_askualaLogo!, width: 32),
           ],
         ],
       ),
