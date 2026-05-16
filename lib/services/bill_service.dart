@@ -180,12 +180,21 @@ class BillService {
 
             pw.SizedBox(height: 4),
             pw.Divider(thickness: 1),
-            pw.Center(
-              child: pw.Text(
-                'Powered by Askualalink',
-                style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700),
-              ),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text(
+                  'Powered by Askualalink',
+                  style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700),
+                ),
+                if (_askualaLogo != null) ...[
+                  pw.SizedBox(width: 4),
+                  pw.Image(_askualaLogo!, width: 16),
+                ],
+              ],
             ),
+            pw.SizedBox(height: 4),
           ],
         ),
       ),
@@ -417,12 +426,21 @@ class BillService {
               ),
             ),
             pw.SizedBox(height: 1),
-            pw.Center(
-              child: pw.Text(
-                'Powered by Askualalink',
-                style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700),
-              ),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text(
+                  'Powered by Askualalink',
+                  style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700),
+                ),
+                if (_askualaLogo != null) ...[
+                  pw.SizedBox(width: 4),
+                  pw.Image(_askualaLogo!, width: 16),
+                ],
+              ],
             ),
+            pw.SizedBox(height: 4),
           ],
         ),
       ),
