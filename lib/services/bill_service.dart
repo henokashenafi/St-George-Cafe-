@@ -30,14 +30,14 @@ class BillService {
 
   // Aggressive format for problematic thermal printers
   static PdfPageFormat _getDynamicThermalFormat(int itemCount, {int extraRows = 0}) {
-    // Tightened height: Header(~80) + Info(~60) + Items(N*22) + Totals(~80) + Footer(~60) + Safety(20)
-    double calculatedHeight = 220 + (itemCount * 22) + (extraRows * 20);
+    // Aggressive height reduction to fight top padding: Header(~60) + Info(~50) + Items(N*22) + Totals(~70) + Safety(10)
+    double calculatedHeight = 180 + (itemCount * 22) + (extraRows * 20);
     
     return PdfPageFormat(
       80 * PdfPageFormat.mm,
       calculatedHeight,
-      marginLeft: 12,
-      marginRight: 22, // Adjusted to reclaim width while staying safe from cropping
+      marginLeft: 20, // Centered
+      marginRight: 20, // Centered
       marginTop: 0,
       marginBottom: 0,
     );
@@ -207,16 +207,12 @@ class BillService {
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
                 pw.Text(
-                  'Powered by Askualalink',
+                  'Powered by Askuala Link',
                   style: pw.TextStyle(
                     fontSize: 10,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
-                if (_askualaLogo != null) ...[
-                  pw.SizedBox(width: 6),
-                  pw.Image(_askualaLogo!, width: 42),
-                ],
               ],
             ),
             // Important: extra height to clear the cutter
@@ -400,7 +396,7 @@ class BillService {
                     pw.SizedBox(
                       width: 16,
                       child: pw.Text(
-                        '${item.quantity}',
+                        '${item.quantity}*',
                         textAlign: pw.TextAlign.center,
                         style: const pw.TextStyle(fontSize: 9),
                       ),
@@ -458,16 +454,12 @@ class BillService {
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
                 pw.Text(
-                  'Powered by Askualalink',
+                  'Powered by Askuala Link',
                   style: pw.TextStyle(
                     fontSize: 10,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
-                if (_askualaLogo != null) ...[
-                  pw.SizedBox(width: 6),
-                  pw.Image(_askualaLogo!, width: 42),
-                ],
               ],
             ),
             // Important: extra height to clear the cutter
@@ -568,16 +560,12 @@ class BillService {
           crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
             pw.Text(
-              'Powered by Askualalink',
+              'Powered by Askuala Link',
               style: pw.TextStyle(
                 fontSize: 9,
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
-            if (logo != null) ...[
-              pw.SizedBox(width: 6),
-              pw.Image(logo, width: 32),
-            ],
           ],
         ),
       ],
@@ -754,16 +742,12 @@ class BillService {
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
           pw.Text(
-            'Powered by Askualalink',
+            'Powered by Askuala Link',
             style: pw.TextStyle(
               fontSize: 9,
               fontWeight: pw.FontWeight.bold,
             ),
           ),
-          if (_askualaLogo != null) ...[
-            pw.SizedBox(width: 6),
-            pw.Image(_askualaLogo!, width: 32),
-          ],
         ],
       ),
     ];
@@ -1526,7 +1510,7 @@ class BillService {
               : pw.TextStyle(fontSize: fontSize),
         ),
         pw.Text(
-          _fmt(value),
+          '*' + _fmt(value),
           style: pw.TextStyle(
             fontSize: fontSize,
             fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,

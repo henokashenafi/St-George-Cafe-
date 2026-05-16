@@ -488,8 +488,8 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
         title: Text(ref.t('common.confirm')),
-        content: Text(ref.t('management.deleteConfirm',
-            replacements: {'name': 'this station'})),
+        content: Text(ref.t('common.deleteWarning',
+            replacements: {'item': ref.t('common.thisStation')})),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -705,10 +705,10 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
           children: [
             const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 22),
             const SizedBox(width: 8),
-            Text(ref.t('common.deleteConfirmTitle')),
+            Text(ref.t('common.deleteConfirm')),
           ],
         ),
-        content: Text(ref.t('reports.deleteCategoryConfirm', replacements: {'name': catName})),
+        content: Text(ref.t('common.deleteCategoryConfirm', replacements: {'name': catName})),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -744,10 +744,10 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
           children: [
             const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 22),
             const SizedBox(width: 8),
-            Text(ref.t('common.deleteConfirmTitle')),
+            Text(ref.t('common.deleteConfirm')),
           ],
         ),
-        content: Text(ref.t('reports.deleteProductConfirm', replacements: {'name': prodName})),
+        content: Text(ref.t('common.deleteProductConfirm', replacements: {'name': prodName})),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),

@@ -49,6 +49,7 @@ void main() async {
         windowManager.waitUntilReadyToShow(windowOptions, () async {
           await windowManager.show();
           await windowManager.focus();
+          await windowManager.setPreventClose(true);
         });
       }
     }
@@ -69,12 +70,60 @@ void main() async {
   );
 }
 
-class MyApp extends ConsumerWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
 
+class _MyAppState extends ConsumerState<MyApp> with WindowListener {
+  @override
+  void initState() {
+    super.initState();
+    windowManager.addListener(this);
+  }
+
+  @override
+  void dispose() {
+    windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  @override
+  void onWindowClose() async {
+    bool isPreventClose = await windowManager.isPreventClose();
+    if (isPreventClose && mounted) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: Text(AppLocalizations.get('common.exitConfirm')),
+          content: Text(AppLocalizations.get('common.exitWarning')),
+          actions: [
+            TextButton(
+              child: Text(AppLocalizations.get('common.no')),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(AppLocalizations.get('common.yes')),
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await windowManager.destroy();
+              },
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Lda Cafe POS',
       debugShowCheckedModeBanner: false,
