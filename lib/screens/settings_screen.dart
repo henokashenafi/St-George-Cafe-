@@ -610,7 +610,7 @@ class UserManagementScreen extends ConsumerWidget {
                   controller: nameController,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
-                    labelText: ref.t('auth.username'),
+                    labelText: '${ref.t('auth.username')}*',
                     labelStyle: const TextStyle(color: Colors.white54),
                   ),
                 ),
@@ -621,7 +621,7 @@ class UserManagementScreen extends ConsumerWidget {
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     labelText: existing == null
-                        ? ref.t('auth.password')
+                        ? '${ref.t('auth.password')}*'
                         : ref.t('settings.newPasswordHint'),
                     labelStyle: const TextStyle(color: Colors.white54),
                   ),
