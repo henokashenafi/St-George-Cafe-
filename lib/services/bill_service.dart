@@ -21,6 +21,14 @@ class BillService {
   static bool _useEnglishFallback = false;
   static pw.MemoryImage? _askualaLogo;
 
+  // Standard safe format for 80mm thermal printers (assumes ~72mm printable width)
+  static final _thermalPageFormat = PdfPageFormat.roll80.copyWith(
+    marginLeft: 12,
+    marginRight: 12,
+    marginTop: 0,
+    marginBottom: 25, // Extra buffer to ensure content clears the cutter blade
+  );
+
   static Future<void> _loadLogo() async {
     if (_askualaLogo == null) {
       try {
@@ -98,9 +106,8 @@ class BillService {
 
     pdf.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.roll80,
+        pageFormat: _thermalPageFormat,
         theme: theme,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 0),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
@@ -161,6 +168,7 @@ class BillService {
                         fontSize: 12,
                         fontWeight: pw.FontWeight.bold,
                       ),
+                      softWrap: true,
                     ),
                     if (item.notes != null && item.notes!.isNotEmpty)
                       pw.Padding(
@@ -190,11 +198,12 @@ class BillService {
                 ),
                 if (_askualaLogo != null) ...[
                   pw.SizedBox(width: 4),
-                  pw.Image(_askualaLogo!, width: 16),
+                  pw.Image(_askualaLogo!, width: 24),
                 ],
               ],
             ),
-            pw.SizedBox(height: 4),
+            // Important: extra height to clear the cutter
+            pw.SizedBox(height: 25),
           ],
         ),
       ),
@@ -262,9 +271,8 @@ class BillService {
 
     pdf.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.roll80,
+        pageFormat: _thermalPageFormat,
         theme: theme,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 0),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
@@ -325,7 +333,7 @@ class BillService {
                     ),
                   ),
                 ),
-                pw.SizedBox(width: 20,
+                pw.SizedBox(width: 18,
                   child: pw.Text(
                     t('bill.qty'),
                     textAlign: pw.TextAlign.center,
@@ -335,7 +343,7 @@ class BillService {
                     ),
                   ),
                 ),
-                pw.SizedBox(width: 36,
+                pw.SizedBox(width: 32,
                   child: pw.Text(
                     t('bill.price'),
                     textAlign: pw.TextAlign.right,
@@ -345,7 +353,7 @@ class BillService {
                     ),
                   ),
                 ),
-                pw.SizedBox(width: 40,
+                pw.SizedBox(width: 35,
                   child: pw.Text(
                     t('bill.total'),
                     textAlign: pw.TextAlign.right,
@@ -368,10 +376,12 @@ class BillService {
                       child: pw.Text(
                         _ln(item.productName, item.productNameAmharic),
                         style: const pw.TextStyle(fontSize: 9),
+                        softWrap: true,
+                        maxLines: 2,
                       ),
                     ),
                     pw.SizedBox(
-                      width: 20,
+                      width: 18,
                       child: pw.Text(
                         '${item.quantity}',
                         textAlign: pw.TextAlign.center,
@@ -379,7 +389,7 @@ class BillService {
                       ),
                     ),
                     pw.SizedBox(
-                      width: 36,
+                      width: 32,
                       child: pw.Text(
                         _fmt(item.unitPrice),
                         textAlign: pw.TextAlign.right,
@@ -387,7 +397,7 @@ class BillService {
                       ),
                     ),
                     pw.SizedBox(
-                      width: 40,
+                      width: 35,
                       child: pw.Text(
                         _fmt(item.subtotal),
                         textAlign: pw.TextAlign.right,
@@ -436,11 +446,12 @@ class BillService {
                 ),
                 if (_askualaLogo != null) ...[
                   pw.SizedBox(width: 4),
-                  pw.Image(_askualaLogo!, width: 16),
+                  pw.Image(_askualaLogo!, width: 24),
                 ],
               ],
             ),
-            pw.SizedBox(height: 4),
+            // Important: extra height to clear the cutter
+            pw.SizedBox(height: 25),
           ],
         ),
       ),
@@ -805,9 +816,8 @@ class BillService {
         final pdf = pw.Document();
         pdf.addPage(
           pw.Page(
-            pageFormat: PdfPageFormat.roll80,
+            pageFormat: _thermalPageFormat,
             theme: theme,
-            margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
             build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t, _askualaLogo, stationNameAmharic),
           ),
         );
@@ -826,9 +836,8 @@ class BillService {
         final pdf = pw.Document();
         pdf.addPage(
           pw.Page(
-            pageFormat: PdfPageFormat.roll80,
+            pageFormat: _thermalPageFormat,
             theme: theme,
-            margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
             build: (ctx) => pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: _buildCustomerReceipt(
@@ -860,9 +869,8 @@ class BillService {
 
         pdf.addPage(
           pw.Page(
-            pageFormat: PdfPageFormat.roll80,
+            pageFormat: _thermalPageFormat,
             theme: theme,
-            margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
             build: (ctx) => _buildStationSlip(stationName, stationItems, roundNumber, order, t, _askualaLogo, stationNameAmharic),
           ),
         );
@@ -871,9 +879,8 @@ class BillService {
       if (receiptItems.isNotEmpty) {
         pdf.addPage(
           pw.Page(
-            pageFormat: PdfPageFormat.roll80,
+            pageFormat: _thermalPageFormat,
             theme: theme,
-            margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
             build: (ctx) => pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: _buildCustomerReceipt(
@@ -930,9 +937,8 @@ class BillService {
 
     pdf.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.roll80,
+        pageFormat: _thermalPageFormat,
         theme: theme,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 0),
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
