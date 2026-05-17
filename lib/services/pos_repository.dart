@@ -465,6 +465,7 @@ class PosRepository {
           final zoneMatch = zones.where((z) => z['id'] == tableMap['zone_id']);
           if (zoneMatch.isNotEmpty) {
             tableMap['zone_name'] = zoneMatch.first['name'];
+            tableMap['zone_name_amharic'] = zoneMatch.first['name_amharic'];
           }
         }
         return TableModel.fromMap(tableMap);
@@ -473,7 +474,7 @@ class PosRepository {
     }
     final db = await _dbHelper.database;
     final maps = await db.rawQuery('''
-      SELECT t.*, tz.name as zone_name
+      SELECT t.*, tz.name as zone_name, tz.name_amharic as zone_name_amharic
       FROM tables t
       LEFT JOIN table_zones tz ON t.zone_id = tz.id
       ${zoneId != null ? 'WHERE t.zone_id = ?' : ''}

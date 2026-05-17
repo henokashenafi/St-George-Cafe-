@@ -21,7 +21,7 @@ import 'package:st_george_pos/screens/audit_logs_screen.dart';
 import 'package:st_george_pos/screens/system_logs_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:st_george_pos/core/widgets/top_toaster.dart';
-
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -93,7 +93,10 @@ class _MyAppState extends ConsumerState<MyApp> with WindowListener {
   @override
   void onWindowClose() async {
     bool isPreventClose = await windowManager.isPreventClose();
-    if (isPreventClose && mounted) {
+    if (isPreventClose) {
+      final context = navigatorKey.currentContext;
+      if (context == null) return;
+      
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
@@ -125,6 +128,7 @@ class _MyAppState extends ConsumerState<MyApp> with WindowListener {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'Lda Cafe POS',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.dark,

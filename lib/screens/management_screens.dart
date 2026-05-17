@@ -301,25 +301,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
   void _showCategoryDialog(BuildContext context, Category? existing) {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final amharicCtrl = TextEditingController(text: existing?.nameAmharic ?? '');
-
-    Future<void> doSave(BuildContext ctx) async {
-      if (nameCtrl.text.trim().isEmpty) return;
-      if (existing == null) {
-        await ref.read(posRepositoryProvider).addCategory(
-              nameCtrl.text.trim(),
-              nameAmharic: amharicCtrl.text.trim(),
-            );
-      } else {
-        await ref.read(posRepositoryProvider).updateCategory(
-              existing.copyWith(
-                name: nameCtrl.text.trim(),
-                nameAmharic: amharicCtrl.text.trim(),
-              ),
-            );
-      }
-      ref.invalidate(categoriesProvider);
-      Navigator.pop(ctx);
-    }
+    final formKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
@@ -331,31 +313,34 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
               ? ref.t('management.addCategory')
               : ref.t('common.edit'),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              autofocus: true,
-              style: const TextStyle(color: Colors.white),
-              textInputAction: TextInputAction.next,
-              decoration: InputDecoration(
-                labelText: '${ref.t('management.name')} ${ref.t('common.english')}',
-                labelStyle: const TextStyle(color: Colors.white54),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameCtrl,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  labelText: '${ref.t('management.categoryName')} (${ref.t('common.english')})',
+                  labelStyle: const TextStyle(color: Colors.white54),
+                ),
+                validator: (v) => v == null || v.trim().isEmpty ? ref.t('common.required') : null,
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: amharicCtrl,
-              style: const TextStyle(color: Colors.white),
-              textInputAction: TextInputAction.done,
-              decoration: InputDecoration(
-                labelText: '${ref.t('management.name')} ${ref.t('common.amharic')}',
-                labelStyle: const TextStyle(color: Colors.white54),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: amharicCtrl,
+                style: const TextStyle(color: Colors.white),
+                textInputAction: TextInputAction.done,
+                decoration: InputDecoration(
+                  labelText: '${ref.t('management.categoryName')} (${ref.t('common.amharic')})',
+                  labelStyle: const TextStyle(color: Colors.white54),
+                ),
               ),
-              onSubmitted: (_) => doSave(ctx),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -367,7 +352,25 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
               backgroundColor: const Color(0xFFD4AF37),
               foregroundColor: Colors.black,
             ),
-            onPressed: () => doSave(ctx),
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+              final repo = ref.read(posRepositoryProvider);
+              if (existing == null) {
+                await repo.addCategory(
+                  nameCtrl.text.trim(),
+                  nameAmharic: amharicCtrl.text.trim(),
+                );
+              } else {
+                await repo.updateCategory(
+                  existing.copyWith(
+                    name: nameCtrl.text.trim(),
+                    nameAmharic: amharicCtrl.text.trim(),
+                  ),
+                );
+              }
+              ref.invalidate(categoriesProvider);
+              Navigator.pop(ctx);
+            },
             child: Text(ref.t('management.save')),
           ),
         ],
@@ -381,7 +384,8 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
     String? selectedPrinter = existing?.printerName;
     List<Printer> availablePrinters = [];
     bool loadingPrinters = true;
-
+    final formKey = GlobalKey<FormState>();
+    
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -416,30 +420,33 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
             title: Text(existing == null
                 ? ref.t('management.addStation')
                 : ref.t('management.editStation')),
-            content: SizedBox(
-              width: 400,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameCtrl,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      labelText: ref.t('management.stationName'),
-                      labelStyle: const TextStyle(color: Colors.white54),
+            content: Form(
+              key: formKey,
+              child: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: nameCtrl,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: '${ref.t('management.stationName')} (${ref.t('common.english')})',
+                        labelStyle: const TextStyle(color: Colors.white54),
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty ? ref.t('common.required') : null,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: amharicCtrl,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      labelText: ref.t('management.stationNameAmharic'),
-                      labelStyle: const TextStyle(color: Colors.white54),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: amharicCtrl,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: '${ref.t('management.stationNameAmharic')} (${ref.t('common.amharic')})',
+                        labelStyle: const TextStyle(color: Colors.white54),
+                      ),
                     ),
-                  ),
-
-                ],
+                  ],
+                ),
               ),
             ),
             actions: [
@@ -453,7 +460,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
                   foregroundColor: Colors.black,
                 ),
                 onPressed: () async {
-                  if (nameCtrl.text.trim().isEmpty) return;
+                  if (!formKey.currentState!.validate()) return;
                   final repo = ref.read(posRepositoryProvider);
                   if (existing == null) {
                     await repo.addStation(
@@ -513,48 +520,12 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
   void _showProductDialog(BuildContext context, Product? existing) {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final amharicCtrl = TextEditingController(text: existing?.nameAmharic ?? '');
-    final priceCtrl = TextEditingController(
-      text: existing != null ? existing.price.toString() : '',
-    );
-    final amharicFocus = FocusNode();
-    final priceFocus = FocusNode();
+    final priceCtrl = TextEditingController(text: existing != null ? existing.price.toString() : '');
     int? selectedStationId = existing?.stationId;
-    List<int> selectedCategoryIds = existing != null 
-        ? List.from(existing.categoryIds) 
+    List<int> selectedCategoryIds = existing != null
+        ? List.from(existing.categoryIds)
         : (selectedCategoryId != null ? [selectedCategoryId!] : []);
-
-    Future<void> doSave(BuildContext ctx) async {
-      final price = double.tryParse(priceCtrl.text);
-      if (nameCtrl.text.trim().isEmpty ||
-          price == null ||
-          selectedCategoryIds.isEmpty) return;
-      final repo = ref.read(posRepositoryProvider);
-      if (existing == null) {
-        await repo.addProduct(
-          Product(
-            categoryIds: selectedCategoryIds,
-            name: nameCtrl.text.trim(),
-            nameAmharic: amharicCtrl.text.trim(),
-            price: price,
-            stationId: selectedStationId,
-          ),
-        );
-      } else {
-        await repo.updateProduct(
-          Product(
-            id: existing.id,
-            categoryIds: selectedCategoryIds,
-            name: nameCtrl.text.trim(),
-            nameAmharic: amharicCtrl.text.trim(),
-            price: price,
-            stationId: selectedStationId,
-          ),
-        );
-      }
-      ref.invalidate(productsProvider(selectedCategoryId));
-      ref.invalidate(productsProvider(null));
-      Navigator.pop(ctx);
-    }
+    final formKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
@@ -565,112 +536,119 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
               ? ref.t('management.addProduct')
               : ref.t('common.edit'),
         ),
-        content: StatefulBuilder(
-          builder: (ctx, setState) => SizedBox(
-            width: 400,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: nameCtrl,
-                    autofocus: true,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      labelText: ref.t('management.productName'),
-                      labelStyle: const TextStyle(color: Colors.white54),
+        content: Form(
+          key: formKey,
+          child: StatefulBuilder(
+            builder: (ctx, setState) => SizedBox(
+              width: 400,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextFormField(
+                      controller: nameCtrl,
+                      autofocus: true,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: '${ref.t('management.productName')} (${ref.t('common.english')})',
+                        labelStyle: const TextStyle(color: Colors.white54),
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty ? ref.t('common.required') : null,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: amharicCtrl,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      labelText:
-                          '${ref.t('management.productName')} (አማርኛ)',
-                      labelStyle: const TextStyle(color: Colors.white54),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: amharicCtrl,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: '${ref.t('management.productName')} (${ref.t('common.amharic')})',
+                        labelStyle: const TextStyle(color: Colors.white54),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: priceCtrl,
-                    style: const TextStyle(color: Colors.white),
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: ref.t('management.price'),
-                      labelStyle: const TextStyle(color: Colors.white54),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: priceCtrl,
+                      style: const TextStyle(color: Colors.white),
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: ref.t('management.price'),
+                        labelStyle: const TextStyle(color: Colors.white54),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return ref.t('common.required');
+                        if (double.tryParse(v) == null) return ref.t('common.error');
+                        return null;
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    ref.t('management.categories'),
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                  const SizedBox(height: 8),
-                  Consumer(
-                    builder: (context, childRef, child) {
-                      final catsAsync = childRef.watch(categoriesProvider);
-                      return catsAsync.when(
-                        data: (cats) => Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: cats.map((cat) {
-                            final isSelected = selectedCategoryIds.contains(cat.id);
-                            return FilterChip(
-                              label: Text(childRef.ln(cat.name, cat.nameAmharic)),
-                              selected: isSelected,
-                              onSelected: (selected) {
-                                setState(() {
-                                  if (selected) {
-                                    selectedCategoryIds.add(cat.id!);
-                                  } else {
-                                    selectedCategoryIds.remove(cat.id!);
-                                  }
-                                });
-                              },
-                              selectedColor: const Color(0xFFD4AF37),
-                              checkmarkColor: Colors.black,
-                              labelStyle: TextStyle(
-                                color: isSelected ? Colors.black : Colors.white,
-                              ),
-                              backgroundColor: Colors.white10,
-                            );
-                          }).toList(),
-                        ),
-                        loading: () => const CircularProgressIndicator(),
-                        error: (e, _) => Text('Error: $e'),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Consumer(
-                    builder: (context, ref, child) {
-                      final stationsAsync = ref.watch(stationsProvider);
-                      return stationsAsync.when(
-                        data: (stations) => DropdownButtonFormField<int?>(
-                          value: selectedStationId,
-                          dropdownColor: const Color(0xFF1A1A1A),
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            labelText: ref.t('management.selectStation'),
-                            labelStyle:
-                                const TextStyle(color: Colors.white54),
+                    const SizedBox(height: 16),
+                    Text(
+                      ref.t('management.categories'),
+                      style: const TextStyle(color: Colors.white54, fontSize: 12),
+                    ),
+                    const SizedBox(height: 8),
+                    Consumer(
+                      builder: (context, childRef, child) {
+                        final catsAsync = childRef.watch(categoriesProvider);
+                        return catsAsync.when(
+                          data: (cats) => Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: cats.map((cat) {
+                              final isSelected = selectedCategoryIds.contains(cat.id);
+                              return FilterChip(
+                                label: Text(childRef.ln(cat.name, cat.nameAmharic)),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      selectedCategoryIds.add(cat.id!);
+                                    } else {
+                                      selectedCategoryIds.remove(cat.id!);
+                                    }
+                                  });
+                                },
+                                selectedColor: const Color(0xFFD4AF37),
+                                checkmarkColor: Colors.black,
+                                labelStyle: TextStyle(
+                                  color: isSelected ? Colors.black : Colors.white,
+                                ),
+                                backgroundColor: Colors.white10,
+                              );
+                            }).toList(),
                           ),
-                          items: stations
-                              .map((s) => DropdownMenuItem(
-                                    value: s.id,
-                                    child: Text(ref.ln(s.name, s.nameAmharic)),
-                                  ))
-                              .toList(),
-                          onChanged: (val) => selectedStationId = val,
-                        ),
-                        loading: () => const LinearProgressIndicator(),
-                        error: (e, _) => Text('Error: $e'),
-                      );
-                    },
-                  ),
-                ],
+                          loading: () => const CircularProgressIndicator(),
+                          error: (e, _) => Text('Error: $e'),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Consumer(
+                      builder: (context, sRef, child) {
+                        final stationsAsync = sRef.watch(stationsProvider);
+                        return stationsAsync.when(
+                          data: (stations) => DropdownButtonFormField<int?>(
+                            value: selectedStationId,
+                            dropdownColor: const Color(0xFF1A1A1A),
+                            style: const TextStyle(color: Colors.white),
+                            decoration: InputDecoration(
+                              labelText: sRef.t('management.selectStation'),
+                              labelStyle: const TextStyle(color: Colors.white54),
+                            ),
+                            items: stations
+                                .map((s) => DropdownMenuItem(
+                                      value: s.id,
+                                      child: Text(sRef.ln(s.name, s.nameAmharic)),
+                                    ))
+                                .toList(),
+                            onChanged: (val) => selectedStationId = val,
+                          ),
+                          loading: () => const LinearProgressIndicator(),
+                          error: (e, _) => Text('Error: $e'),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -685,17 +663,49 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
               backgroundColor: const Color(0xFFD4AF37),
               foregroundColor: Colors.black,
             ),
-            onPressed: () => doSave(ctx),
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+              if (selectedCategoryIds.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(ref.t('management.selectCategoryFirst'))),
+                );
+                return;
+              }
+              final price = double.parse(priceCtrl.text);
+              final repo = ref.read(posRepositoryProvider);
+              if (existing == null) {
+                await repo.addProduct(Product(
+                  categoryIds: selectedCategoryIds,
+                  name: nameCtrl.text.trim(),
+                  nameAmharic: amharicCtrl.text.trim(),
+                  price: price,
+                  stationId: selectedStationId,
+                ));
+              } else {
+                await repo.updateProduct(Product(
+                  id: existing.id,
+                  categoryIds: selectedCategoryIds,
+                  name: nameCtrl.text.trim(),
+                  nameAmharic: amharicCtrl.text.trim(),
+                  price: price,
+                  stationId: selectedStationId,
+                ));
+              }
+              ref.invalidate(productsProvider(selectedCategoryId));
+              ref.invalidate(productsProvider(null));
+              Navigator.pop(ctx);
+            },
             child: Text(ref.t('management.save')),
           ),
         ],
       ),
     );
-  }
+  } // end _showProductDialog
 
   void _deleteCategory(int id) async {
-    final catName = ref.read(categoriesProvider).value
-        ?.firstWhere((c) => c.id == id, orElse: () => Category(id: id, name: ''))?.name ?? '';
+    final cat = ref.read(categoriesProvider).value
+        ?.firstWhere((c) => c.id == id, orElse: () => Category(id: id, name: ''));
+    final catName = cat != null ? ref.ln(cat.name, cat.nameAmharic) : '';
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -733,8 +743,9 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
   }
 
   void _deleteProduct(int id) async {
-    final prodName = ref.read(productsProvider(selectedCategoryId)).value
-        ?.firstWhere((p) => p.id == id, orElse: () => Product(id: id, categoryIds: [], name: '', price: 0))?.name ?? '';
+    final prod = ref.read(productsProvider(selectedCategoryId)).value
+        ?.firstWhere((p) => p.id == id, orElse: () => Product(id: id, categoryIds: [], name: '', price: 0));
+    final prodName = prod != null ? ref.ln(prod.name, prod.nameAmharic) : '';
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -805,7 +816,7 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
     }
   }
 
-}
+} // end clearAllMenuData
 
 // ── Waiter Management ─────────────────────────────────────────────────────
 
@@ -903,7 +914,7 @@ class _WaiterManagementScreenState extends ConsumerState<WaiterManagementScreen>
                                   Text(ref.t('common.deleteConfirmTitle')),
                                 ],
                               ),
-                              content: Text(ref.t('reports.deleteWaiterConfirm', replacements: {'name': w.name})),
+                              content: Text(ref.t('reports.deleteWaiterConfirm', replacements: {'name': ref.ln(w.name, w.nameAmharic)})),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, false),
@@ -943,47 +954,41 @@ class _WaiterManagementScreenState extends ConsumerState<WaiterManagementScreen>
   void _showAddWaiterDialog(BuildContext context, WidgetRef ref) {
     final nameCtrl = TextEditingController();
     final amharicCtrl = TextEditingController();
-
-    Future<void> doAdd(BuildContext ctx) async {
-      if (nameCtrl.text.trim().isEmpty) return;
-      await ref.read(posRepositoryProvider).addWaiter(
-            nameCtrl.text.trim(),
-            nameAmharic: amharicCtrl.text.trim(),
-          );
-      ref.refresh(waitersProvider);
-      Navigator.pop(ctx);
-    }
+    final formKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
         title: Text(ref.t('management.addWaiter')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              autofocus: true,
-              style: const TextStyle(color: Colors.white),
-              textInputAction: TextInputAction.next,
-              decoration: InputDecoration(
-                labelText: '${ref.t('management.waiterNameLabel')} ${ref.t('common.english')}',
-                labelStyle: const TextStyle(color: Colors.white54),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameCtrl,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  labelText: '${ref.t('management.waiterNameLabel')} (${ref.t('common.english')})',
+                  labelStyle: const TextStyle(color: Colors.white54),
+                ),
+                validator: (v) => v == null || v.trim().isEmpty ? ref.t('common.required') : null,
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: amharicCtrl,
-              style: const TextStyle(color: Colors.white),
-              textInputAction: TextInputAction.done,
-              decoration: InputDecoration(
-                labelText: '${ref.t('management.waiterNameLabel')} ${ref.t('common.amharic')}',
-                labelStyle: const TextStyle(color: Colors.white54),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: amharicCtrl,
+                style: const TextStyle(color: Colors.white),
+                textInputAction: TextInputAction.done,
+                decoration: InputDecoration(
+                  labelText: '${ref.t('management.waiterNameLabel')} (${ref.t('common.amharic')})',
+                  labelStyle: const TextStyle(color: Colors.white54),
+                ),
               ),
-              onSubmitted: (_) => doAdd(ctx),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -995,7 +1000,15 @@ class _WaiterManagementScreenState extends ConsumerState<WaiterManagementScreen>
               backgroundColor: const Color(0xFFD4AF37),
               foregroundColor: Colors.black,
             ),
-            onPressed: () => doAdd(ctx),
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+              await ref.read(posRepositoryProvider).addWaiter(
+                    nameCtrl.text.trim(),
+                    nameAmharic: amharicCtrl.text.trim(),
+                  );
+              ref.refresh(waitersProvider);
+              Navigator.pop(ctx);
+            },
             child: Text(ref.t('management.add')),
           ),
         ],

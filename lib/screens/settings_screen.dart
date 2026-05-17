@@ -584,12 +584,11 @@ class UserManagementScreen extends ConsumerWidget {
   }
 
   void _showUserDialog(BuildContext context, WidgetRef ref, AppUser? existing) {
-    final nameController = TextEditingController(
-      text: existing?.username ?? '',
-    );
+    final nameController = TextEditingController(text: existing?.username ?? '');
     final passController = TextEditingController();
     UserRole selectedRole = existing?.role ?? UserRole.cashier;
     bool isActive = existing?.isActive ?? true;
+    final formKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
@@ -601,68 +600,80 @@ class UserManagementScreen extends ConsumerWidget {
                 ? ref.t('settings.addUser')
                 : ref.t('settings.editUser'),
           ),
-          content: SizedBox(
-            width: 360,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: '${ref.t('auth.username')}*',
-                    labelStyle: const TextStyle(color: Colors.white54),
+          content: Form(
+            key: formKey,
+            child: SizedBox(
+              width: 360,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nameController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: ref.t('auth.username'),
+                      labelStyle: const TextStyle(color: Colors.white54),
+                    ),
+                    validator: (v) => v == null || v.trim().isEmpty
+                        ? ref.t('common.required')
+                        : null,
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: passController,
-                  obscureText: true,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: existing == null
-                        ? '${ref.t('auth.password')}*'
-                        : ref.t('settings.newPasswordHint'),
-                    labelStyle: const TextStyle(color: Colors.white54),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: passController,
+                    obscureText: true,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: existing == null
+                          ? ref.t('auth.password')
+                          : ref.t('settings.newPasswordHint'),
+                      labelStyle: const TextStyle(color: Colors.white54),
+                    ),
+                    validator: (v) {
+                      if (existing == null && (v == null || v.isEmpty)) {
+                        return ref.t('common.required');
+                      }
+                      return null;
+                    },
                   ),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<UserRole>(
-                  value: selectedRole,
-                  dropdownColor: const Color(0xFF1A1A1A),
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: ref.t('settings.role'),
-                    labelStyle: const TextStyle(color: Colors.white54),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<UserRole>(
+                    value: selectedRole,
+                    dropdownColor: const Color(0xFF1A1A1A),
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: ref.t('settings.role'),
+                      labelStyle: const TextStyle(color: Colors.white54),
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                        value: UserRole.cashier,
+                        child: Text(ref.t('roles.cashier')),
+                      ),
+                      DropdownMenuItem(
+                        value: UserRole.director,
+                        child: Text(ref.t('roles.director')),
+                      ),
+                    ],
+                    onChanged: (v) => setDialogState(() => selectedRole = v!),
                   ),
-                  items: [
-                    DropdownMenuItem(
-                      value: UserRole.cashier,
-                      child: Text(ref.t('roles.cashier')),
-                    ),
-                    DropdownMenuItem(
-                      value: UserRole.director,
-                      child: Text(ref.t('roles.director')),
-                    ),
-                  ],
-                  onChanged: (v) => setDialogState(() => selectedRole = v!),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Switch(
-                      value: isActive,
-                      activeColor: const Color(0xFFD4AF37),
-                      onChanged: (v) => setDialogState(() => isActive = v),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      ref.t('settings.active'),
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-                  ],
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Switch(
+                        value: isActive,
+                        activeColor: const Color(0xFFD4AF37),
+                        onChanged: (v) => setDialogState(() => isActive = v),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        ref.t('settings.active'),
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -676,8 +687,7 @@ class UserManagementScreen extends ConsumerWidget {
                 foregroundColor: Colors.black,
               ),
               onPressed: () async {
-                if (nameController.text.isEmpty) return;
-                if (existing == null && passController.text.isEmpty) return;
+                if (!formKey.currentState!.validate()) return;
                 final repo = ref.read(posRepositoryProvider);
                 final hash = passController.text.isNotEmpty
                     ? DatabaseHelper.hashPassword(passController.text)

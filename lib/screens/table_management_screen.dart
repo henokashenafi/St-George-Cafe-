@@ -120,7 +120,7 @@ class _TablesTab extends ConsumerWidget {
                     ),
                     subtitle: Text(
                       t.zoneName != null
-                          ? '${ref.t('tables.zone')}: ${t.zoneName}'
+                          ? '${ref.t('tables.zone')}: ${ref.ln(t.zoneName!, t.zoneNameAmharic)}'
                           : ref.t('tables.noZoneAssigned'),
                       style: TextStyle(
                         color: t.zoneName != null ? Colors.white38 : Colors.orangeAccent.withOpacity(0.7),
@@ -329,7 +329,7 @@ class _TablesTab extends ConsumerWidget {
         content: Text(
           ref.t(
             'tables.deleteTableConfirm',
-            replacements: {'name': table.name},
+            replacements: {'name': ref.ln(table.name, table.nameAmharic)},
           ),
         ),
         actions: [
@@ -603,7 +603,7 @@ class _ZonesTab extends ConsumerWidget {
           ],
         ),
         content: Text(
-          ref.t('tables.deleteZoneConfirm', replacements: {'name': zone.name}),
+          ref.t('tables.deleteZoneConfirm', replacements: {'name': ref.ln(zone.name, zone.nameAmharic)}),
         ),
         actions: [
           TextButton(
