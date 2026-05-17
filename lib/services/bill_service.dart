@@ -14,6 +14,7 @@ import 'package:st_george_pos/services/audit_service.dart';
 import 'package:st_george_pos/services/system_log_service.dart';
 import 'package:st_george_pos/locales/app_localizations.dart';
 import 'package:st_george_pos/core/utils/date_utils.dart';
+import 'package:ethiopian_datetime/ethiopian_datetime.dart';
 
 class BillService {
   static pw.Font? _fontRegular;
@@ -36,8 +37,8 @@ class BillService {
     return PdfPageFormat(
       80 * PdfPageFormat.mm,
       calculatedHeight,
-      marginLeft: 20, // Centered
-      marginRight: 20, // Centered
+      marginLeft: 15, // Reclaim a bit for the right side
+      marginRight: 40, // Aggressive safety zone for physical chassis
       marginTop: 0,
       marginBottom: 0,
     );
@@ -249,7 +250,8 @@ class BillService {
 
     final pdf = pw.Document();
     final now = DateTime.now();
-    final dateStr = DateFormat('dd/MM/yyyy').format(now);
+    final timeStr = DateFormat('HH:mm').format(now);
+    final dateStr = PosDateUtils.formatEthiopianDate(now);
     final voucherNo =
         'RCS-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${(order.id ?? 0).toString().padLeft(3, '0')}';
 
@@ -326,7 +328,19 @@ class BillService {
             pw.Divider(thickness: 0.5),
 
             // ── Info ─────────────────────────────────────────────────────
-            _infoRow(t('bill.date'), dateStr, fontSize: 10),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  '${t('bill.date')}: $dateStr',
+                  style: const pw.TextStyle(fontSize: 9),
+                ),
+                pw.Text(
+                  timeStr,
+                  style: const pw.TextStyle(fontSize: 9),
+                ),
+              ],
+            ),
             _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 10),
             _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 10),
             if (order.customerTin != null && order.customerTin!.isNotEmpty)
@@ -620,7 +634,20 @@ class BillService {
         ),
       ),
       pw.Divider(thickness: 0.5),
-      _infoRow(t('bill.date'), dateStr, fontSize: 8),
+      // Ethiopian Date and Time end-to-end
+      pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            '${t('bill.date')}: ${PosDateUtils.formatEthiopianDate(order.createdAt)}',
+            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.Text(
+            '${t('bill.time')}: ${DateFormat('HH:mm').format(order.createdAt)}',
+            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+          ),
+        ],
+      ),
       _infoRow(t('bill.waiter'), _ln(order.waiterName, order.waiterNameAmharic), fontSize: 8),
       _infoRow(t('bill.table'), _ln(order.tableName, order.tableNameAmharic), fontSize: 8),
       if (order.customerTin != null && order.customerTin!.isNotEmpty)
