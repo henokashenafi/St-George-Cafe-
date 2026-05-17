@@ -7,6 +7,7 @@ class TableModel {
   final TableStatus status;
   final int? zoneId;
   final String? zoneName; // convenience
+  final String? zoneNameAmharic; // convenience
 
   TableModel({
     this.id,
@@ -15,6 +16,7 @@ class TableModel {
     this.status = TableStatus.available,
     this.zoneId,
     this.zoneName,
+    this.zoneNameAmharic,
   });
 
   factory TableModel.fromMap(Map<String, dynamic> map) {
@@ -28,6 +30,7 @@ class TableModel {
       ),
       zoneId: map['zone_id'],
       zoneName: map['zone_name'],
+      zoneNameAmharic: map['zone_name_amharic'],
     );
   }
 

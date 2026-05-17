@@ -703,8 +703,9 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
   } // end _showProductDialog
 
   void _deleteCategory(int id) async {
-    final catName = ref.read(categoriesProvider).value
-        ?.firstWhere((c) => c.id == id, orElse: () => Category(id: id, name: ''))?.name ?? '';
+    final cat = ref.read(categoriesProvider).value
+        ?.firstWhere((c) => c.id == id, orElse: () => Category(id: id, name: ''));
+    final catName = cat != null ? ref.ln(cat.name, cat.nameAmharic) : '';
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -742,8 +743,9 @@ class _MenuManagementScreenState extends ConsumerState<MenuManagementScreen> {
   }
 
   void _deleteProduct(int id) async {
-    final prodName = ref.read(productsProvider(selectedCategoryId)).value
-        ?.firstWhere((p) => p.id == id, orElse: () => Product(id: id, categoryIds: [], name: '', price: 0))?.name ?? '';
+    final prod = ref.read(productsProvider(selectedCategoryId)).value
+        ?.firstWhere((p) => p.id == id, orElse: () => Product(id: id, categoryIds: [], name: '', price: 0));
+    final prodName = prod != null ? ref.ln(prod.name, prod.nameAmharic) : '';
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -912,7 +914,7 @@ class _WaiterManagementScreenState extends ConsumerState<WaiterManagementScreen>
                                   Text(ref.t('common.deleteConfirmTitle')),
                                 ],
                               ),
-                              content: Text(ref.t('reports.deleteWaiterConfirm', replacements: {'name': w.name})),
+                              content: Text(ref.t('reports.deleteWaiterConfirm', replacements: {'name': ref.ln(w.name, w.nameAmharic)})),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, false),
